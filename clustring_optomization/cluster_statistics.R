@@ -11,6 +11,7 @@
 #   phenograph (phenograph uses louvain but add in the jaccard index)
 #   louvain
 # get statistics on each method
+# Start with flowsom
 
 
 ################################################################################################################################
