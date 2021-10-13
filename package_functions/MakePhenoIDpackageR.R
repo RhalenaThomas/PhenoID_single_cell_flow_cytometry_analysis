@@ -10,7 +10,7 @@ library("roxygen2")
 # this will create a folder name phenoID that will be the name of the package
 devtools::create("phenoID")
 
-# there will be 4 files instide the folder
+# there will be 4 files inside the folder
 # 1. Description: the meta-data about the package goes here
 # 2. phenoID.Rproj: this is for R studio
 # 3. NAMESPACE: indicates what needs to be exposed to users for the R package. Do not edit
@@ -22,10 +22,3 @@ devtools::create("phenoID")
 ## Add functions
 
 # let make one .R file for each function with the name of the file being the name of the function
-
-
-install.packages("rlang")
-
-
-install.packages("[URL]", repo=NULL, type="source")
-install.packages("https://cran.r-project.org/src/contrib/Archive/rlang/rlang_0.2.2.tar.gz", repo=NULL, type="source")

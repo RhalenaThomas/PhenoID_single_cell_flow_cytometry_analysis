@@ -9,6 +9,22 @@ require("reshape2") #visualization
 require("flowStats") #Alignment functions
 require("scales") #scale colour intensity for visualization
 require("dplyr")
+
+#libraries
+library("flowCore")
+
+# installations
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("flowCore")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("flowStats")
+
+
 plotdensity_flowset <- function(flowset){ ggplot(melt(lapply(as.list(flowset@frames),function(x){x=as.data.frame(x@exprs)})), aes(x=value,y=L1,fill=L1)) + geom_density_ridges(alpha=.4,verbose=FALSE) +facet_wrap(~variable)+theme_light()} #defines a function for visualizing flowset with densityplots
 rename_markers<-function(flowset){#Defines a function to use marker names 
   copy_flowset=flowset[seq(along=flowset)]
@@ -29,8 +45,11 @@ rename_markers<-function(flowset){#Defines a function to use marker names
 --The output path will be used for all the outputs (graphs and tables). The variable write_fcs_files has to be set to TRUE for writing fcs files at each step of the workflow (transformed and aligned), a folder for each step is created inside the output folder.
 
 ```{r}
-input_path <- "/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/cell_line/" #Input folder containing multiple fcs files
-output_path <- "/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/output_test/" #Output path 
+#input_path <- "/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/cell_line/" #Input folder containing multiple fcs files
+input_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/cell_line"
+#output_path <- "/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/output_test/" #Output path 
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/analysis/prepro_cell_lines"
+
 write_fcs_files <- TRUE #Set to true to write fcs files at each step (subsampled, transformed, aligned and scaled) - recommanded 
 
 #Create output folder if it's not already created
@@ -43,10 +62,18 @@ if(dir.exists(output_path)==FALSE){ #check
 #Read in the data - This chunck reads in the data and selects the area values that are used for analysis. It creates a flowSet object (containing multiple flowFrames, corresponding to fcs files)
 
 ```{r}
+# note - wit would be good to make one function that reads in the data, selects the area values and indeed Alex has created such a function below 
+
 flowset <- read.flowSet(path=input_path,transformation = FALSE ,emptyValue = FALSE,package="flowCore") #Create a flowset object
+
+
 flowset <- fsApply(flowset,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
+
+# what do we need these tables for??? 
 write.table(fsApply(flowset,function(x){dim(x@exprs)})[,1],file=paste0(output_path,"number_cells.csv"))#Counts the number of cells inside each flowframe and writes it into the output folder.
+
 write.table(apply(as.data.frame(list.rbind(lapply(sampleNames(flowset),function(name){flowset[[name]]@description}))),2,as.character),file=paste0(output_path,"flowset_description.csv"))#Writes descriptions of each flowframe in a csv file
+
 sampleNames(flowset) #Prints the name of each flowframe inside the flowset. User can modify it in the following chunck
 #write.flowSet(flowset,outdir=paste0(output_path,"input_flowset"))#Writes the input flowset
 #flowset=read.flowSet(path=paste0(output_path,"input_flowset"),phenoData = "annotation.txt")#Read the written flowset
@@ -54,9 +81,17 @@ sampleNames(flowset) #Prints the name of each flowframe inside the flowset. User
 
 #This chunck can be used for renaming the fcs files inside the flowset
 ```{r}
+# create a vector with the new file names and assign them
+# this must be a flowCore function
 sampleNames(flowset) <- c("Astro03_06","Neuro03_06","NPC03_06","Oligo03_06","Astro03_17","IPSC03_17","NPC03_17","Oligo03_17") #directly modify the names inside the flowset
 sampleNames(flowset)
+# now the sample or file names are changed under the 'frame' data slot
 
+
+# this appears to be again reading in the data an getting the expression values
+# I'll make this a function for the package
+
+# call this function 'make_flowset'
 read_reg <- function(input_path,regular_expression,desc=FALSE) {
   flowset <- read.flowSet(path=input_path,transformation = FALSE ,emptyValue = FALSE,package="flowCore") #Create a flowset object
   if (desc==FALSE){ #Create a flowset object
@@ -71,7 +106,13 @@ read_reg <- function(input_path,regular_expression,desc=FALSE) {
   }
   return(flowset)
 }
-flowset=read_reg("/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/cell_line/","FJComp",desc=FALSE)
+
+
+#flowset2 <- read_reg(input_path = input_path,"FJComp",desc=FALSE)
+flowset2 <- make_flowset(input_path = input_path,"FJComp",desc=FALSE)
+
+sampleNames(flowset2) <- c("Astro-06","Neuro-06","NPC-06","Oligo-06","Astro-17","IPSC-17","NPC-17","Oligo-17")
+
 ```
 
 #Chunck used for loading organoids data (different chunck due to the names of the channels : "livedead","live dead")
@@ -172,6 +213,9 @@ normtr <- gaussNorm(flowset = transformed_flowset,channel.names = colnames(trans
 aligned_transformed_flowset <- normtr$flowset #Extract the flowset from the result of the alignment
 retrotransformed_flowset <- inversebiexponentialTransform(aligned_transformed_flowset) #apply the function for cancelling biexp transform
 ```
+
+
+
 ```{r}
 plotdensity_flowset(aligned_transformed_flowset)
 plotdensity_flowset(transformed_flowset)
