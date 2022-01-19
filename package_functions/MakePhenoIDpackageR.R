@@ -1,9 +1,9 @@
 # set up to make a package
 # we need two packages devtools and roxygen2
 
-install.packages("devtools")
+#install.packages("devtools")
 library("devtools")
-install.packages("roxygen2")
+#install.packages("roxygen2")
 library("roxygen2")
 
 # now create the frame work of the package
