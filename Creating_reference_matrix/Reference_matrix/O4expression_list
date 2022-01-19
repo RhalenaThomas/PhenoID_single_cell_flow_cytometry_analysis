@@ -1,0 +1,20 @@
+Gene.symbol Astrocytes Neuron Oligodendrocyte.Precursor.Cell
+1       Olig1      109.5   32.0                         1360.0
+2       Olig2       59.4    9.5                          210.2
+3        Myt1        0.1    7.5                           38.1
+4      Zfp536        0.1    6.2                            2.2
+5       Sox10        0.1    3.3                          147.1
+6      Nkx2-2        6.8    1.1                           21.8
+7       Sox17        0.3    0.2                            0.2
+8      Zfp488        0.1    0.2                           10.0
+9      Nkx6-2        0.1    0.1                            0.1
+  Newly.Formed.Oligodendrocyte Myelinating.Oligodendrocytes Microglia Endothelial.Cells
+1                        720.2                        494.5       6.2               0.7
+2                        119.3                         58.6       0.4               0.1
+3                          9.2                          0.3       0.1               0.1
+4                          6.6                          4.9       0.1               0.1
+5                        132.6                        103.3       0.5               0.1
+6                         38.0                          7.7       0.1               0.1
+7                          0.1                          0.1       0.4              44.7
+8                         15.0                          3.5       0.1               0.1
+9                         24.7                         53.2       0.2               0.1

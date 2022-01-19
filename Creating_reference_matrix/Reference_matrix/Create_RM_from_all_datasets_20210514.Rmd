@@ -1,0 +1,283 @@
+---
+title: "R Notebook Create Reference matrix"
+output: html_notebook
+---
+
+Here I will read in each of the datasets
+1. 2D Flow
+2. BenBarres bulk RNA from human isolated cells
+3. scRNAseq from in house MBO 47 days
+4. scRNAseq public data from human brain tissues - multiple datasets to be merged
+5. scRNAseq from public data from cerebral organoids
+
+Each dataset will normalized from 0-1
+
+```{r}
+# load libraries
+library(dplyr)
+library(ggplot2)
+
+```
+
+
+
+```{r}
+# I'll start with the scRNAseq from brain tissue because there are multiple datasets. From human cell landscape
+# values manually copied by cluster
+# all neuron averaged, all astrocytes averaged, all radial glia averaged. 
+
+fb3 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/fetalbrain3.csv")
+fb5 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/fetalbrain5.csv")
+lake <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/Lake.csv")
+lamanno <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/lamanno.csv")
+zhang <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/zhang.csv")
+
+# column names each of the 5 HCL datasheets
+colnames(fb3)
+colnames(fb5)
+colnames(lake)
+colnames(lamanno)
+colnames(zhang)
+
+#cell_types
+
+```
+
+Get the markers names - Need to be sure that are all in the same order
+
+```{r}
+head(fb3)
+
+markers <- as.vector(fb3['Marker'])
+class(markers)
+markers
+
+
+
+```
+
+
+
+Transform values to be between 0 and 1 
+
+```{r}
+
+df.list <- list(fb3,fb5,lake, lamanno, zhang)
+df.names <- c("fb3","fb5","lake", "lamanno", "zhang")
+
+# normalize each df
+
+norm.list <- lapply(df.list, function(x) {
+  source.name <- df.names[df]
+  # get marker names
+  markers <- as.vector(x['Marker'])
+  # make a df with no character to normalize
+  df.value <- x[0:13,3:13]
+  # create normalized matrix
+  zero.one <- apply(df.value, MARGIN = 2, FUN = function(X) (X - min(X))/diff(range(X)))
+  x <- cbind(markers,zero.one)
+  x
+
+  })
+
+
+#I now have a list of normized df 
+fb3.norm <- norm.list[[1]]
+class(fb3.norm)
+head(fb3.norm)
+
+fb5.norm <- norm.list[[2]]
+lake.norm <- norm.list[[3]]
+lamanno.norm <- norm.list[[4]]
+zhang.norm <- norm.list[[5]]
+
+fb3.norm[1,2] # row, column
+fb5.norm[1,2]
+lake.norm[1,2]
+lamanno.norm[1,2]
+zhang.norm[1,2]
+
+aqp4 <- c(fb3.norm[1,2],fb5.norm[1,2],lake.norm[1,2],lamanno.norm[1,2],zhang.norm[1,2])
+
+mean.aqp4 = mean(na.omit(aqp4))
+mean.aqp4
+markers <- as.vector(lake.norm['Marker'])
+
+col.names.df <- as.vector(colnames(lake.norm))
+
+
+```
+
+Next I will get the mean values for each celltype/marker from across the 5 scRNAseq dataset (public)
+
+```{r}
+
+# we need to make an array
+#  It takes rows(x), columns(y), and a number of matrices of dimensions nrow * ncol(z).
+
+arr <- array(as.numeric(unlist(norm.list)), dim = c(13, 12, 5))
+
+#ans1 <- apply(lapply(arr, as.matrix), c(2, 3), mean)
+#ans1 = aaply(laply(all.dat, as.matrix), c(2, 3), mean) 
+
+library("abind")
+
+all.matrix <- abind(arr, along=3)
+df.mean <- apply(all.matrix, c(1,2), mean,na.rm=TRUE)
+head(df.mean)
+
+# I have some values now - I need to check them
+# yes it has worked but column 1 is the markers - which all turned into NaN
+
+# add the column names back in
+colnames(df.mean) <- col.names.df 
+head(df.mean)
+# remove the NaN column
+mean.exp <- df.mean[,2:12]
+# replace the antibody names
+mean.exp<- cbind(markers,mean.exp)
+head(mean.exp)
+
+write.csv(mean.exp, "scRNA.pub.mean.exp.csv")
+
+
+
+
+
+```
+
+
+Now I need to prepare each of the other expression matrices in the same way
+
+
+```{r}
+bb <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/BenBarres_marker_exp_input.csv")
+
+ussc <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/UCSC_organoid_average_by_cluster.csv")
+
+
+head(bb)
+head(ussc)
+
+
+
+```
+
+
+
+
+
+
+
+
+I want to visualize the data I'll need to make a 'long table'
+
+```{r}
+library(tidyr)
+df.long <- as.data.frame(pivot_longer(mean.exp, cols=2:12, names_to = "Cell Type", values_to = "Expression" ))
+
+write.csv(df.long, "scRNA_public_data_average_long.csv")
+
+test.df <- read.csv("scRNA_public_data_average_long.csv")
+
+test.df['Marker'] <- as.factor(test.df['Marker'])
+test.df['Cell.Type'] <- as.factor(test.df['Cell.Type'])
+
+ggplot(data= test.df, mapping = aes(x = 'Cell.Type', y= 'Expression', color= 'Marker')) + geom_boxplot()
+
+
+
+ggplot(test.df, aes(x = 'Marker', y= 'Cell Type')) +
+  geom_raster(aes(fill='Expression')) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="letters", y="LETTERS", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=0, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+
+  
+
+  
+```
+
+
+
+
+
+```{r}
+
+print(colnames(fb3))
+print(colnames(fb5))
+# column names were not the same
+fb5 <- fb5 %>% rename(Epithelial = Edpendymal.Epithealial)
+
+# rbind worked to join two df but it doesn't add anything automatically to indicate where the data came from these are just turning into replicates 
+# add source column
+fb5$Source <- "fb5"
+head(fb5)
+
+
+fb3 <- fb3 %>% rename(Epithelial = Edpendymal)
+# add source column for fb3
+fb3$Source <- "fb3"
+
+```
+Z-score each matrix get a mean of 0 and std of 1 
+
+```{r}
+
+sdat <- scale(fb3)
+
+
+rm.cat <- fb3 %>% select(-"Annotation",-"Marker",-"Source")
+scale.data <- scale(rm.cat)
+
+rowMeans(scale.data, na.rm = TRUE)
+colMeans(scale.data, na.rm = TRUE)
+
+tryrow <- apply(rm.cat,1,scale)
+rowMeans(tryrow, na.rm = TRUE)
+
+df <-rm.cat
+
+# margin is the dimension - 1 is rows and 2 is columns 
+
+# example of apply
+zscore <- apply(df, 1, max, na.rm = TRUE)
+
+zscore  
+# example of a function
+
+# z = y- mean(y) /std 
+
+# z = x - mean/ sd
+
+# this might work more easily if I transpose the table so I z score the columns
+tdf <- t(df)
+
+
+tdf$z1 <- (tdf[1] - mean(tdf[1], na.rm = TRUE))/ sd(tdf[1], na.rm = TRUE)
+
+
+zscorefun <- function(df) {
+  new.df <- 
+  return(new.df)
+}
+
+df.scale2 <- (apply(rm.cat, 1, x - mean/sd))
+
+```
+
+
+
+```{r}
+
+twodf <- rbind(fb3,fb5)
+head(twodf)
+
+# perfect this works
+# now I realize I need to z score first
+
+
+```
+

@@ -1,0 +1,88 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Create a reference matrix  from muliple sources
+
+Vectors of final cell type options and gene names fir the antibody panel
+
+```{r}
+# libraries
+library(dplyr)
+
+
+
+```
+
+
+
+```{r}
+marker_genes = c("Aqp4",
+              "Slc1a3",
+              "Hepacam",
+              "Cd44",
+              "Ngfr",
+              "Ncam1",
+              "Cd24a", 
+              "Fut4",
+              "Cxcr4",
+              "Foxo4",
+              "Pdgfra",
+              "Itgb2",
+              "Tfrc",
+              "Prom1",
+              "Map2k2",
+              "Nes",
+              "Gfap"
+)
+
+cell_types = c("StemCell","NPC","Neural_Crest","Neurons","Astrocyte","OPC","Oligo","RG","Endothelial","Epithelia","Pericyte")
+
+```
+
+For each database I'll note which cluster names or cell types were counted under which cell type categories
+
+Ben Barres
+
+```{r}
+# read in data
+
+df = read.csv("/home/rhalena/Documents/Documents/DataFromDataBased/BenBarres/barreslab_rnaseq_FPKM_humanRaw.csv")
+library(dplyr)
+
+head(df)
+
+colnames(df)
+df2 = select(df, Gene.symbol,Astrocytes,Neuron,Oligodendrocyte.Precursor.Cell,Newly.Formed.Oligodendrocyte,
+Myelinating.Oligodendrocytes,Microglia,Endothelial.Cells) 
+
+expression_list = df2 %>% filter(Gene.symbol == "Aqp4"| Gene.symbol == "Slc1a3"| Gene.symbol == "Hepacam" | Gene.symbol == "Cd44" | Gene.symbol == "Cd24a" | Gene.symbol == "Fut4" | Gene.symbol == "Cxcr4" | Gene.symbol == "Pdgfra" |Gene.symbol == "Itgb2" |
+Gene.symbol == "Tfrc" | Gene.symbol == "Prom1"| Gene.symbol == "Map2k2" | Gene.symbol == "Nes" | Gene.symbol == "Gfap")
+ 
+head(expression_list)
+
+
+
+write.csv(expression_list,"BenBarres_marker_exp.csv")
+
+
+colnames(expression_list)
+
+O4_exp = df2 %>% filter(Gene.symbol == "Myt1"| Gene.symbol == "Nkx2-2"| Gene.symbol == "Nkx6-2" | Gene.symbol == "Sox10" | Gene.symbol == "Sox17" | Gene.symbol == "Zfp488" | Gene.symbol == "Zfp536" | Gene.symbol == "Olig1" | Gene.symbol == "Olig2")
+
+head(O4_exp)
+
+write.csv(O4_exp, "BenBarres_O4proxy_expression.csv")
+
+
+
+```
+
+I need to get the values from the 2D data
+
+The other values I'll need to get the out of the websites.
+
+
+
+

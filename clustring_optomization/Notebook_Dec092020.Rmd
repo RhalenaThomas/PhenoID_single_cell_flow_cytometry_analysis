@@ -1,0 +1,380 @@
+---
+title: "R Notebook"
+author: "A.Gestin"
+output: html_notebook
+---
+Important note: it is currently designed to be applied on living cells only with compensated data (flowJo)
+this workflow depends on packages: flowCore, flowWorkspace, flowTrans, ggplot2, ggridges, reshape2, rlist, stringr, Rlist, RphenoGraph, Rtsne and umap
+
+
+WORKFLOW : ---- This workflow is desgined for transforming aligning and clustering multiple flowcytometry data (.fcs) ----
+
+
+-Import/install packages
+    -some are probably missing, it will be patched.
+    
+-Reads in the data
+
+-Subsets
+
+-Transform the data (3 transformations available: choose the biexp chunck for comparing multiple datasets, the others allows experimented R users to analyse each file separately)
+    -show a multiple densityplot that represents the data distribution
+    
+-Alignment step (critical, probably needs user adjustment: chunck "Alignment")
+    -show 4 multiple densityplots: 1) raw data, 2) biexp transformed, 3) aligned and the retrotransformed(after alignment)
+
+-t-sne representations
+    -sample and markers intensities.
+
+-clustering
+    -Phenograph & flowSOM available
+    -get informations about the clustering
+
+-Associate clustering to a cell type - Necessarely biased
+    - Manual association : User give manually which cluster corresponds to which cell type by manually interpreting the values.
+    - Establish a median correlation score between ce
+    
+-Manual association
+    -visualize given informations§
+    -perform correlation cell by cell (with required normalization methods)
+    
+-Train a randomForest classifier
+
+
+##Import the required libraries
+```{r,include=FALSE}
+require("flowCore")
+require("flowWorkspace")
+require("flowTrans")
+require("ggplot2")
+require("ggridges")
+require("stringr")
+require("rlist")
+require("scales")
+require("reshape2")
+require("Rtsne")
+require("umap")
+require("wadeTools")
+require("flowStats")
+require("gridExtra")
+require("scales")
+require("randomForest")
+# for clustering we use Rphenograph which needs to be installed directly from the github of JinmiaoChen Lab
+if(!require(devtools)){
+  install.packages("devtools") # If not already installed
+}
+devtools::install_github("JinmiaoChenLab/Rphenograph")
+
+require("Rphenograph")
+#Add the absolute path
+source("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/1578_clusters/basic_functions.R")
+```
+
+##Read the data
+```{r,include=FALSE}
+#Set the path of the file from the working directory
+data_path="/home/rhalena/Documents/Documents/MyPapers/FACS/FCS files for bioinfo analysis/2020-04-20" 
+
+#make a flowset object
+exp=read.flowSet(path=data_path,transformation =FALSE ,emptyValue = FALSE,package="flowWorkspace")
+# emptyValue = False doesn't consider empty rows
+
+#select compensated channels, FCS and SSC that finishes by A (indicating the aea value) using regular expression
+exp=fsApply(exp,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(exp))]})
+#Still a flowset (fsApply -> apply a function to a flowset)
+
+
+# if the data is located in a different space or you don't have the same type of fcs file exported (not complete)
+
+data_path="/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/FIG2"
+exp1=read.flowSet(path=data_path,transformation =FALSE ,emptyValue = FALSE,package="flowWorkspace")
+exp1=fsApply(exp1,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(exp1))]})#SELECT COMPENSED CHANNELS AND AEA VALUES
+flowset=rbind2(exp,exp1) #FlowSet object
+```
+
+##Subsetting
+
+These chuncks allows you to subset the data. It is usefull for scaling experiments or lighten the data. 
+User have to set the "desired_size" value and run the last chunck
+```{r,include=FALSE}
+desired_size=800
+```
+
+This chunck allows you to set the subsampling size to the number of cells in the smallest sample
+```{r,include=FALSE}
+desired_size=min(fsApply(flowset,function(x){nrow(x@exprs)}))
+```
+
+Subsets the data
+```{r,echo=FALSE}
+set.seed(42) #Set a seed for reproducibility 
+sf=sampleFilter(filterId = "SizeFilter", size =desired_size)#establish a "filter" to subset
+flowset=fsApply(flowset,function(x){Subset(x,sf)})#apply the filter
+```
+
+check files names
+```{r}
+sampleNames(flowset)
+```
+
+Rename the files (optional)
+```{r}
+sampleNames(flowset)<-c("3450c2","AIW2","AJG2","3450c1","3450c3","AIW1","AIW3","AJG1","AJG3")#gives the files names
+sampleNames(flowset)#print names to check
+```
+
+
+##Transformation Step (Key step)
+
+This one allows the biexp transformation (that suits best for comparing multiple datasets)
+```{r,echo=FALSE}
+biexp  <- biexponentialTransform("biexp transform")
+transformed_flowset <- transform(flowset, transformList(colnames(flowset), biexp))
+```
+
+This one allows to transform with optimized parameters or arcsinh transform. The parameters are based on maximum likelyhood assuming a normal distribution (it suits best the clustering of each file separately, lit.)
+```{r,echo=FALSE}
+transformed_flowset=fsApply(flowset, function(x){flowTrans(x,"mclMultivArcSinh"
+                                       ,colnames(x)[vapply(colnames(x), function(y) all(grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$", y)),logical(1))]
+                                       ,n2f = FALSE,
+                                       parameters.only = FALSE)$result} )
+```
+
+This one (with default parameters) is sensibly the same as biexp with default parameters. Those transformations gives equivalent results on clustering or manual gating
+```{r,echo=FALSE}
+asinh=arcsinhTransform(transformationId="defaultArcsinhTransform", a=1, b=1, c=0)
+transformed_flowset=transform(flowset, transformList(colnames(exp), asinh))
+```
+
+Call densityplots of two flowsets
+
+```{r}
+# see plots
+plotdensity_flowset(rename_markers(flowset))
+plotdensity_flowset(rename_markers(transformed_flowset))
+
+# save plot
+png(file="densityplot_expbe_rename.png",width=900*1.618,height=700)
+plotdensity_flowset(rename_markers(transformed_flowset))
+dev.off()
+```
+
+Now that the data is transformed, the intensities are distributed in an interpretable way. We can begin the alignment.
+
+
+This gives an insight on the markers and their associated column in each .fcs file. Be carefull : the non consistency of marker names can lead to errors in the following steps. (visualize the caracteristic values of intensities per clusters)
+```{r}
+getmarkersinfo(rename_markers(exp))
+```
+##Alignment
+
+This chunck perform the alignment of the densitypeaks. It requires 2 calls of the function depending on the shape of the distribution. The plotting allows to be sure that the alignment performed well. If not, rerun the chunck by changing the peak.density.thr and the associated columns (2nd arg) for the alignment with 1 peak and for the alignment with 2 peaks.
+```{r}
+normtr=gaussNorm(transformed_flowset,colnames(transformed_flowset)[c(3,5:6,9:length(colnames(transformed_flowset)))],max.lms = 2,peak.density.thr = 0.01)
+expbe_norm2=normtr$flowset
+
+normtr=gaussNorm(expbe_norm2,colnames(expbe_norm2)[c(4,7:8)],max.lms = 1,peak.density.thr = 0.05)
+aligned_flowset=normtr$flowset
+
+#exp_al=fsApply(expbe_al,function(x){inv.biexp(x,params=colnames(x))})#Apply the retrotransformation. Require "wadetools" package
+
+#png(file="/home/alx/Documents/McGill_Neuro/Scripts/FACS_clustering/densityplot_expbe_rename.png",width=900*1.618,height=700)
+plotdensity_flowset(rename_markers(transformed_flowset))
+plotdensity_flowset(rename_markers(aligned_flowset))
+#dev.off()
+```
+
+Few lines for density plots
+```{r}
+
+perxp=melt(lapply(as.list(rename_markers(aligned_flowset)@frames),function(x){x=as.data.frame(x@exprs)}))
+colnames(perxp)<-c("marker","value","sample")
+
+ggplot(perxp, aes(x=value,y=sample,fill=sample)) + geom_density_ridges(alpha=.4,verbose=FALSE) +facet_wrap(~marker)+theme_light()
+
+perxp=melt(lapply(as.list(rename_markers(transformed_flowset)@frames),function(x){x=as.data.frame(x@exprs)}))
+colnames(perxp)<-c("marker","value","sample")
+
+ggplot(perxp, aes(x=value,y=sample,fill=sample)) + geom_density_ridges(alpha=.4,verbose=FALSE) +facet_wrap(~marker)+theme_light()
+
+```
+
+
+This chunck allows to perform and plot a tsne with all usual parameters.
+
+Note: colstoignore corresponds to the markers to ignore. (Usually get rid of the LiveDead marker and size markers (FSC SSC - respectively 1 and 2) - debatable). If you don't know the corresponding columns, you can access the marker names by calling the flowCore function 'markernames(flowset)' (remember that FSC and SSC are not considered as markers and do not appears in the list) or 'getmarkersinfo(flowset)' for more informations
+```{r}
+
+tsne_aligned_fs=tsne_flowset(aligned_flowset,scale=TRUE,colstoignore = c(1,2,9) ,dims = 2, perplexity=150,theta=0.4, verbose=FALSE, max_iter = 1000,eta=300) #Run the tsne
+sample=getsample(aligned_flowset)#Set a variable with sample names that is considered by plot_tsne function
+
+plot_tsne(tsne_aligned_fs,"Tsne title")
+#saveRDS(tsne_expbe,file="/home/alx/Documents/McGill_Neuro/Scripts/FACS_clustering/REFERENCE_TSNE_1578_expbe_col9.RData")
+plot_marker_tsne(aligned_flowset,tsne_aligned_fs,c(1,2,9))
+```
+
+If you prefer umap, it has to be adapted for more figures. 
+```{r}
+umap_aligned_fs=umap_flowset(aligned_flowset,colstoignore=c(9),scale=TRUE)
+plot_umap(umap_aligned_fs,"Title umap")
+```
+
+Clustering
+
+This chunck performs the Phenograph clustering and save the results in a variable. Another chunck will read this variable to get informations about the clustering results.
+Rphenograph_flowset(flowet,columns to ignore, k, scale (boolean)). Based on litterature, golden standard is to not consider FSC and SSC channels, neither the eventual Live - Dead channel. K corresponds to the initial K-NN graph computed by the phenograph method. 
+```{r}
+clustering_aligned_fs=Rphenograph_flowset(aligned_flowset,colstoignore=c(1,2,9),k=350,scale=FALSE) #Apply the function
+```
+
+This chunck performs the flowSOM clustering (faster) and save the results in a variable. Another chunck will read this variable to get informations about the clustering results. You can have more informations about the parameters by typing "?FlowSOM" in the R console.  You can define a number of clusters by adding "nClus" in the parameters of the FlowSOM function
+```{r}
+library(FlowSOM)
+clustering_aligned_fs=GetMetaclusters(FlowSOM(aligned_flowset,pattern=".fcs",transform=FALSE, compensate = FALSE, spillover = NULL,colsToUse =  c(3:8,10:16),maxMeta = 30,nClus = 25 ))
+```
+
+This chunck provides informations about number of cells per cluster per samples and the mean values of each cluster for each marker
+```{r}
+sample_per_cluster(clustering_aligned_fs[[2]]$membership)
+mean_per_cluster(rename_markers(aligned_flowset),clustering_aligned_fs[[2]]$membership,colstoignore = c(9))
+```
+
+This chunck defines and uses a function for computing a wilcoxon mean test between each cluster for each marker and writes it in a csv file. 
+```{r}
+differential_expression_per_cluster = function(clustering,flowset,colstoignore){
+  expression_data=as.data.frame(list.rbind(lapply(as.list(rename_markers(flowset)@frames),function(x){x=as.data.frame(x@exprs[,-c(colstoignore)])})))
+  expr_data_binded_cluster=cbind(expression_data,as.factor(clustering))
+  colnames(expr_data_binded_cluster)[ncol(expr_data_binded_cluster)]<-"Cluster"
+  res=data.frame(Marker=character(),first_cluster=character(),second_cluster=character(),statistics=integer(),p.value=double(),stringsAsFactors = FALSE)
+  for (first_cluster in sort(unique(clustering))){
+    if (first_cluster != max(unique(clustering))){
+      for (second_cluster in (first_cluster+1):max(unique(clustering))){
+        for (marker in colnames(expr_data_binded_cluster[,-ncol(expr_data_binded_cluster)])){
+         tmp.data=expr_data_binded_cluster[expr_data_binded_cluster$Cluster == c(first_cluster,second_cluster) ,c(marker,"Cluster")]
+         val_first_cluster=tmp.data[tmp.data$Cluster==as.character(first_cluster),1]
+         val_second_cluster=tmp.data[tmp.data$Cluster==as.character(second_cluster),1]
+         test=wilcox.test(x=val_first_cluster,y=val_second_cluster,conf.int = TRUE)
+         res[nrow(res)+1,]=c(marker,first_cluster,second_cluster,test$statistic[[1]],test$p.value)
+        }
+      }
+      mydata=expr_data_binded_cluster[expr_data_binded_cluster$Cluster == c(first_cluster,second_cluster) ,c(marker,"Cluster")]
+      val_first_cluster=mydata[mydata$Cluster==as.character(first_cluster),1]
+      val_second_cluster=mydata[mydata$Cluster==as.character(second_cluster),1]
+      }
+    else{print("Done")
+    }
+  }
+  write.csv(res,file="/home/alx/Documents/aaaatable.csv")
+}
+differential_expression_per_cluster(clustering_aligned_fs[[2]]$membership,aligned_flowset,c(1,2,9))
+```
+
+
+```{r}
+#png(file="/home/alx/Documents/McGill_Neuro/Scripts/FACS_clustering/phenograph_retroexp_scaled_clusters_redim.png",width=1000*1.618,height=1000)
+plot_tsne_clust(tsne_aligned_fs, clustering_aligned_fs[[2]]$membership,"Phenograph clustering (k=350) of biexp transformed aligned scaled values of 9 MBOs with 1500 cells each")
+#dev.off()
+heatmap_cluster(rename_markers(aligned_flowset),clustering_aligned_fs[[2]]$membership,c(1,2,9))
+```
+
+```{r}
+plot_tsne_clust(tsne_aligned_fs, clustering_aligned_fs[[2]]$membership,"Phenograph clustering (k=350) of biexp transformed aligned scaled values of 9 MBOs with 1578 cells each")
+heatmap_cluster(rename_markers(aligned_flowset),clustering_aligned_fs[[2]]$membership,c(1,2,9))
+```
+
+This chunck consider expected intensities for each cell type
+```{r}
+#Load the data
+norm_cellpheno=read.csv(file="/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/ExpessionCellPhenotypeTable3.csv")
+
+#This function computes the pearson correlation score for each cell in each cluster with every cell type
+cluster_correlation_by_cell=correlation_cluster_celltype(aligned_flowset,membership(clustering_aligned_fs[[2]]),norm_cellpheno,c(1,2,9))
+
+#Flatten the list for representation
+individual_correlation=melt(list.rbind(cluster_correlation_by_cell))
+#Violinplot
+colnames(individual_correlation)<-c("cell_ID","Cell_type","Pearson_correlation_score")
+data_summary <- function(x) {
+   m <- mean(x)
+   ymin <- m-sd(x)
+   ymax <- m+sd(x)
+   return(c(y=m,ymin=ymin,ymax=ymax))
+}
+ggplot(individual_correlation,aes(x=Cell_type,y=Pearson_correlation_score,fill=Cell_type))+geom_violin()+ stat_summary(fun.data=data_summary)+theme_light()
+
+#This compute the basic statistic summary of correlation of cells by cluster
+summary_correlation_by_cluster=lapply(cluster_correlation_by_cell,function(x){apply(x,2,summary)})
+print(summary_correlation_by_cluster)
+
+#Consider the median value for assignind a cell type
+assigned_celltype=lapply(summary_correlation_by_cluster,function(x){names(which.max(x["Median",]))})
+print(assigned_celltype)
+
+mccb=melt(cluster_correlation_by_cell)
+colnames(mccb)<-c("cell","phenotype","Pearson_correlation_score","cluster")
+ggplot(mccb,aes(x=as.factor(cell),y=as.factor(phenotype),fill=Pearson_correlation_score))+geom_raster(size=0.5)+  scale_fill_gradient2(low="cyan2", high ="darkorchid3")+scale_x_discrete(position = "top")+facet_grid(~cluster,scale="free",drop=TRUE)
+```
+
+#The two following chuncks allows the user to define its own association. 
+The first one give the order of the clusters to rename & the second one takes the user input and creates the association.
+```{r}
+unique(clustering_aligned_fs[[2]]$membership)
+```
+This chunck allows to define 
+```{r}
+user_celltypes<-c("Define","Some","Cluster","Names","Here")
+
+assigned_celltype=NULL
+assigned_celltype[paste0("cluster_",unique(clustering_aligned_fs[[2]]$membership))]=user_celltypes
+```
+
+Set a dataframe with assigned cell types and makes a barplot of assigned types
+```{r}
+library(randomForest)
+
+list_of_celltypes=as.vector(assigned_celltype[paste0("cluster_",clustering_aligned_fs[[2]]$membership)])
+facsdata=list.rbind(lapply(as.list(rename_markers(aligned_flowset)@frames),function(x){x=as.data.frame(x@exprs[,-c(1,2,9)])}))
+facsdata$assigned_celltype<-as.factor(as.character(list_of_celltypes))
+
+data_toplot=data.frame(Type=facsdata$assigned_celltype)
+ggplot(data_toplot,aes(x=Type,fill=Type))+geom_bar()+theme_minimal()
+```
+
+This chunck train a randomForest classifier with all the data
+```{r}
+set.seed(42)
+rf_classifier_model<-randomForest(assigned_celltype~ . , data=facsdata,proximity=TRUE,ntree=250)
+rf_classifier_model
+importance(rf_classifier_model)
+```
+
+To predict, here's the same example with the same dataset divided in training and test dataset
+```{r}
+#Separate the data in 2 groups with 70% of training data
+set.seed(42)
+ind = sample(2, nrow(facsdata), replace=TRUE, prob=c(0.7,0.3))
+trainData = facsdata[ind==1,]
+testData = facsdata[ind==2,]
+
+#Train the model with training data
+rf_classifier_model = randomForest(assigned_celltype~ . , data=trainData, ntree=100, proximity=T)
+
+testData$assigned_celltype<-NA
+predicted_pheno = predict(rf_classifier_model, newdata=testData)
+testData = facsdata[ind==2,]
+#Prediction with training data
+table(predict(rf_classifier_model), trainData$assigned_celltype)
+
+#Write the results in a csv file with following line
+#write.csv(table(predicted_pheno,testData$assigned_celltype), file="/home/alx/Documents/Results2/confusionmatrixtest.csv")
+
+```
+
+Uses the out of bound error rate computed by the randomForest function and plot it at every number of trees (~epoch)
+```{r}
+oob.err.data=data.frame(Trees=rep(1:nrow(rf_classifier_model$err.rate),times=ncol(rf_classifier_model$err.rate)),
+                        Type=rep(c(colnames(rf_classifier_model$err.rate)),each=nrow(rf_classifier_model$err.rate)),
+                        Error=as.vector(apply(rf_classifier_model$err.rate,2,function(x){x})))
+
+ggplot(oob.err.data,aes(x=Trees,y=Error))+geom_line(aes(color=Type))+theme_minimal()
+```

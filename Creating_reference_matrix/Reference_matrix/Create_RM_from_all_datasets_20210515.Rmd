@@ -1,0 +1,588 @@
+---
+title: "R Notebook Create Reference matrix"
+output: html_notebook
+---
+
+Here I will read in each of the datasets
+1. 2D Flow
+2. BenBarres bulk RNA from human isolated cells
+3. scRNAseq from in house MBO 47 days
+4. scRNAseq public data from human brain tissues - multiple datasets to be merged
+5. scRNAseq from public data from cerebral organoids
+
+Each dataset will normalized from 0-1
+
+```{r}
+# load libraries
+library(dplyr)
+library(ggplot2)
+
+```
+
+
+
+```{r}
+# I'll start with the scRNAseq from brain tissue because there are multiple datasets. From human cell landscape
+# values manually copied by cluster
+# all neuron averaged, all astrocytes averaged, all radial glia averaged. 
+
+fb3 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/fetalbrain3.csv")
+fb5 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/fetalbrain5.csv")
+lake <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/Lake.csv")
+lamanno <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/lamanno.csv")
+zhang <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/zhang.csv")
+
+# column names each of the 5 HCL datasheets
+colnames(fb3)
+colnames(fb5)
+colnames(lake)
+colnames(lamanno)
+colnames(zhang)
+
+#cell_types
+
+```
+
+Get the markers names - Need to be sure that are all in the same order
+
+```{r}
+
+# check antibodies
+head(fb3)
+head(fb5)
+head(lake)
+head(lamanno)
+head(zhang)
+
+# everything looks correct
+
+```
+
+Transform each matrix to be between 0 and 1 across rows for the antibodies
+
+```{r}
+# put the df into a list
+df.list <- list(fb3,fb5,lake, lamanno, zhang)
+
+# normalize each df
+
+markers <- fb3$Marker
+#print(markers)
+
+col.names.markers <- c("AQP4","CD24","CD44","CD184","CD15", "HepaCam", "CD29","CD56","O4","CD140a", "CD133", "Glast",   "CD71")   
+
+norm.list <- lapply(df.list, function(x) {
+  #source.name <- df.names[df]
+  # get marker names
+  #markers <- as.vector(x['Marker'])
+  # make a df with no character to normalize
+  df.value <- x[0:13,3:13]
+  # create normalized matrix
+  zero.one <- apply(df.value, MARGIN = 1, FUN = function(X) (X - min(X, na.rm=TRUE))/diff(range(X, na.rm=TRUE)))
+  colnames(zero.one) <-col.names.markers
+  x <- zero.one
+
+  })
+
+#I now have a list of normized df 
+# I need to extract each dataframe, I'm not sure how to unlist and still get the name of the dataframe
+#I now have a list of normized df 
+fb3.norm <- norm.list[[1]]
+fb5.norm <- norm.list[[2]]
+lake.norm <- norm.list[[3]]
+lamanno.norm <- norm.list[[4]]
+zhang.norm <- norm.list[[5]]
+
+fb3.norm[1,2] # row, column  The row names are outside of the matrix and won't be part of the index
+fb5.norm[1,2]
+lake.norm[1,2]
+lamanno.norm[1,2]
+zhang.norm[1,2]
+
+# see the datatabels
+head(fb3.norm)
+head(fb5.norm)
+head(lake.norm)
+head(lamanno.norm)
+head(zhang.norm)
+
+
+# the tabels are now transposed
+# cell types are rows and Antibodies are columns
+class(fb3.norm)
+# the outputs are not a [1] "matrix" "array" 
+
+```
+
+
+Now we want to take the means - 
+
+```{r}
+
+# this was to test the means
+# we don't have the means of the matrix yet
+
+aqp4 <- c(fb3.norm[1,1],fb5.norm[1,1],lake.norm[1,1],lamanno.norm[1,1],zhang.norm[1,1])
+
+mean.aqp4 = mean(na.omit(aqp4))
+mean.aqp4
+markers <- as.vector(lake.norm['Marker'])
+
+
+
+```
+
+Next I will get the mean values for each celltype/marker from across the 5 scRNAseq dataset (public)
+
+```{r}
+
+# we need to make an array
+#  It takes rows(x), columns(y), and a number of matrices of dimensions nrow * ncol(z).
+dim(fb3.norm) 
+# [1] 11 13
+
+
+arr <- array(as.numeric(unlist(norm.list)), dim = c(11, 13, 5))
+
+
+all.matrix <- abind(arr, along=3)
+df.mean <- apply(all.matrix, c(1,2), mean,na.rm=TRUE)
+head(df.mean)
+
+# I have some values now - I need to check them
+# yes this has worked
+
+# add the column names back in - these are now the antibody names
+colnames(df.mean) <- col.names.markers  
+head(df.mean)
+
+# add the cell type names back in 
+cell.types <- rownames(fb3.norm)
+rownames(df.mean) <- cell.types
+head(df.mean)
+
+sc.pub <- df.mean
+write.csv(df.mean, "scRNA.pub.mean.exp_20210517.csv")
+
+
+
+
+```
+
+
+Now I need to prepare each of the other expression matrices in the same way
+
+
+```{r}
+bb <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/BenBarres_marker_exp_input.csv")
+
+ussc <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/UCSC_organoid_average_by_cluster.csv")
+
+mbo.47 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/MBO47days.csv")
+
+mbo.160 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/MBO_160days.csv")
+
+#look at the data make sure the row and column orders are the same
+
+head(bb)
+head(ussc)
+head(mbo.47)
+head(mbo.160)
+
+
+
+
+```
+
+
+The only other dataset is the flow cytometery data - this has a lot of negative values 
+
+
+```{r}
+# checkout the flow cytometery data - might need to transform
+
+fc <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/Flow_2D.csv")
+# I'm able to use the negative values it is fine. 
+
+# test if the NA in CD184 is the problem
+#fc <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/Inputs_for_reference_combined/Flow_2D_changeCD184.csv")
+
+# yes this is the problem but this means I might be normalizing by column and not by row. 
+head(fc)
+
+#in the min max function to get the values between zero and 1 all values are NaN but maybe it's because of the NAN 
+
+
+```
+
+Now I'll normalize the values between zero and 1 for all the rest of the df 
+
+```{r}
+# put the df into a list
+df.list <- list(bb,ussc,mbo.47,mbo.160,fc)
+
+# normalize each df
+
+markers <- mbo.160$Marker
+#print(markers)
+
+col.names.markers <- c("AQP4","CD24","CD44","CD184","CD15", "HepaCam", "CD29","CD56","O4","CD140a", "CD133", "Glast",   "CD71")   
+
+norm.list <- lapply(df.list, function(x) {
+  #source.name <- df.names[df]
+  # get marker names
+  #markers <- as.vector(x['Marker'])
+  # make a df with no character to normalize
+  df.value <- x[0:13,3:13]
+  # create normalized matrix
+  zero.one <- apply(df.value, MARGIN = 1, FUN = function(X) (X - min(X, na.rm=TRUE))/diff(range(X, na.rm=TRUE)))
+  colnames(zero.one) <-col.names.markers
+  x <- zero.one
+
+  })
+
+#I now have a list of normized df 
+# I need to extract each dataframe, I'm not sure how to unlist and still get the name of the dataframe
+bb.norm <- norm.list[[1]]
+ucsc.norm <- norm.list[[2]]
+mbo.47.norm <- norm.list[[3]]
+mbo.160.norm <- norm.list[[4]]
+fc.norm <- norm.list[[5]]
+
+# check if the dataframes are correct
+bb.norm[1,2] # row, column
+ucsc.norm[1,2]
+mbo.47.norm[1,2]
+mbo.160.norm[1,2]
+fc.norm[1,2]
+
+head(bb.norm)
+head(ucsc.norm)
+head(mbo.47.norm)
+head(mbo.160.norm)
+head(fc.norm)
+# the tabels are now transposed
+# cell types are rows and Antibodies are columns
+
+
+```
+Now I have the following inputs:
+sc.pub this is the mean of 5 fetal brain, fetal midbrain and adult brain from HCL
+ucsc lots of cerebral organoids
+mbo.47 My scRNAseq data from 47 days MBO
+mbo.160 My scRNAseq from 160 days MBO
+bb  Brain total RNAseq from sorted brain cells Ben Barres
+fc Flow cytometery data with the antibody pannel but no CD184
+
+
+```{r}
+# I'll list these all together these are now matrix array 
+# I'll take the mean of the 6 and see if things how it looks
+df.list2 <- list(sc.pub, bb.norm,ucsc.norm,mbo.47.norm,mbo.160.norm,fc.norm)
+
+arr2 <- array(as.numeric(unlist(df.list2)), dim = c(11, 13, 6))
+
+all.matrix <- abind(arr2, along=3)
+rf.mean <- apply(all.matrix, c(1,2), mean,na.rm=TRUE)
+head(rf.mean)
+
+# I have some values now - I need to check them
+# make a vector of all the AQP4 at stem cell values
+aqp4 <- c(sc.pub[1,1],bb.norm[1,1],ucsc.norm[1,1],mbo.47.norm[1,1],mbo.160.norm[1,1],fc.norm[1,1])
+# take the mean
+mean.aqp4 = mean(na.omit(aqp4))
+mean.aqp4
+
+# add the column names back in - these are now the antibody names
+colnames(rf.mean) <- col.names.markers  
+# add the cell type names back in 
+rownames(rf.mean) <- cell.types
+head(rf.mean)
+
+# save the reference matrix
+write.csv(rf.mean, "ReferenceMatrix_meanof6_20210517_B.csv")
+
+```
+
+
+Try to plot the matrix
+
+```{r}
+# keep the original matrix 
+# then plot each matrix with this script
+A <- rf.mean
+
+longData<-melt(A)
+longData<-longData[longData$value!=0,]
+ggplot(longData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="Antibodies", y="Cell Types", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+
+png("ReferenceMatrix.png")
+ggplot(longData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="Antibodies", y="Cell Types", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+dev.off()
+
+
+```
+
+See some of the other matrix of expression
+
+```{r}
+# keep the original matrix 
+# then plot each matrix with this script
+# Ben Barres total seq
+# A <- bb.norm
+# HCL mean data
+#A <- sc.pub
+A<- fc.norm
+# MBO inhouse scRNA seq
+#A <- mbo.47.norm
+#A <- mbo.160.norm
+longData<-melt(A)
+longData<-longData[longData$value!=0,]
+ggplot(longData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="Antibodies", y="Cell Types", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+
+png("ReferenceMatrix.png")
+ggplot(longData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="Antibodies", y="Cell Types", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+dev.off()
+
+
+
+```
+
+
+
+
+
+
+```{r}
+# for fun try some other things from the tutorial 
+# try to cluster the matrix
+
+library(igraph)
+#define a graph that represented as adjacency matrix with matrix A
+g <- graph.incidence(A, weighted = TRUE)
+#cluster wit Louvain algorithm
+lou <- cluster_louvain(g)
+df.lou <- data.frame(lou$names,lou$membership)
+
+# After that join cluster information to longData that we want to plot.
+library(dplyr)
+
+#the same longData than earlier
+longData <- left_join(longData, df.lou, by=c("Var1"="lou.names"))
+colnames(longData)[4] <- "Var1_clust"
+longData$Var2 <- as.factor(longData$Var2)
+longData <- left_join(longData, df.lou, by=c("Var2"="lou.names"))
+colnames(longData)[5] <- "Var2_clust"
+longData$colour <- ifelse(longData$Var1_clust==longData$Var2_clust, longData$Var1_clust, 0)
+
+# now plot the cluster
+longData$Var1 <- factor(longData$Var1, levels=unique(arrange(longData, Var1_clust)[,1]))
+longData$Var2 <- factor(longData$Var2, levels=unique(arrange(longData, Var2_clust)[,2]))
+#levels must be names
+longData$colour <- factor(longData$colour)
+#for colours variabes must be factors (discrete scale) otherwise ggplot recognize it continous
+
+ggplot(longData, aes(x = Var2, y = Var1, fill=colour)) + 
+  geom_raster() + 
+  scale_fill_manual(values=c("grey80", "#B40404", "#0B6121", "#FFBF00", "blue")) +
+  labs(x="letters", y="LETTERS", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=0, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11),
+                     legend.text=element_text(size=7))
+
+
+
+```
+
+
+
+
+
+
+```{r}
+# testing the function for above 
+df.value <- fc[0:13,3:13]
+new <- apply(df.value, MARGIN = 1, FUN = function(X) (X - min(X, na.rm=TRUE))/diff(range(X, na.rm=TRUE)))
+head(new)
+
+```
+
+
+
+
+
+Now I'll take the mean values
+
+```{r}
+# we need to make an array
+#  It takes rows(x), columns(y), and a number of matrices of dimensions nrow * ncol(z).
+
+arr <- array(as.numeric(unlist(norm.list)), dim = c(13, 12, 5))
+
+
+all.matrix <- abind(arr, along=3)
+df.mean <- apply(all.matrix, c(1,2), mean,na.rm=TRUE)
+head(df.mean)
+
+# I have some values now - I need to check them against doing it individually in the matrices
+aqp4 <- c(bb.norm[1,2],ucsc.norm[1,2],mbo.47.norm[1,2],mbo.160.norm[1,2],fc.norm[1,2])
+mean.aqp4 = mean(na.omit(aqp4))
+mean.aqp4
+
+# yes it has worked but column 1 is the markers - which all turned into NaN
+
+# add the column names back in
+# get column names from an original matrix
+col.names.df <- as.vector(colnames(bb))
+colnames(df.mean) <- col.names.df 
+# remove the NaN column  "Marker"
+mean.exp <- df.mean[,2:12]
+# replace the antibody names
+# get the marker names
+markers <- as.vector(bb.norm['Marker'])
+mean.exp<- cbind(markers,mean.exp)
+head(mean.exp)
+
+```
+
+
+
+
+
+
+I want to visualize the data I'll need to make a 'long table'
+
+```{r}
+library(tidyr)
+df.long <- as.data.frame(pivot_longer(mean.exp, cols=2:12, names_to = "Cell Type", values_to = "Expression" ))
+
+write.csv(df.long, "scRNA_public_data_average_long.csv")
+
+test.df <- read.csv("scRNA_public_data_average_long.csv")
+
+test.df['Marker'] <- as.factor(test.df['Marker'])
+test.df['Cell.Type'] <- as.factor(test.df['Cell.Type'])
+
+ggplot(data= test.df, mapping = aes(x = 'Cell.Type', y= 'Expression', color= 'Marker')) + geom_boxplot()
+
+
+
+ggplot(test.df, aes(x = 'Marker', y= 'Cell Type')) +
+  geom_raster(aes(fill='Expression')) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="letters", y="LETTERS", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=0, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+
+  
+
+  
+```
+
+
+
+
+
+```{r}
+
+print(colnames(fb3))
+print(colnames(fb5))
+# column names were not the same
+fb5 <- fb5 %>% rename(Epithelial = Edpendymal.Epithealial)
+
+# rbind worked to join two df but it doesn't add anything automatically to indicate where the data came from these are just turning into replicates 
+# add source column
+fb5$Source <- "fb5"
+head(fb5)
+
+
+fb3 <- fb3 %>% rename(Epithelial = Edpendymal)
+# add source column for fb3
+fb3$Source <- "fb3"
+
+```
+Z-score each matrix get a mean of 0 and std of 1 
+
+```{r}
+
+sdat <- scale(fb3)
+
+
+rm.cat <- fb3 %>% select(-"Annotation",-"Marker",-"Source")
+scale.data <- scale(rm.cat)
+
+rowMeans(scale.data, na.rm = TRUE)
+colMeans(scale.data, na.rm = TRUE)
+
+tryrow <- apply(rm.cat,1,scale)
+rowMeans(tryrow, na.rm = TRUE)
+
+df <-rm.cat
+
+# margin is the dimension - 1 is rows and 2 is columns 
+
+# example of apply
+zscore <- apply(df, 1, max, na.rm = TRUE)
+
+zscore  
+# example of a function
+
+# z = y- mean(y) /std 
+
+# z = x - mean/ sd
+
+# this might work more easily if I transpose the table so I z score the columns
+tdf <- t(df)
+
+
+tdf$z1 <- (tdf[1] - mean(tdf[1], na.rm = TRUE))/ sd(tdf[1], na.rm = TRUE)
+
+
+zscorefun <- function(df) {
+  new.df <- 
+  return(new.df)
+}
+
+df.scale2 <- (apply(rm.cat, 1, x - mean/sd))
+
+```
+
+
+
+```{r}
+
+twodf <- rbind(fb3,fb5)
+head(twodf)
+
+# perfect this works
+# now I realize I need to z score first
+
+
+```
+

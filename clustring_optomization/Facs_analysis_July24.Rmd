@@ -1,0 +1,601 @@
+---
+title: "R Notebook"
+author: "A.Gestin"
+output: html_notebook
+---
+Important note: it is currently designed to be applied on living cells only with compensated data (flowJo)
+this workflow depends on packages: flowCore, flowWorkspace, flowTrans, ggplot2, ggridges, reshape2, rlist, stringr, Rlist, RphenoGraph, Rtsne and umap
+
+
+WORKFLOW : ---- This workflow is desgined for transforming aligning and clustering multiple flowcytometry data (.fcs) ----
+
+-import/install packages
+
+-reads in the data
+
+-Subsets
+
+-transform the data (3 transformations available: choose the biexp chunck for comparing multiple datasets, the others allows experimented R users to analyse each file separately)
+    -show a multiple densityplot that represents the data distribution
+    
+-alignment step (critical, probably needs user adjustment: chunck "Alignment")
+    -show 4 multiple densityplots: 1) raw data, 2) biexp transformed, 3) aligned and the retrotransformed(after alignment)
+
+-t-sne representation
+    -shows a lot of tsne
+
+-
+
+This chunck import the data. (Here is a particular example only area channels were available in one of the file. This example besides shows how to concatenate). 
+```{r,include=FALSE}
+require("flowCore")
+require("flowWorkspace")
+require("flowTrans")
+require("ggplot2")
+require("ggridges")
+require("stringr")
+require("rlist")
+require("scales")
+require("reshape2")
+require("Rtsne")
+require("umap")
+require("wadeTools")
+require("flowStats")
+require("gridExtra")
+require("scales")
+
+# for clustering we use Rphenograph which needs to be installed directly from the github of JinmiaoChen Lab
+if(!require(devtools)){
+  install.packages("devtools") # If not already installed
+}
+devtools::install_github("JinmiaoChenLab/Rphenograph")
+
+require("Rphenograph")
+
+source("basic_functions.R")
+
+data_path="/home/rhalena/Documents/Documents/MyPapers/FACS/New FCS files for bioinfo analysis/2020-04-20"
+#Set the working directory
+
+# make a flowset object - read in fcs
+exp=read.flowSet(path=data_path,transformation =FALSE ,emptyValue = FALSE,package="flowWorkspace")#reads in the data with flowWorkspace (you can use "flowCore" instead)
+# emptyValue = False doesn't consider empty rows
+
+# selecting channels with 'regular expression' to get the compensated channels specifically the area values
+exp=fsApply(exp,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(exp))]})#Select compensated channels and area values (regular expression)
+# this is still a flowset object but has only the things we want
+
+# if the data is located in a different space or you don't have the same type of fcs file exported (not complete) 
+# don't run if the data is all the same folder and has all measures
+
+#data_path="Documents/McGill_Neuro/Datasets/FACS_Paper/FIG2"
+# exp1=read.flowSet(path=data_path,transformation =FALSE ,emptyValue = FALSE,package="flowWorkspace")
+# exp1=fsApply(exp1,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(exp1))]})#SELECT COMPENSED CHANNELS AND AEA VALUES
+# exp=rbind2(exp,exp1) #FlowSet object
+```
+
+##Subsetting
+
+These chuncks allows you to subset the data. It is usefull for scaling experiments or lighten the data. 
+User have to set the "desired_size" value and run the last chunck
+```{r,include=FALSE}
+desired_size=1000
+```
+
+This chunck allows you to set the subsampling size to the number of cells in the smallest sample
+```{r,include=FALSE}
+desired_size=min(fsApply(exp,function(x){nrow(x@exprs)}))
+```
+
+Subsets the data
+```{r,echo=FALSE}
+set.seed(42) #Set a seed for reproducibility 
+sf=sampleFilter(filterId = "SizeFilter", size =desired_size)#establish a "filter" to subset
+exp=fsApply(exp,function(x){Subset(x,sf)})#apply the filter
+```
+
+Get a vector of the sample name of each sample  (MANDATORY! Run this)
+```{r}
+sample=getsample(exp)
+unique(sample)
+# make a function take the flowset and renames with user enter names
+# ...simple_sample <- c("newname","newname2","new ...")
+
+```
+
+##Transformation Step (Key step)
+
+This one allows the biexp transformation (that suits best for comparing multiple datasets)
+```{r,echo=FALSE}
+
+# creates a transformation object - the information you will transform with and apply to another object
+biexp  <- biexponentialTransform("myTransform")
+# now make the actual transformation
+expbe <- transform(exp, transformList(colnames(exp), biexp))
+```
+
+This one allows to transform with optimized parameters or arcsinh transform. The parameters are based on maximum likelyhood assuming a normal distribution (it suits best the clustering of each file separately, lit.)
+```{r,echo=FALSE}
+expmas=fsApply(exp, function(x){flowTrans(x,"mclMultivArcSinh"
+                                       ,colnames(x)[vapply(colnames(x), function(y) all(grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$", y)),logical(1))]
+                                       ,n2f = FALSE,
+                                       parameters.only = FALSE)$result} )
+```
+
+This one (with default parameters) is sensibly the same as biexp with default parameters. Those transformations gives equivalent results on clustering or manual gating
+```{r,echo=FALSE}
+asinh=arcsinhTransform(transformationId="defaultArcsinhTransform", a=1, b=1, c=0)
+expasinh=transform(exp, transformList(colnames(exp), asinh))
+```
+
+You can call the function on every flowset object as following
+```{r}
+# see plots
+plotdensity_flowset(rename_markers(exp))
+plotdensity_flowset(rename_markers(expbe))
+
+# save plot
+png(file="densityplot_expbe_rename.png",width=900*1.618,height=700)
+plotdensity_flowset(rename_markers(expbe))
+dev.off()
+
+
+```
+
+Now that the data is transformed, the intensities are distributed in an interpretable way. We can begin the alignment.
+
+##Alignment
+
+
+
+
+
+This chunck perform the alignment of the densitypeaks. It requires 2 calls of the function depending on the shape of the distribution. The plotting allows to be sure that the alignment performed well. If not, rerun the chunck by changing the peak.density.thr and the associated columns (2nd arg) for the alignment with 1 peak and for the alignment with 2 peaks.
+```{r}
+# this will align the channels with two peaks
+
+
+# the columns should be variables - the columns are the channels
+# we need to look at the data and choose which has 2 peaks and which has only 1
+# look at the markers
+
+getmarkersinfo(expbe)
+
+# look at the density plots decide which chanels have one or two peaks - then enter the the channels names 
+# need a table with column numbers and channel names
+# enter column numbers c(1,2,3,4,5)
+
+normtr=gaussNorm(expbe,colnames(expbe)[c(3,5:6,9:length(colnames(exp)))],max.lms = 2,peak.density.thr = 0.01)
+expbe_norm2=normtr$flowset
+
+#this will aligns 
+normtr=gaussNorm(expbe_norm2,colnames(expbe_norm2)[c(4,7:8)],max.lms = 1,peak.density.thr = 0.05)
+expbe_al=normtr$flowset
+
+#exp_al=fsApply(expbe_al,function(x){inv.biexp(x,params=colnames(x))})#Apply the retrotransformation. Require "wadetools" package
+
+png(file="densityplot_expbe_rename.png",width=900*1.618,height=700)
+plotdensity_flowset(rename_markers(expbe))
+dev.off()
+
+png(file="densityplot_expbe_al_rename.png",width=900*1.618,height=700)
+plotdensity_flowset(rename_markers(expbe_al))
+dev.off()
+
+
+```
+
+This gives an insight on the markers and their associated column in each .fcs file. Be carefull : the non consistency of marker names can lead to errors in the following steps. (visualize the caracteristic values of intensities per clusters)
+```{r}
+getmarkersinfo(exp) # we don't need this here
+```
+
+This chunck defines a tsne and umap for flowset functions that allows a z-score normalization and scaling, all the initial parameters of the tsne are reachable by calling the function as follows:
+
+-tsne_flowset(flowsetobject, scale = FALSE, colstoignore=c(1,2,9),dims = 2, perplexity=30, theta=0.5, verbose=FALSE, max_iter = 1000, eta=5288) #compute a tsne without consedering FSC SSC and LiveDead
+
+-umap_flowset(flowset,scale=FALSE, colstoignore=c(1,2)) #compute umap without considering FSC and SSC
+
+Warning: colstoignore corresponds to the markers to ignore. (Usually get rid of the LiveDead marker and size markers (FSC SSC - respectively 1 and 2) - debatable). If you don't know the corresponding columns, you can access the marker names by calling the flowCore function 'markernames(flowset)' (remember that FSC and SSC are not considered as markers and do not appears in the list) or 'getmarkersinfo(flowset)' for more informations
+
+You need to know the column numbers of what you want to ignore. 
+
+```{r}
+# variables can be adjust 
+# theta 0 is supposed to be best tSNE and 1 is the fastest
+# perplexity
+# max_iterations
+tsne_expbe=tsne_flowset(expbe_al,scale=TRUE,colstoignore = c(1,2,9) ,dims = 2, perplexity=150,theta=0.5, verbose=FALSE, max_iter = 1000,eta=300)
+plot_tsne(tsne_expbe,"tsne")
+saveRDS(tsne_expbe,file="REFERENCE_TSNE_1000_cell_example_expbe_al.RData")
+
+```
+
+```{r}
+library("umap")
+umap_expbe=umap_flowset(expbe_al,colstoignore=c(9),scale=TRUE)
+plot_umap(umap_expbe,"hasar")
+
+
+
+```
+
+------- Just for fun ---------
+```{r}
+library(car)
+library(rgl)
+tsne_expbe30=tsne_flowset(expbe_al,scale=TRUE,colstoignore = c(9) ,dims = 3, perplexity=30,theta=0.5, verbose=FALSE, max_iter = 1000,eta=500)
+colors=c("deepskyblue1","orange","violetred2","maroon2","brown2","dodgerblue","cyan","yellow3","darkgoldenrod2","brown3","maroon2","violetred2")
+expcounts=fsApply(exp,function(x){nrow(x)})
+cols3d=c()
+for (i in 1:length(expcounts)){
+  cols3d=append(cols3d, rep(colors[i],expcounts[i]))
+}
+scatter3d(x=tsne_expbe30$Y[,1],y=tsne_expbe30$Y[,2],z=tsne_expbe30$Y[,3],point.col=cols3d,surface=FALSE)
+```
+------------------------------
+
+Rphenograph Clustering
+
+This chunck define a function for applying the PhenoGraph method to a flowset. It allows to zscore normalize before computing the phenograph. It also defines a function for plotting the results of a phenograph clustering on a tsne. This chunck provides the table for cells distribution in the clusters/original files 
+```{r}
+library(Rphenograph)
+
+pheno_expbe_al=Rphenograph_flowset(expbe_al,colstoignore=c(1,2,9),k=350,scale=TRUE) #Apply the function
+sample_per_phenocluster(pheno_expbe_al)
+#png(file="phenograph_retroexp_scaled_clusters_redim.png",width=1000*1.618,height=1000)
+plot_pheno_clust(tsne_expbe, pheno_expbe_al,"Phenograph clustering (k=360) of biexp transformed aligned scaled values of 9 MBOs with 1578 cells each") #Apply, the line before and after the calling of the plot function are used for saving the file. Delete the "#" to make the line active
+#dev.off()
+#write.csv(res,file="/home/alx/Documents/McGill_Neuro/Scripts/FACS_clustering/table_retroexp_scaled_pheno_clustering.csv")
+```
+
+plot_pheno_clust(tsne_expbe, pheno_expbe_al,"Phenograph clustering (k=360) of biexp transformed aligned scaled values of 9 MBOs with 1578 cells each")
+
+This chunk applies the two functions.
+plot_marker_tsne(expbe_al,tsne_expbe,c(1,2,9))
+```{r}
+# pseudocolour for each channel on tSNE plot make above
+plot_marker_tsne(expbe_al,tsne_expbe,c(1,2,9))#Run it out of the chunck or for a nice result or save it directly
+
+# make a table of the mean expression per cluster
+# 
+mean_per_phenocluster(expbe_al,pheno_expbe_al,c(1,2,9))
+#You can save it by running the following line with adapted path. 
+
+#write.csv(tres,file="/home/alx/Documents/McGill_Neuro/Scripts/FACS_clustering/table_pheno_retro_clustering_marker.csv") 
+
+heatmap_cluster<-function(flowset, pheno_clustering,colstoignore){
+  expr=cbind(as.data.frame(list.rbind(lapply(as.list(flowset@frames),function(x){x=as.data.frame(x@exprs[,-c(colstoignore)])}))),as.factor(pheno_clustering[[2]]$membership))
+  expr=expr[order(expr$`as.factor(pheno_clustering[[2]]$membership)`),]
+  print(head(expr))
+  expr$cell=as.factor(c(1:nrow(expr)))
+  to_hm=as.data.frame(melt(expr))
+  colnames(to_hm)<-c("cluster","cell","marker","value")
+  to_hm=to_hm[order(to_hm$cluster),]
+  print(head(to_hm))
+  ggplot(to_hm,aes(x=cell,y=marker,fill=value))+geom_raster(size=0.5)+  scale_fill_gradient2(low="cyan2", high ="darkorchid3")+scale_x_discrete(labels=to_hm$cluster,position = "top")+theme(axis.text.x = element_blank())+facet_grid(~cluster,scales="free",drop=TRUE)
+}
+heatmap_cluster(expbe_al,pheno_expbe_al,c(1,2,9))
+```
+
+do.call("grid.arrange", c(myplots, ncol=nCol))
+
+
+#To assign these clusters to cell profiles automatically use the following chunck. User need to import an expected expression table by phenotype
+```{r}
+norm_cellpheno=read.csv(file="ExpessionCellPhenotypeTable3.csv")
+
+correlation=correlation_cluster_celltype(expbe_al,membership(pheno_expbe_al[[2]]),norm_cellpheno)
+df<-NULL
+df$assigned=colnames(correlation[,apply(correlation,1, function(x){which.max(x)})])
+df$cluster=rownames(correlation)
+df=as.data.frame(df)
+print(df)
+
+morrelation=melt(correlation)
+colnames(morrelation)<-c("Cluster","Cell_type","Pearson_correlation_score")
+ggplot(morrelation,aes(x=as.factor(Cell_type),y=as.factor(Cluster),fill=Pearson_correlation_score))+geom_raster(size=0.5)+  scale_fill_gradient2(low="cyan2", high ="darkorchid3")+scale_x_discrete(position = "top")
+
+```
+
+
+-----MANUAL ASSIGNMENT-----
+
+Read and compare zscore-normalized values of expected cell types to the zscore-normalized values of each cell
+
+This chunck loads and represents with a heatmap the given expected values for different phenotypes. We expect these values being between 0 and 1
+```{r}
+norm_cellpheno=read.csv(file="/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/ManualAnalysis/ExpessionCellPhenotypeTable3.csv")
+
+cellpheno=norm_cellpheno[,c(2:ncol(norm_cellpheno))]
+cellpheno$X=as.factor(cellpheno$X)
+mlt_cellpheno=melt(cellpheno)
+colnames(mlt_cellpheno)<-c("marker","phenotype","value")
+#png(file="/home/alx/Documents/McGill_Neuro/Scripts/FACS_clustering/phenotype_heatmap",width=400*1.618,height=400)
+ggplot(mlt_cellpheno,aes(x=phenotype,y=marker,fill=value))+geom_tile(size=0.5)+  scale_fill_gradient2(mid="steelblue2", high ="maroon2",breaks=c(0.2,0.8),labels=c("Low","High"), na.value = "grey50")+scale_x_discrete(position = "top")
+#dev.off()
+```
+
+This chunck defines and apply the "rename_channels" function which replaces the laser names by their associated marker. Please note that here the script use expbe_al, corresponding to the biexponential transformed aligned values, but you can use another data or transformations.
+```{r}
+
+rename_expbe_al=rename_markers(expbe_al)
+facsdata=lapply(as.list(rename_expbe_al@frames),function(x){x=as.data.frame(x@exprs[,-c(1,2,9)])})
+binded_facs_data=list.rbind(facsdata)
+
+binded_expr=as.data.frame(scale(as.matrix(binded_facs_data),scale=TRUE,center=TRUE))
+
+binded_expr=as.data.frame(apply(binded_expr,2, minmax_normalize))
+
+norm_cellpheno[is.na(norm_cellpheno)]=0
+# error duplicate rownames are not allowed
+rownames(norm_cellpheno)=toupper(norm_cellpheno$X)
+colnames(binded_expr)=toupper(colnames(binded_expr))
+
+intersect_markers=intersect(colnames(binded_expr),rownames(norm_cellpheno))
+intersect_markers=intersect_markers[order(intersect_markers)]
+
+norm_cellpheno=norm_cellpheno[intersect_markers,]
+binded_expr=binded_expr[,intersect_markers]
+
+corlist=t(apply(as.data.frame(binded_expr),1, assigntype, norm_cellpheno))
+
+colnames(corlist)=colnames(norm_cellpheno[,3:ncol(norm_cellpheno)])
+
+assignation=apply(corlist,1,function(x){
+  max=max(x)
+  if (max!=abs(max)){
+    return("Unassigned")
+  }
+  else{
+    return(colnames(corlist)[which.max(x)])
+  }
+})
+
+values=list()
+values$correlation=apply(corlist,1,function(x){max(x)})
+values$assignation=assignation
+values=as.data.frame(values)
+values$assignation=as.factor(values$assignation)
+
+
+
+data_summary <- function(x) {
+   m <- mean(x)
+   ymin <- m-sd(x)
+   ymax <- m+sd(x)
+   return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+ggplot(values,aes(x=assignation,y=correlation,color=assignation))+geom_violin(trim = FALSE) + stat_summary(fun.data=data_summary)+scale_color_manual(values = c("#36dee6", # bright blue
+            "#6d71d8", # blue
+            "#5c3788", # dark purple blue 
+            "#b1457b", # purple
+            "#ca73c6", # other purple
+            "#006400", # dark green
+            "#54b06c", # green
+            "#799e43", # olive green
+            "#c1a339", # yellow mustard
+            "#b86738", # orange
+            "Khaki3", 
+            "brown3",
+            "darkgrey"))
+
+
+tohm=cbind(as.data.frame(list.rbind(lapply(as.list(expbe_al@frames),function(x){x@exprs[,-c(1,2,9)]}))),as.factor(assignation))
+tohm=tohm[order(tohm$`as.factor(assignation)`),]
+tohm$cell=as.factor(c(1:nrow(tohm)))
+totohm=as.data.frame(melt(tohm))
+colnames(totohm)<-c("cluster","cell","marker","value")
+totohm=totohm[order(totohm$cluster),]
+
+
+ggplot(as.data.frame(assignation),aes(assignation,fill=assignation))+geom_histogram(stat="count")+scale_fill_manual(values = c("#36dee6", # bright blue
+            "#6d71d8", # blue
+            "#5c3788", # dark purple blue 
+            "#b1457b", # purple
+            "#ca73c6", # other purple
+            "#006400", # dark green
+            "#54b06c", # green
+            "#799e43", # olive green
+            "#c1a339", # yellow mustard
+            "#b86738", # orange
+            "Khaki3", 
+            "brown3",
+            "darkgrey"))
+```
+
+This chunck allows to assign cluster to celltype profiles given by the user
+```{r}
+correlation=correlation_cluster_celltype(expbe_al,membership(pheno_expbe_al[[2]]),norm_cellpheno)
+df<-NULL
+df$assigned=colnames(correlation[,apply(correlation,1, function(x){which.max(x)})])
+df$cluster=rownames(correlation)
+df=as.data.frame(df)
+print(df)
+
+morrelation=melt(correlation)
+colnames(morrelation)<-c("Cluster","Cell_type","Pearson_correlation_score")
+ggplot(morrelation,aes(x=as.factor(Cell_type),y=as.factor(Cluster),fill=Pearson_correlation_score))+geom_raster(size=0.5)+  scale_fill_gradient2(low="cyan2", high ="darkorchid3")+scale_x_discrete(position = "top")
+
+ggplot(as.data.frame(tsne_expbe$Y)) + geom_point(aes(x=tsne_expbe$Y[,1], y=tsne_expbe$Y[,2],col=assignment),size=0.5)+ guides(colour = guide_legend(override.aes = list(size=3)))+ scale_colour_manual(values  = c("#36dee6", # bright blue
+            "#6d71d8", # blue
+            "#5c3788", # dark purple blue 
+            "#b1457b", # purple
+            "#ca73c6", # other purple
+            "#006400", # dark green
+            "#54b06c", # green
+            "#799e43", # olive green
+            "#c1a339", # yellow mustard
+            "#b86738", 
+            "red"))+ggtitle("t-sne 9 organoids with 1578 cells each")
+
+
+```
+SOME PLOTS
+assignment=assignation
+
+ggplot(as.data.frame(tsne_expbe$Y)) + geom_point(aes(x=tsne_expbe$Y[,1], y=tsne_expbe$Y[,2],col=sample),size=0.5)+ guides(colour = guide_legend(override.aes = list(size=3)))+ scale_colour_manual(values  = c("#36dee6", # bright blue
+            "#6d71d8", # blue
+            "#5c3788", # dark purple blue 
+            "#b1457b", # purple
+            "#ca73c6", # other purple
+            "#006400", # dark green
+            "#54b06c", # green
+            "#799e43", # olive green
+            "#c1a339", # yellow mustard
+            "#b86738", 
+            "red"))+ggtitle("t-sne 9 organoids with 1578 cells each")
+
+ggplot(as.data.frame(tsne_expbe$Y)) + geom_point(aes(x=tsne_expbe$Y[,1], y=tsne_expbe$Y[,2],col=as.factor(membership(pheno_expbe_al[[2]]))),size=0.5)+ guides(colour = guide_legend(override.aes = list(size=3)))+ scale_colour_manual(values  = c("#36dee6", # bright blue
+            "#6d71d8", # blue
+            "#5c3788", # dark purple blue 
+            "#b1457b", # purple
+            "#ca73c6", # other purple
+            "#006400", # dark green
+            "#54b06c", # green
+            "#799e43", # olive green
+            "#c1a339", # yellow mustard
+            "#b86738" ,"darkorchid3","chocolate","chartreuse3","bisque3","aquamarine2","mediumspringgreen","peru","peachpuff4","yellowgreen","thistle2","olivedrab1","powderblue","rosybrown1","rosybrown3","lawngreen","mistyrose","gold4",
+            "red"))+ggtitle("t-sne 9 organoids with 1578 cells each")
+
+
+ggplot(values,aes(x=assignment,y=correlation,color=assignment))+geom_violin(trim = FALSE) + stat_summary(fun.data=data_summary)+scale_color_manual(values = c("#36dee6", # bright blue
+            "#6d71d8", # blue
+            "#5c3788", # dark purple blue 
+            "#b1457b", # purple
+            "#ca73c6", # other purple
+            "#006400", # dark green
+            "#54b06c", # green
+            "#799e43", # olive green
+            "#c1a339", # yellow mustard
+            "#b86738", # orange
+            "Khaki3", 
+            "brown3",
+            "darkgrey"))+ggtitle("Pearson correlation score")
+
+ggplot(totohm,aes(x=cell,y=marker,fill=value))+geom_raster(size=0.5)+  scale_fill_gradient2(low="cyan2", high ="darkorchid3")+scale_x_discrete(labels=totohm$cluster,position = "top")+theme(axis.text.x = element_blank())+facet_grid(~cluster,scales="free",drop=TRUE)+ggtitle("biexponential transformed aligned values of assigned cells")
+
+ggplot(as.data.frame(assignment),aes(assignment,fill=assignment))+geom_histogram(stat="count")+scale_fill_manual(values = c("#36dee6", # bright blue
+            "#6d71d8", # blue
+            "#5c3788", # dark purple blue 
+            "#b1457b", # purple
+            "#ca73c6", # other purple
+            "#006400", # dark green
+            "#54b06c", # green
+            "#799e43", # olive green
+            "#c1a339", # yellow mustard
+            "#b86738", # orange
+            "Khaki3", 
+            "brown3",
+            "darkgrey"))
+            
+```{r}
+  
+comp2max<-function(corvalues){
+  truemax=corvalues[which.max(corvalues)]
+  intervalue=corvalues[-which.max(corvalues)]
+  secondmax=intervalue[which.max(intervalue)]
+  return(truemax-secondmax)
+}
+
+maxdiff=apply(corlist, 1,comp2max)
+getmean=apply(corlist,1,function(x){mean(x)})
+res=maxdiff-getmean
+
+getmax=apply(corlist,1,function(x){max(x)})
+```
+
+
+2D CELLS ANALYSIS
+```{r}
+library(flowTrans)
+data_path="Documents/McGill_Neuro/Datasets/FACS_Paper/cell line/" #Set the path
+setwd('~/')#Set the working directory
+exp=read.flowSet(path=data_path,transformation =FALSE ,emptyValue = FALSE,package="flowWorkspace")#reads in the data with flowWorkspace (you can use "flowCore" instead)
+exp=fsApply(exp,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(exp))]})#Select compensated channels and area values (regular expression)
+
+set.seed(42) #Set a seed for reproducibility 
+sf=sampleFilter(filterId = "SizeFilter", size =1500)#establish a "filter" to subset
+exp=fsApply(exp,function(x){Subset(x,sf)})#apply the filter
+#plotdensity_flowset(exp)
+
+biexp  <- biexponentialTransform("myTransform")
+expbe <- transform(exp, transformList(colnames(exp), biexp))
+```
+
+```{r}
+getmarkersinfo(expbe)
+
+heatmap_flowset<-function(flowset){
+  expr=as.data.frame(list.rbind(lapply(as.list(rename_markers(flowset)@frames),function(x){as.data.frame(x@exprs)})))
+  print(head(expr))
+  expr$sample=as.factor(getsample(flowset))
+  expr$cell=as.factor(c(1:nrow(expr)))
+  expr=expr[,-c(1,2)]
+  expr$sample_f=factor(expr$sample,levels=unique(expr$sample))
+  m_expr=melt(expr)
+  colnames(m_expr)=c("sample","cell,","marker","value")
+  print(expr)
+  #print(ggplot(as.data.frame(m_expr),aes(x=m_expr$cell,y=marker,fill=value))+geom_raster(size=0.5)+  scale_fill_gradient2(low="cyan2", mid="plum1", high ="darkorchid3")+theme(axis.text.x = element_blank())+facet_grid(~expr$sample_f,scales="free_x",drop=TRUE))
+  #print(ggplot(as.data.frame(m_expr[which (m_expr$marker != "FSC" & m_expr$marker != "SSC"),]),aes(x=value,fill=sample))+geom_density(alpha=0.3)+facet_wrap(~marker))
+}
+a=as.data.frame(list.rbind(lapply(as.list(expbe@frames),function(x){as.data.frame(x@exprs)})))
+
+heatmap_flowset(expbe)
+
+repp=rename_channels(expbe)
+repp=list.rbind(lapply(as.list(expbe@frames),function(x){x@exprs}))
+sample=c()
+for (name in names(as.list(expbe@frames))){
+  sample=append(sample,rep(name, nrow(expbe[[name]]@exprs)))
+}
+
+
+
+pheno_ctbe=Rphenograph_flowset(expbe,colstoignore = c(1,2), k=350,scale=FALSE)
+
+stsne_ctbe=tsne_flowset(expbe,colstoignore=c(1,2),scale=FALSE,dims = 2, perplexity=30,theta=0.5, verbose=FALSE, max_iter = 1000,eta=500)
+
+png(file="/home/alx/Documents/McGill_Neuro/Scripts/FACS/phenotype_2D/phenotype_clustering_tsne.png",width=800*1.618,height=800)
+plot_pheno_clust(stsne_ctbe,pheno_ctbe,"phenotype clustering (k=350)")
+dev.off()
+
+sample=c()
+for (name in names(as.list(expbe@frames))){
+  sample=append(sample,rep(name, nrow(expbe[[name]]@exprs)))
+}
+
+colnames(stsne_ctbe$Y)<-c("X","Y")
+tsne_toplot=as.data.frame(stsne_ctbe$Y)
+tsne_toplot$sample=sample
+
+
+png(file="/home/alx/Documents/McGill_Neuro/Scripts/FACS/phenotype_2D/phenotype_tsne_sample.png",width=800*1.618,height=800)
+ggplot(as.data.frame(tsne_toplot))+geom_point(aes(x=X,y=Y,col=sample),size=0.5)+ guides(colour = guide_legend(override.aes = list(size=3)))+ scale_colour_manual(values  = c("deepskyblue1","orange","green","maroon2","dodgerblue","firebrick1","chartreuse3","violetred3"))+ggtitle("title")
+dev.off()
+
+totable=cbind(sample,pheno_ctbe[[2]]$membership)
+colnames(totable)=c("sample","cluster")
+totable=as.data.frame(totable)
+res=table(totable$sample,totable$cluster)
+write.csv(res,file="/home/alx/Documents/McGill_Neuro/Scripts/FACS/phenotype_2D/table_retroexp_scaled_pheno_clustering.csv")
+
+
+```
+
+
+```{r}
+library(randomForest)
+rename_channels(expbe)
+fullcelltype=list.rbind(lapply(as.list(expbe@frames),function(x){x@exprs}))
+``` 
+
+
+res
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

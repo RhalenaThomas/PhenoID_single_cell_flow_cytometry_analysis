@@ -1,0 +1,146 @@
+---
+title: "R Notebook Create Reference matrix"
+output: html_notebook
+---
+
+Here I will read in each of the datasets
+1. 2D Flow
+2. BenBarres bulk RNA from human isolated cells
+3. scRNAseq from in house MBO 47 days
+4. scRNAseq public data from human brain tissues - multiple datasets to be merged
+5. scRNAseq from public data from cerebral organoids
+
+Each dataset will normalized from 0-1
+
+```{r}
+# load libraries
+library(dplyr)
+library(ggplot2)
+
+```
+
+
+
+```{r}
+# I'll start with the scRNAseq from brain tissue because there are multiple datasets. From human cell landscape
+# values manually copied by cluster
+# all neuron averaged, all astrocytes averaged, all radial glia averaged. 
+
+fb3 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/fetalbrain3.csv")
+fb5 <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/fetalbrain5.csv")
+lake <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/Lake.csv")
+lamanno <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/lamanno.csv")
+zhang <- read.csv("/home/rhalena/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/HumanCellLandscape/zhang.csv")
+
+# column names each of the 5 HCL datasheets
+colnames(fb3)
+colnames(fb5)
+colnames(lake)
+colnames(lamanno)
+colnames(zhang)
+
+#cell_types
+
+```
+
+Transform values to be between 0 and 1 
+
+```{r}
+
+# select only numeric values  
+df <- fb3
+df.value <- df[0:13,3:13]
+
+
+zero.one <- apply(df.value, MARGIN = 2, FUN = function(X) (X - min(X))/diff(range(X)))
+
+# check that the function works 
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+print(colnames(fb3))
+print(colnames(fb5))
+# column names were not the same
+fb5 <- fb5 %>% rename(Epithelial = Edpendymal.Epithealial)
+
+# rbind worked to join two df but it doesn't add anything automatically to indicate where the data came from these are just turning into replicates 
+# add source column
+fb5$Source <- "fb5"
+head(fb5)
+
+
+fb3 <- fb3 %>% rename(Epithelial = Edpendymal)
+# add source column for fb3
+fb3$Source <- "fb3"
+
+```
+Z-score each matrix get a mean of 0 and std of 1 
+
+```{r}
+
+sdat <- scale(fb3)
+
+
+rm.cat <- fb3 %>% select(-"Annotation",-"Marker",-"Source")
+scale.data <- scale(rm.cat)
+
+rowMeans(scale.data, na.rm = TRUE)
+colMeans(scale.data, na.rm = TRUE)
+
+tryrow <- apply(rm.cat,1,scale)
+rowMeans(tryrow, na.rm = TRUE)
+
+df <-rm.cat
+
+# margin is the dimension - 1 is rows and 2 is columns 
+
+# example of apply
+zscore <- apply(df, 1, max, na.rm = TRUE)
+
+zscore  
+# example of a function
+
+# z = y- mean(y) /std 
+
+# z = x - mean/ sd
+
+# this might work more easily if I transpose the table so I z score the columns
+tdf <- t(df)
+
+
+tdf$z1 <- (tdf[1] - mean(tdf[1], na.rm = TRUE))/ sd(tdf[1], na.rm = TRUE)
+
+
+zscorefun <- function(df) {
+  new.df <- 
+  return(new.df)
+}
+
+df.scale2 <- (apply(rm.cat, 1, x - mean/sd))
+
+```
+
+
+
+```{r}
+
+twodf <- rbind(fb3,fb5)
+head(twodf)
+
+# perfect this works
+# now I realize I need to z score first
+
+
+```
+

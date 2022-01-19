@@ -1,0 +1,182 @@
+---
+title: "R Notebook Expression levels in house sequencing"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+# clear space 
+# load libraries
+
+rm(list=ls())
+library("ggplot2")
+library("Seurat")
+library("cowplot")
+library("clustree")
+
+library(dplyr)
+
+```
+
+
+
+```{r}
+# load data object 
+# This is the 2 organoids 47 days old
+
+MBO <- readRDS("/home/rhalena/scRNAseq/10Xoutput/Novemeber_2019/Vi_MNI_paper/org.combinedR2_clusters_names.rds")
+# remember to change working directory to where you want to save outputs
+setwd("~/Documents/Documents/MyPapers/FACS/Analysis/Reference_matrix/inhouseData")
+
+
+```
+
+```{r}
+# check the data to make sure it's the correct object
+dim(MBO)
+TSNEPlot(MBO) 
+
+
+```
+
+The cluster names have not been applied.  I'll add in the cluster names
+
+```{r}
+new.cluster.ids <- c("Radial Glia - 1", "Neurons - 1", "Mixed", "Neurons - 2", "Radial Glia - 2", "Oligos","Astrocytes","NPC")
+MBONames <- MBO
+names(new.cluster.ids) <- levels(MBONames)
+MBONames <- RenameIdents(MBO, new.cluster.ids)
+
+TSNEPlot(MBONames)
+```
+
+Now we will get the expression data for the genes corresponding to the antibody pannel
+
+```{r}
+marker_genes = c("AQP4",
+              "SLC1A3",
+              "HEPACAM",
+              "CD44",
+              "NGFR",
+              "NCAM1",
+              "CD24", 
+              "FUT4",
+              "CXCR4",
+              "PDGFRA",
+              "ITGB2",
+              "ITGB1",
+              "TF",
+              "NKX2-2",
+              "PROM1",
+              "MAP2"
+)
+
+# in reference matrix
+marker_genes = c("AQP4",
+              "SLC1A3",
+              "HEPACAM",
+              "CD44",
+              "NCAM1",
+              "CD24", 
+              "FUT4",
+              "CXCR4",
+              "PDGFRA",
+              "ITGB1",
+              "TF",
+              "NKX2-2",
+              "PROM1"
+)
+
+# I took the wrong gene for O4 
+# try another list like in the Ben Barres
+marker_genes = c(
+              "NKX2-2",
+              "NKX6-2",
+              "SOX17",
+              "SOX10",
+              "OLIG1",
+              "OLIG",
+              "MYT1",
+              "ZFP536",
+              "ZF{488"
+)
+
+
+
+# use seurate function mydatafetch
+
+expression <- FetchData(MBONames, vars = c("ident",marker_genes))
+expression
+# this is only taking from some genes not all
+
+
+
+```
+
+This expression matrix is not by cluster it just has the cluster names.  It is by cells.  Which is interesting because then we could count the number of cells expression a marker as well.  However for my purposed I want the mean expression values.
+
+```{r}
+# get mean expression values 
+
+
+ex <- as.tbl(expression)
+
+meanEx <- ex %>% group_by(ident) %>% summarise_all(.funs = c(mean="mean"))
+
+
+ 
+ 
+head(meanEx)
+
+write.csv(meanEx, "Mean_Gene_expression_O4proxylusterMBO47days_groupby.csv")
+
+
+
+```
+
+
+Now for the 160 days organoids
+
+```{r}
+MBO.names <- readRDS("/home/rhalena/scRNAseq/AST23_160dMBO_Feb2020/Analysis/April2021_analysis/ClusterMarkers_filter500andmt20/MBOintegratedClusterK75res1.8.names")
+
+# check the data to make sure it's the correct object
+dim(MBO.names)
+DimPlot(MBO.names) 
+
+# great all the cell names are there
+# it will be easier to group the neurons 
+Idents(MBO.names) <- "integrated_snn_res.1.8"
+new.cluster.ids.2 <- c("Radial_Glia", "Oligo", "Neuron", "Astrocyte", "Neuron" , "Endothelial", "Neuron", "Macrophage_Like","Neuron", "Pericyte","Neuron","Epithelial","Neural_Stem", "Neural_Plate", "Neural_Precursor")
+names(new.cluster.ids.2) <- levels(MBO.names)
+MBO.names <- RenameIdents(MBO.names, new.cluster.ids.2)
+DimPlot(MBO.names) 
+
+```
+Now I have the groups I want I'll get the expression from the gene list - same list as before
+
+```{r}
+# use seurate function mydatafetch
+
+expression160 <- FetchData(MBO.names, vars = c("ident",marker_genes))
+dim(expression160)
+
+
+# now groupby cell type and get the mean expression per cell types group
+
+ex <- expression160
+# groupb by the cell types and then take the mean for each column within the cell types
+meanEx <- ex %>% group_by(ident) %>% summarise_all(.funs = c(mean="mean"))
+# check if it worked
+head(meanEx)
+# it worked save the csv
+write.csv(meanEx, "Mean_Gene_expression__O4proxy_perclusterMBO160days_groupby.csv")
+
+```
+
+
+
+

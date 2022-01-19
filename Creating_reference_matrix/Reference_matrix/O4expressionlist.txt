@@ -1,0 +1,94 @@
+﻿Steps to creating the reference matrix
+
+1. Ben Barres mRNA from human brain tissues:
+
+df2 = select(df, Gene.symbol,Astrocytes,Neuron,Oligodendrocyte.Precursor.Cell,Newly.Formed.Oligodendrocyte,
+Myelinating.Oligodendrocytes,Microglia,Endothelial.Cells) 
+
+selected expression of genes:
+expression_list = df2 %>% filter(Gene.symbol == "Aqp4"| Gene.symbol == "Slc1a3"| Gene.symbol == "Hepacam" | Gene.symbol == "Cd44" | Gene.symbol == "Cd24a" | Gene.symbol == "Fut4" | Gene.symbol == "Cxcr4" | Gene.symbol == "Pdgfra" |Gene.symbol == "Itgb2" |
+Gene.symbol == "Tfrc" | Gene.symbol == "Prom1"| Gene.symbol == "Map2k2" | Gene.symbol == "Nes" | Gene.symbol == "Gfap")
+
+Saved the output.
+
+Reordered so that only the surface markers are at the top.  
+Take the mean of the new and old oligodendrocytes.
+I’ve kept the microglia for now. 
+
+Later I’ll read in the data an z-score and scale before making a large dataframe.
+
+Possible proxies for O4
+
+MYT1, NKX2.2, NKX6.2, SOX10, SOX17, ZFP488, ZFP536, OLIG1, OLIG2
+I will try NKX2.2, NKX6.2
+The expression in Lake brain has some NKX2.2 in astrocyte, high in oligos.  I will use NKX6-2 it is higher in oligo and opc and very low/none in astros. For the single cell HCL
+
+For the Ben Barres data I’m taking the whole list 
+
+
+2. Single cell sequencing.
+a) http://bis.zju.edu.cn/HCL/search.html   
+
+1. Took lake adult brain.
+Neurons: average of all neurons types except pukinji and granual cells
+astrocytes: average of two types
+
+b) fetal midbrain lamanno
+Neurons: took average of Sert, DA, GABA
+NPC = neuroblast
+Radial glia : average of three Rg 
+Neural crest: plate
+I’ll take Mg to mean microglia
+
+I’m also marker DA separately
+
+c) Brain adult temperal lobe1
+
+microglia – three
+not neurons so I didn’t take this
+
+d) zhang fetal brain
+very few clusters – stem cells, OPC, Neuron, Microglia, GABAergic neuron, astroctyte
+- take average of Neuron and GABAergic neurons
+
+e) fetal brain 3
+12 clusters:  2 proliferating cells – these I will average as stem cells
+Radial glia – two kinds average
+There is a neuron cluster and purkinje – Ill just take the neuron NEUROD6high
+One cluster is Erythoid cell – a blood cell type 
+
+f) fetal brain 5 – most cells
+12 clusters
+several blood cells and fibreblasts not taking measures
+One neuron cluster
+Ependymal counting as epithealia
+Proliferating cell – counting as stem cells
+Proliferating radial glia 
+no astrocytes
+
+
+UCSC Cell Browser – human cerebral organoids
+- I need to download the data – remake the clusters and search the gene list.
+Need the file names to download all the info the link doesn’t work 
+trying command line
+
+sudo wget --no-check-certificate  https://cells.ucsc.edu/organoidreportcard/organoids10X/organoidsmatrix_nonorm.txt.gz
+
+I need to take all the files probably
+- file is very large : it estimates 20minutes download.
+
+
+There are instructions to read things into R on the website
+
+
+
+
+
+
+
+
+
+
+
+
+
