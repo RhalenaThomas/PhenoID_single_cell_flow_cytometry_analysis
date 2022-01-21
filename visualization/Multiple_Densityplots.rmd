@@ -1,0 +1,96 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+FULL 
+```{r fig.height=20, fig.width=4}
+library(flowWorkspace)
+library(flowCore)
+library(stringr)
+library(gridExtra)
+library(reshape2)
+library(ggplot2)
+name="Multiple_Density" #Name of the plot
+data_path="Documents/McGill_Neuro/Datasets/FACS_Paper/gated_internal"
+setwd('~/')
+exp=read.flowSet(path=data_path,transformation =FALSE ,emptyValue = FALSE,package="flowWorkspace")
+exp=fsApply(exp,function(x){x[ ,grepl("A$",colnames(exp))]})#SELECT AREA VALUES
+exp=fsApply(exp,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}]",colnames(exp))]})#SELECT COMPENSATED CHANNELS
+```
+
+
+TRANSFORMATION WITH FLOWCORE
+```{r}
+biexp  <- biexponentialTransform("myTransform")
+exp <- transform(exp, transformList(colnames(exp), biexp))
+# FOR EVENTUAL SUBSETTING
+
+#sf=sampleFilter(filterId = "SizeFilter", size = 1000)
+#exp@frames$`bioinfo_export_neuron MAP2_MAP2-.fcs`=Subset(exp@frames$`bioinfo_export_neuron MAP2_MAP2-.fcs`,sf)
+#exp@frames$`bioinfo_export_neuron MAP2_MAP2.fcs`=Subset(exp@frames$`bioinfo_export_neuron MAP2_MAP2.fcs`,sf)
+```
+
+
+
+```{r}
+for (i in 1:length(exp)){
+  marker.names=exp[[i]]@parameters@data$desc
+  marker.names=lapply(marker.names,function(x){str_replace_all(x,"-","_")})
+  colnames(exp[[i]]@exprs)<-unlist(lapply(marker.names, function(x){sapply(str_split(x,"_"),head,1)}))
+}
+
+GFAP_pos=data.frame(exp@frames$`bioinfo_export_Astro GFAP_newGFAP+.fcs`@exprs)
+GFAP_neg=data.frame(exp@frames$`bioinfo_export_Astro GFAP_newGFAP-.fcs`@exprs)
+        
+flist=list(GFAP_pos[,c(8,12,3,5,13,14,4,10,11,6,7,9)],GFAP_neg[,c(8,12,3,5,13,14,4,10,11,6,7,9)])
+
+mlist=melt(flist)
+mlist$L1[mlist$L1==1]='GFAP+'
+mlist$L1[mlist$L1==2]='GFAP-'
+colnames(mlist)=c("variable","value","sample")
+                
+p1=ggplot(mlist, aes(x=value,fill=sample)) + geom_density(alpha=0.5) + facet_wrap(~variable,ncol=1,scales="free",shrink=FALSE) +theme_minimal()+scale_fill_manual(values=c( "grey", "#3C6BFB"))+   theme(axis.title=element_blank(), axis.text=element_blank(), axis.ticks= element_blank(),legend.position="none")
+
+
+MAP2_pos=as.data.frame(exp@frames$`bioinfo_export_neuron MAP2_MAP2.fcs`@exprs)
+MAP2_neg=as.data.frame(exp@frames$`bioinfo_export_neuron MAP2_MAP2-.fcs`@exprs)
+                  
+flist=list(MAP2_pos[,c(3,12,14,5,13,8,4,10,11,6,7,9)],MAP2_neg[,c(3,12,14,5,13,8,4,10,11,6,7,9)])
+                
+mlist=melt(flist)
+mlist$L1[mlist$L1==1]='MAP2+'
+mlist$L1[mlist$L1==2]='MAP2-'
+colnames(mlist)=c("variable","value","sample")
+                      
+p2=ggplot(mlist, aes(x=value,fill=sample)) + geom_density(alpha=0.5) +facet_wrap(~variable, ncol=1,scales="free",shrink=FALSE, strip.position = "top")+theme_minimal()+scale_fill_manual(values=c( "grey", "#77DD1C"))+   theme(axis.title=element_blank(), axis.text=element_blank(), axis.ticks= element_blank(),legend.position="none")
+
+NESTIN_pos=as.data.frame(exp@frames$`bioinfo_export_NPC Nestin_NewNestin+.fcs`@exprs)
+NESTIN_neg=as.data.frame(exp@frames$`bioinfo_export_NPC Nestin_NewNestin-.fcs`@exprs)
+                  
+flist=list(NESTIN_pos[,c(12,3,14,5,13,8,4,10,11,6,7,9)],NESTIN_neg[,c(12,3,14,5,13,8,4,10,11,6,7,9)])
+                    
+mlist=melt(flist)
+mlist$L1[mlist$L1==1]='NESTIN+'
+mlist$L1[mlist$L1==2]='NESTIN-'
+colnames(mlist)=c("variable","value","sample")
+                      
+p3=ggplot(mlist, aes(x=value,fill=sample)) + geom_density(alpha=0.5) +facet_wrap(~variable, ncol=1,scales="free",shrink=TRUE)+theme_minimal()+scale_fill_manual(values=c( "grey", "red")) + theme(axis.title=element_blank(), axis.text=element_blank(), axis.ticks= element_blank(),legend.position="none")
+
+plots=list(p1,p2,p3)
+pdf(file = paste0('/home/alx/Desktop/',name,'.pdf'),height=10,width=8)
+do.call("grid.arrange", c(plots, ncol=3,newpage=TRUE ))
+
+dev.off()
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

@@ -1,0 +1,25 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+After creating the flowset object try to cluster directly
+This is using 9MBO where I subset 9000 cells per cluster (one sample had less)
+
+FlowSOM recommends starting with the fcs files directly 
+
+
+```{r}
+
+BiocManager::install("FlowSOM")
+library("FlowSOM")
+
+```
+Clustering using scripts from past Rhalena/Alex notebooks
+
+
+
+
+
+
+
