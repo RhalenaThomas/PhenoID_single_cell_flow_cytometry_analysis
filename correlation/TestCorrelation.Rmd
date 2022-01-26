@@ -7,25 +7,136 @@ output: html_notebook
 
 ```{r}
 
-# read in the reference matrix
+# read in and reformat the reference matrix
 expected_val=read.csv(file="/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/ReferenceMatrix_meanof6_20210517_B.csv") 
 head(expected_val)
 dim(expected_val) # cell types by rows, columns by 
 #Format expected values to fit the old one
 expected_val=t(expected_val) #transpose the dataframe for fitting the previous way of making correlation
-# colnames are now row names: columns are 
+# colnames are now row names: columns are cell types AB are rows 
 colnames(expected_val) <- expected_val[1,]#give column names the right names
 
-expected_values=apply(as.data.frame(expected_val[-1,]),2, function(x){as.numeric(as.character(x))}) #change character to numeric values in a tortured way
+expected_values=apply(as.data.frame(expected_val[-1,]),2, function(x){as.numeric(as.character(x))}) #change character to numeric values in a tortured way, remove extra row from transpose
 rownames(expected_values)=rownames(expected_val[-1,]) #right rownames
-expected_values=expected_values[,colnames(expected_values)!="Pericyte" & colnames(expected_values) != "Microglial"] #get rid of microglia and pericytes
 
+# if we want to specific cell types from the matrix do so here
+#expected_values=expected_values[,colnames(expected_values)!="Pericyte" & colnames(expected_values) != "Microglial"] #get rid of microglia and pericytes
+
+expected_values=expected_values[,colnames(expected_values) != "Microglial"] #get rid of microglia 
 
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+Create the correlations
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+# set the output path
+output_path="/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/correlations"
+#2 functions to help
+minmax_normalize <- function(x, na.rm=TRUE){return((x- min(x[!is.na(x)])) /(max(x[!is.na(x)])-min(x[!is.na(x)])))}
+expected_values <- minmax_normalize(scale(expected_values)) #apply z-score normalization and minmax normalization (fit results between 0 and 1)
+
+compute_corr<-function(cell_profile,celltypes_profile){
+  celltypes=celltypes_profile[,c(1:ncol(celltypes_profile))] #2 because the first column of the given file is expected to be "annotation"
+  res=as.vector(apply(celltypes,2,function(x){
+    cor(cell_profile[which(!is.na(x))],x[which(!is.na(x))])}))#If a marker is "na" it won't be considered for computing the correlation coef
+  names(res)<-colnames(celltypes)
+  return(res)
+}
+
+# this takes in your flowset file - aligned or not 
+# I'll read in the saved csv file
+# all the samples will be in one dataframe
+
+
+
+facsdata=list.rbind(lapply(as.list(fs@frames),function(x){x=as.data.frame(x@exprs)})) #I had to remove the live-dead since it causes issues because names are not standardized between samples
+
+
+facsdata=as.data.frame(scale(as.matrix(facsdata),scale=TRUE,center=TRUE))#zscore by marker
+facsdata=as.data.frame(apply(facsdata,2, minmax_normalize))#minmax normalize
+rownames(expected_values)=toupper(rownames(expected_values))#Writes in upper case to make sure there is no mistake
+colnames(facsdata)=toupper(colnames(facsdata))#same
+
+
+intersect_markers=intersect(colnames(facsdata),rownames(expected_values))#Get common markers
+intersect_markers=intersect_markers[order(intersect_markers)]#alphabetical order so there is no mistake
+expected_values=expected_values[intersect_markers,]#ordering
+facsdata=facsdata[,intersect_markers]#ordering
+correlation_table=t(apply(facsdata,1,compute_corr,expected_values))#apply and store correlations by applying compute_corr function
+assignments=t(apply(correlation_table,1,function(x){names(sort(x, decreasing=T))}))#get the list from the most resembling phenotype to the least resembling phenotype
+
+dataf <- as.data.frame(correlation_table)
+dataf$assigned <- factor(assignments[,1])
+correlation_table[3,assignments[3,c(1,2)]]
+
+
+define_new_cell_type<-function(data_vector,threshold){
+  if(data_vector["delta"]<threshold){
+    return(paste(data_vector["assigned"],data_vector["second"],sep="_"))
+  }else{
+    return("None")
+  }
+  }
+
+replace.celltype <- function(data_vector){
+  if(data_vector["new_cell_type"]!="None"){
+    data_vector["new_correlation"] <- data_vector["new_cell_type"]
+    data_vector <- data_vector[-length(data_vector)]
+  }else{
+  data_vector=data_vector[-length(data_vector)]}
+}
+
+add.new_correlation <- function(data_vector,threshold){
+  if(data_vector["delta"]<threshold){
+    data_vector<-as.numeric(data_vector)
+    data_vector["new_celltype_correlation"] <- max(data_vector[-c(length(data_vector)-4:length(data_vector))])-(as.numeric(data_vector["delta"])/2)
+  }else{
+  data_vector["new_celltype_correlation"] <- data_vector[as.character(data_vector[["assigned"]])]}
+}
+
+#t.add.new_correlation <- function(data_vector,threshold){
+#  if(data_vector["delta"]<threshold){
+#    data_vector<-as.numeric(data_vector[1:(ncol(data_vector)-4)])
+#}}
+
+
+add_new_cell_type <- function(dataf,assignments,threshold=0.1,replace=FALSE){
+  data=cbind(dataf,assignments[,2])
+  colnames(data)[ncol(data)]<-"second"
+  delta=apply(data,1,function(x){return(as.numeric(x[as.character(x["assigned"])])-as.numeric(x[as.character(x["second"])]))})
+  data=cbind(data,delta)
+  new_cell_type=apply(data,1,define_new_cell_type,threshold)
+  res=cbind(data,new_cell_type)
+  if(replace==TRUE){
+    res=apply(res,1,replace.celltype)
+  }
+  #res=apply(res,1,add.new_correlation,threshold)
+  return(as.data.frame(res))
+  }
+
+data=add_new_cell_type(dataf,assignments,threshold = 0.05,replace=FALSE)
+
+data$batch=factor(unlist(lapply(rownames(data),function(x){unlist(str_split(x,"[.]"))[1]})))
+data$cell=factor(unlist(lapply(rownames(data),function(x){unlist(str_split(x,"[.]"))[2]})))
+
+mata=melt(data,id.vars=c("assigned","batch","cell"),measured.vars=colnames(data[,-c(ncol(data),ncol(data)-1,ncol(data)-2)]))
+colnames(mata)<-c("Assigned","Batch","cell","cell_type","correlation_value")
+
+mataf <- melt(dataf)
+colnames(mataf) <- c("assigned","cell_type","correlation_value")
+
+decreasingdelta <- t(apply(dataf[,colnames(dataf) != "assigned"],1,sort,decreasing=T))
+
+dondtw <- as.data.frame(lapply(c(1:(ncol(decreasingdelta)-1)),function(x){decreasingdelta[,x]-decreasingdelta[,x+1]}))
+colnames(dondtw) <- lapply(c(1:(ncol(decreasingdelta)-1)),function(x){c(x,x+1)})
+montw <- melt(dondtw)
+colnames(montw) <- c("delta","value")
+
+dataf$batch=factor(unlist(lapply(rownames(dataf),function(x){unlist(str_split(x,"[.]"))[1]})))
+dataf$cell_id=factor(unlist(lapply(rownames(dataf),function(x){unlist(str_split(x,"[.]"))[2]})))
+
+
+
+```
 

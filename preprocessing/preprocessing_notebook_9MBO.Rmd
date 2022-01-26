@@ -352,9 +352,12 @@ write.csv(mean_values,file="/Users/rhalenathomas/Documents/Data/FlowCytometry/Ph
 
 ```{r}
 # read in the reference matrix
-expected_val=read.csv(file="/home/alx/Downloads/ReferenceMatrix_meanof6_20210517_B.csv") 
+expected_val=read.csv(file="/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/ReferenceMatrix_meanof6_20210517_B.csv") 
+head(expected_val)
+dim(expected_val) # cell types by rows, columns by 
 #Format expected values to fit the old one
 expected_val=t(expected_val) #transpose the dataframe for fitting the previous way of making correlation
+# 
 colnames(expected_val) <- expected_val[1,]#give column names the right names
 
 expected_values=apply(as.data.frame(expected_val[-1,]),2, function(x){as.numeric(as.character(x))}) #change character to numeric values in a tortured way
