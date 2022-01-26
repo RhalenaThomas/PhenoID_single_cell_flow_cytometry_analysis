@@ -85,20 +85,24 @@ unique(metacl[fs$map$mapping[, 1]])
 ```{r}
 
 #a function that calculate 3 stats for k number of clustering
+# the silhouette stat takes too much memory and we will not run this for now.
+
 stats <- function(krange){
-  si_li <-list()
+ # si_li <-list()
   ch_li <-list()
   dbi_li <-list()
   
   for (k in krange) {
     
     #flowsom clustering, try each k in krange
-    metaClustering <- (metaClustering_consensus(fs$map$codes,k = k,seed=42))
+    metaClustering <- (metaClustering_consensus(fs$map$codes,k = k,seed=42)) # here we are clustering within the loop
+    # @Shuming we need to change this so that the loop can pull the results of clustering out of another data object
+    # how am I going to test the Seurat or Phenograph clustering?
 
     #calculate silhouette score
-    si <- silhouette(metaClustering[fs$map$mapping[, 1]],dist(m),)
+    #si <- silhouette(metaClustering[fs$map$mapping[, 1]],dist(m),)
 
-    si_li[k] <- mean(si[, 3])
+    #si_li[k] <- mean(si[, 3])
     
     #calculate Calinski-Harabasz index
     ch = calinhara(m,metaClustering[fs$map$mapping[, 1]],cn=max(metaClustering[fs$map$mapping[,1]]))
@@ -327,7 +331,7 @@ if(!require(devtools)){
 }
 devtools::install_github("JinmiaoChenLab/Rphenograph")
 
-#library(phenograph)
+library(Rphenograph)
 
 ```
 

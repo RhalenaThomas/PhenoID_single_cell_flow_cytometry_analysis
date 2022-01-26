@@ -1,0 +1,177 @@
+---
+title: "Test Rphenograph clustering Jan 25 2022"
+output: html_notebook
+---
+
+
+Load libraries - see what is needed as I go
+
+```{r}
+library(FlowSOM)
+#library(flowCore)
+#library(cluster)
+#library(fpc)
+#library(clv)
+library(Seurat)
+library(dplyr)
+library(Rphenograph)
+rm(list=ls())
+
+
+```
+
+Code from website to test installation and to figure out how the inputs work.
+
+```{r}
+iris_unique <- unique(iris) # Remove duplicates from original dataframe
+data <- as.matrix(iris_unique[,1:4]) # change to matrix
+Rphenograph_out <- Rphenograph(data, k = 45) # run function to get clusters
+# creates an object class List with two lists
+# [[1]] igraph has 10 lists
+# [[2]] communities list with 3 lists: membership, memberships, modularity
+
+modularity(Rphenograph_out[[2]]) # returns a single value must be a modularity calculation 
+membership(Rphenograph_out[[2]]) # I think this is which cluster a data point belongs to but what does the function do? This lets us see 3 groups with index numbers 1-149
+
+iris_unique$phenograph_cluster <- factor(membership(Rphenograph_out[[2]])) # add cluster IDs into original DF
+
+ggplot(iris_unique, aes(x=Sepal.Length, y=Sepal.Width, col=Species, shape=phenograph_cluster)) + geom_point(size = 3)+theme_bw()
+
+
+```
+
+The phenograph example works - Apply to the flow data
+
+```{r}
+# read in the data and create an expression matrix 
+
+#input file path, change if needed
+fileName <-"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
+
+# note: current matrix sample ID have cell index # attached. 
+
+df <- read.csv(fileName)
+head(df)
+print(dim(df)) # this is specific df has 73578 cells
+# the preprocessing output csv needs to be cleaned - it contains live dead, FSC, SSC and the sample column
+df2 <- df %>% select(-c("Live.Dead",FSC,SSC,X,Batch,cell))
+
+m <- as.matrix(df2) # make a matrix as input to phenograph
+
+
+```
+```{r}
+
+# Rphenograph seems to be just one function and we can adjust the K for number of neighbours
+Rphenograph_out_flow <- Rphenograph(m, k = 50)
+
+
+modularity(Rphenograph_out_flow[[2]])
+membership(Rphenograph_out_flow[[2]])
+
+# add cluster ID back into original df
+df$phenograph_cluster <- factor(membership(Rphenograph_out_flow[[2]]))
+
+# how many clusters are there?
+unique(df$phenograph_cluster)
+# 30 levels !!!! Way to many - because the k is low. 
+
+#ggplot(iris_unique, aes(x=Sepal.Length, y=Sepal.Width, col=Species, shape=phenograph_cluster)) + geom_point(size = 3)+theme_bw()
+
+```
+
+Try with a higher k
+
+```{r}
+# Rphenograph seems to be just one function and we can adjust the K for number of neighbours
+Rphenograph_out_flow <- Rphenograph(m, k = 271)
+
+
+modularity(Rphenograph_out_flow[[2]])
+membership(Rphenograph_out_flow[[2]])
+
+# add cluster ID back into original df
+df$phenograph_clusterk271 <- factor(membership(Rphenograph_out_flow[[2]]))
+
+
+# 30 levels !!!! Way to many - because the k is low. 
+
+```
+
+
+```{r}
+
+# how many clusters are there?
+unique(df$phenograph_clusterk271)
+# there are still 22 clusters 
+# computation time is much longer with higher K
+
+```
+
+```{r}
+
+# I'll have a look at the clustering quickly using two AB
+
+
+ggplot(df, aes(x=CD44, y=CD71, col = phenograph_clusterk271)) + geom_point(size = 1)+theme_bw()
+
+# can't tell much
+# I'll try and add the phenograph cluster indexs into the seurat object
+
+
+```
+
+
+Save the df with the phenograph cluster indexes to save time.
+
+```{r}
+write.csv(df,"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowsetdf+phenographk50k271.csv")
+
+
+```
+
+```{r}
+# seurat object made from the save input as the phenograph clustering
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/SeuratfromFlowsom.rds")
+
+# read in the df with the phenograph clustering
+df <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowsetdf+phenographk50k271.csv")
+
+# add the phenograph cluster indexes
+seu <- AddMetaData(object=seu, metadata=df$phenograph_clusterk271, col.name = 'Phenograph.k.271')
+
+```
+
+See some plots
+
+```{r}
+DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271")
+
+
+```
+
+```{r}
+# make a list of AB from the input df - can only use df if filter out all the exta parts
+print(colnames(df2))
+allAB <- colnames(df2)
+
+DoHeatmap(seu, features = allAB, group.by = "Phenograph.k.271")
+
+```
+```{r}
+
+DotPlot(seu, features = allAB, group.by = "Phenograph.k.271", cols = c("blue","red"))
+```
+
+```{r}
+DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "flowSOM.k.8")
+
+DoHeatmap(seu, features = allAB, group.by = "flowSOM.k.8")
+
+
+```
+
+Try to optimize UMAP to get better separation of groups
+
+
+
