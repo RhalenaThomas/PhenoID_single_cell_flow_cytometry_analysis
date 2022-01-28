@@ -170,8 +170,152 @@ DoHeatmap(seu, features = allAB, group.by = "flowSOM.k.8")
 
 
 ```
+Save seurat object with Phenograph and FlowSOM.k.8 clusters
+
+```{r}
+saveRDS(seu,"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/SeuratfromFlowsomPheno.rds" )
+
+```
+
+
 
 Try to optimize UMAP to get better separation of groups
+
+
+```{r}
+
+# UMAP parameter
+# n.neigbors or n_neighbors : number neighboring points for local approximation of manifult - larger give more global structur and looses detials
+
+# min.dist: detrimines how tightly embedded points are range from 0.001 - 0.5 : large values ensure embeeded points are evenly dist, small values otimse accuracy in local structures
+# metric
+# a 
+# b
+# dims
+# learning rate 
+
+# assay.use = "RNA" 
+# gene.use = allAB - this will run on the features instead of the PC
+
+# test n.neigbours 
+num.neighbors = c(30,50,100,150,200,250)
+
+for (ng in num.neighbors){
+  seu <- RunUMAP(seu, dims = 1:10, n.neighbors = ng)
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271"))
+}
+
+#n.neighbors doesn't make a big difference, I think higher numbers are better visually
+
+# test distances
+dist.opt = c(0.001,0.01,0.1,0.5)
+
+for (ds in dist.opt){
+  seu <- RunUMAP(seu, dims = 1:10, n.neighbors = 250, min.dist = ds)
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271"))
+}
+
+# low value for min.dist  push things apart more still a bit odd
+
+# try using the AB to cluster
+# this works better than the PCA
+
+seu <- RunUMAP(seu, dims = NULL, n.neighbors = 250, min.dist = 0.005, features = allAB, slot = 'scale.data')
+DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271")
+DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "RNA_snn_res.1")
+
+# try changing spread
+
+
+spread.opt <- c(0.1,0.5,0.75,1,5)
+a.opt <- c(830,5.07,2.51,1.58,0.14)
+b.opt <- c(1.93,1.0,0.93,0.90,0.81)
+
+for (i in 1:5){
+  seu <- RunUMAP(seu, dims = NULL, n.neighbors = 250, min.dist = 0.1 ,features = allAB, slot = 'scale.data', spread = spread.opt[i], a = a.opt[i], b = b.opt[i])
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271"))
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "RNA_snn_res.1"))
+}
+
+# again the seurat clustering looks better with larger spread
+# spread = 5 and min.dist = 0.1
+
+
+```
+
+```{r}
+
+resolutions = c("RNA_snn_res.0.1","RNA_snn_res.0.25","RNA_snn_res.0.5","RNA_snn_res.0.75","RNA_snn_res.1")
+
+for (res in resolutions){
+ print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = res))
+ 
+}
+
+
+
+```
+
+```{r}
+# run at a higher spread
+seu2 <- seu
+
+seu2 <- RunUMAP(seu2, dims = NULL, n.neighbors = 250, min.dist = 0.01 ,features = allAB, slot = 'scale.data', spread =10, a = 0.05, b = 0.8)
+
+
+```
+
+```{r}
+
+resolutions = c("RNA_snn_res.0.1","RNA_snn_res.0.25","RNA_snn_res.0.5","RNA_snn_res.0.75","RNA_snn_res.1")
+
+for (res in resolutions){
+ print(DimPlot(seu2, reduction = "umap", repel = TRUE, label = TRUE, group.by = res))
+ 
+}
+
+
+DimPlot(seu2, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271")
+
+# spread = 10 must be too high
+
+```
+
+```{r}
+
+
+spread.opt <- c(2,3,5)
+a.opt <- c(0.54,0.3,0.14)
+b.opt <- c(0.84,0.82,0.81)
+
+for (i in 1:5){
+  seu <- RunUMAP(seu, dims = NULL, n.neighbors = 250, min.dist = 0.001 ,features = allAB, slot = 'scale.data', spread = spread.opt[i], a = a.opt[i], b = b.opt[i])
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271"))
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "RNA_snn_res.1"))
+}
+
+# spread of 3 is best
+
+
+
+
+```
+
+```{r}
+
+# spread 3 
+
+dist.opt = c(0.001,0.005,0.01,0.05)
+
+for (ds in dist.opt){
+  seu <- RunUMAP(seu, dims = NULL, n.neighbors = 250, min.dist = ds ,features = allAB, slot = 'scale.data', spread = 3, a = 0.3, b = 0.82)
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "Phenograph.k.271"))
+  print(DimPlot(seu, reduction = "umap", repel = TRUE, label = TRUE, group.by = "RNA_snn_res.1"))
+}
+
+
+```
+
 
 
 
