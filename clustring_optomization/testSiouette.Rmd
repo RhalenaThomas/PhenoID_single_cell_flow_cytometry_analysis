@@ -1,0 +1,166 @@
+---
+title: "Cluster Parameters Louvain Seurat"
+output: html_notebook
+---
+
+Read in preprocessed csv created from fsc to flowset files 
+
+Create Seurat object
+Normalize or not and scale 
+Create UMAP - UMAP conditions already compared - used final conditions for UMAP - can change later
+Keep UMAP consistant across clustering method for comparative visualization
+
+run standard processing (make PCA) and cluster
+Later compare clustering with directly from AB no PCA 
+
+```{r}
+# set up environment
+library(FlowSOM)
+library(flowCore)
+library(cluster)
+library(fpc)
+library(clv)
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+rm(list=ls())
+
+```
+Take in the data from the preprocessing output and create the expression matrix
+
+```{r}
+# input pathway
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
+
+# read in data
+df <- read.csv(input_path)
+# print info to log 
+print(dim(df)) # this is specific df has 73578 cells
+# the preprocessing output csv needs to be cleaned - it contains live dead, FSC, SSC and the sample column
+print(colnames(df))
+# create a df with just the expression 
+# need a way to automate this selection 
+# I only want the expression values
+df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71"))
+# the order of the DF is set by the order the colunms are written above
+
+m <- as.matrix(df2) 
+
+range(df2)
+
+
+
+
+```
+
+
+
+Make the starting seurat object
+
+```{r}
+# add expression values to the seurat object
+# transpose the df
+tm <- t(df2)
+rownames(tm) <- colnames(df2)
+colnames(tm) <- rownames(df2)
+seu <- CreateSeuratObject(tm) # create a seurat object 
+
+# add the meta data back in for sample groups
+seu <- AddMetaData(object=seu, metadata=df$Batch, col.name = 'Batch')
+# this doesn't work for making levels
+
+# create the vector for the antibodies names for feature plotting later
+AB <- colnames(df2)
+
+# add to scale data slot
+seu <- ScaleData(seu)
+
+# check the data
+DoHeatmap(seu, group.by = "Batch", features = AB) 
+
+
+
+
+```
+
+
+```{r}
+# PCA 
+# find neighbours needs PCA input 
+seu <- RunPCA(seu, features = AB, npcs = 25)
+
+# check out the PCA
+
+VizDimLoadings(seu, dims = 1:2, reduction = "pca")
+DimPlot(seu, reduction = "pca", group.by = "Batch")
+ElbowPlot(seu)
+# there are only 13 inputs use dims = 13
+
+
+```
+
+
+
+Loop to cluster at different kn and resolultions, make plots and calculate statistics
+
+```{r}
+
+# change to proper pathway
+output_path = "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/flowset/"
+
+kn = c(25,50,100,150,200,250,300)
+resolutions = c(0.01,0.1,0.25,0.5,0.75,1.0,1.5,2)
+
+# save a data object for each kn - will only keep temporarily
+# the clusters will write over with each new kn
+
+kn = 25
+resolutions = 0.5
+
+for (i in kn){
+  seu <- FindNeighbors(seu, dims = 1:12, k = i)
+  seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
+  # save feature plots of this UMAP
+  # just for testing print
+  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1))
+  # file name
+  UMAP_name = paste("UMAPfeatures_kn",i,".pdf",sep="")
+  print(UMAP_name) #testing 
+  # save feature plots UMAP
+  pdf(paste(output_path,UMAP_name,sep=""),width =10, height = 5)
+  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1))
+  dev.off()
+  
+  for (j in resolutions) {
+    seu <- FindClusters(seu, resolution = j)
+    
+    # calculate the statistics
+    # silouette
+    # CHI
+    # Davies
+    
+    # send stats to stats_list (or df or whatever works)
+    
+    # make plots
+    # UMAP
+    UMAP_name = paste("UMAPclusters_kn",i,"_res_",j,".pdf",sep="")
+  print(UMAP_name) #testing 
+   pdf(paste(output_path,UMAP_name,sep=""),width =5, height = 5)
+  # save UMAP grouped
+  print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE)) # will automatically group by active ident
+  dev.off()
+    # heatmap
+  print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE))
+
+    # save stats for each resolution
+    # write.csv(stats_list, paste(output_path,list_name,sep=""))
+  }
+  # save seurat object
+  seu_name = paste("SeuratObject",i,"rds",sep="")
+  saveRDS(seu, paste(output_path,seu_name,sep=""))
+   # make clustree plot
+  # save all stats outputs for each kn
+}
+
+```
+
