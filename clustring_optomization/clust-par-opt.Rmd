@@ -117,6 +117,8 @@ resolutions = c(0.01,0.1,0.25,0.5,0.75,1.0,1.5,2)
 kn = 25
 resolutions = 0.5
 
+ch_li <-list()
+
 for (i in kn){
   seu <- FindNeighbors(seu, dims = 1:12, k = i)
   seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
@@ -137,6 +139,9 @@ for (i in kn){
     # calculate the statistics
     # silouette
     # CHI
+    ch = calinhara(m,seu@meta.data$seurat_cluster, )
+    ch = calinhara(m,seu@meta.data$seurat_clusters,length((unique(seu@meta.data$seurat_clusters))))
+    ch_li[j] <- ch
     # Davies
     
     # send stats to stats_list (or df or whatever works)
