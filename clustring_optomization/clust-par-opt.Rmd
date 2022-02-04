@@ -31,6 +31,8 @@ Take in the data from the preprocessing output and create the expression matrix
 ```{r}
 # input pathway
 input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
+# output path
+output_path = "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/flowset/"
 
 # read in data
 df <- read.csv(input_path)
@@ -76,7 +78,8 @@ AB <- colnames(df2)
 seu <- ScaleData(seu)
 
 # check the data
-DoHeatmap(seu, group.by = "Batch", features = AB) 
+pdf()
+print(DoHeatmap(seu, group.by = "Batch", features = AB))
 
 
 
@@ -114,8 +117,8 @@ resolutions = c(0.01,0.1,0.25,0.5,0.75,1.0,1.5,2)
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
 
-kn = 25
-resolutions = 0.5
+kn = c(25,50,100)
+resolutions = c(0.01,0.1,0.25,0.5)
 
 ch_li <-list()
 
@@ -154,7 +157,11 @@ for (i in kn){
     print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE)) # will automatically group by active ident
   dev.off()
     # heatmap
-  print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE))
+   heatmap_name = paste("Heatmapclusters_kn",i,"_res_",j,".pdf",sep="")
+   #testing 
+   pdf(paste(output_path,heatmap_name,sep=""),width =8, height = 5)
+   print(DoHeatmap(seu, features = AB))
+   dev.off()
 
     # save stats for each resolution
     # write.csv(stats_list, paste(output_path,list_name,sep=""))
