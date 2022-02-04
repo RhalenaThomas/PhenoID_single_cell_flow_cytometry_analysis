@@ -124,13 +124,13 @@ for (i in kn){
   seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
   # save feature plots of this UMAP
   # just for testing print
-  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1))
+  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1) + theme(plot.title = element_text(size = 0.1)))
   # file name
   UMAP_name = paste("UMAPfeatures_kn",i,".pdf",sep="")
   print(UMAP_name) #testing 
   # save feature plots UMAP
   pdf(paste(output_path,UMAP_name,sep=""),width =20, height = 10)
-    print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1))
+    print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
   dev.off()
   
   for (j in resolutions) {
@@ -139,7 +139,6 @@ for (i in kn){
     # calculate the statistics
     # silouette
     # CHI
-    ch = calinhara(m,seu@meta.data$seurat_cluster, )
     ch = calinhara(m,seu@meta.data$seurat_clusters,length((unique(seu@meta.data$seurat_clusters))))
     ch_li[j] <- ch
     # Davies
@@ -166,6 +165,13 @@ for (i in kn){
    # make clustree plot
   # save all stats outputs for each kn
 }
+
+```
+
+
+```{r}
+
+print(AB)
 
 ```
 
