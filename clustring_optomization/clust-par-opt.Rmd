@@ -78,9 +78,9 @@ AB <- colnames(df2)
 seu <- ScaleData(seu)
 
 # check the data
-pdf()
+pdf(paste(output_path,"Heatmap_batch.csv",sep=""),width =8, height = 6)
 print(DoHeatmap(seu, group.by = "Batch", features = AB))
-
+dev.off()
 
 
 
