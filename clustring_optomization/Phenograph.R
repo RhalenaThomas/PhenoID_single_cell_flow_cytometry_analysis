@@ -76,17 +76,16 @@ dbi_li <-list()
 
 
 
-########## function for stats if you (shuming want)
-
+########## function for stats if Shuming makes function ##### then run in the loop or at the end
 
 
 
 
 ############################# loop to explore parameters ########################################
 
-
-kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
-# larger kn fewer clusters
+kn = c(300,375,250,225,200,175,150,125,100,75,50,25)
+# kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
+# larger kn fewer clusters in general but not always
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
@@ -159,7 +158,7 @@ for (i in kn){
 
 
   # make clustree plot
-pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =8, height = 8)
+pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =15, height = 10)
 print(clustree(seu, prefix ='Pheno.kn.'))
 dev.off()
 
