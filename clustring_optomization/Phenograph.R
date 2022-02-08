@@ -163,4 +163,4 @@ print(clustree(seu, prefix ='Pheno.kn.'))
 dev.off()
 
 # save the Seurat object
-saveRDS(paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
+saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
