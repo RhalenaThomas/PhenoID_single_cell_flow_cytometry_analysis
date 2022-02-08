@@ -12,6 +12,8 @@ library(clv)
 library(Seurat)
 library(dplyr)
 library(ggplot2)
+library(Rphenograph)
+library(clustree)
 
 ############# set up the data object for clustering ############################
 
@@ -21,7 +23,7 @@ library(ggplot2)
 input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Pheno/"
 # add input description to ouptput files
 input_name <- "Flowset"  # this will be the different processing types
 
@@ -84,21 +86,16 @@ dbi_li <-list()
 
 
 kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
-
+# larger kn fewer clusters
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
-
-kn = c(50,100)
-
 
 
 for (i in kn){
   seu <- FindNeighbors(seu, dims = 1:12, k = i)
   seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
   # save feature plots of this UMAP
-  # just for testing print
-  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1) + theme(plot.title = element_text(size = 0.1)))
   # file name
   UMAP_name = paste("UMAPfeatures_kn",i,".pdf",sep="")
   print(UMAP_name) #testing 
@@ -107,20 +104,26 @@ for (i in kn){
   print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
   dev.off()
   
+  # see how the sample alignment looks
+  UMAP_name = paste("UMAPfeatures_kn",i,"batch.pdf",sep="")
+  print(UMAP_name) #testing 
+  # save feature plots UMAP
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 5)
+  print(DimPlot(seu, group.by = 'Batch'))
+  dev.off()
+  
   ### run phenograph clustering
   Rphenograph_out_flow <- Rphenograph(m, k = i)
-  
-  modularity(Rphenograph_out_flow[[2]])
-  membership(Rphenograph_out_flow[[2]])
   
   # add cluster ID back into original df  - this won't work in the loop the column name needs to be the kn
   df$phenograph_cluster <- factor(membership(Rphenograph_out_flow[[2]]))
   
-  clust_name = paste('Pheno.k.',i,sep="")
+  clust_name = paste('Pheno.kn.',i,sep="")
   # add the cluster ID into seurat object to visualize
   seu <- AddMetaData(object=seu, factor(membership(Rphenograph_out_flow[[2]])), col.name = clust_name) 
 
   ### make umap 
+  
   UMAP_name = paste("UMAPclusters_kn",i,".pdf",sep="")
   print(UMAP_name) #testing 
   pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 5)
@@ -139,8 +142,8 @@ for (i in kn){
     # calculate the statistics
     # silouette
     # CHI
-    ch = calinhara(m,seu@meta.data$seurat_clusters,length((unique(seu@meta.data$seurat_clusters))))
-    ch_li[j] <- ch
+    #ch = calinhara(m,seu@meta.data$clust_name,length((unique(seu@meta.data$clust_name))))
+    #ch_li[i] <- ch
     # Davies
     
     # send stats to stats_list (or df or whatever works)
@@ -150,31 +153,15 @@ for (i in kn){
     
     # save stats for each resolution
     # write.csv(stats_list, paste(output_path,list_name,sep=""))
+  
   }
-  # save df with Phenograph cluster indexes
+ 
+
 
   # make clustree plot
-
-  # save all stats outputs for each kn
-
-
-
-
-############################## Plot outputs ########################################
-
-#silhouette score: ranges from -1  to 1 
-#-1: bad clusters  0: neutral, indifferent  1: good clusters
-#plot(krange, type='b', li[[1]][krange], xlab='Number of clusters', ylab='Average Silhouette Scores', frame=TRUE)
-
-#Calinski-Harabasz index: 
-# the highest value is the optimal number of clusters
-pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""))
-print(plot(krange, type='b',ch_li[[1]][krange], xlab='Number of clusters', ylab='Calinski-Harabasz index', frame=TRUE))
-dev.off()
-#Davies–Bouldin index: minimum score is zero
-#the lowest value is the optimal number of clusters
-pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""))
-print(plot(krange, type='b', dbi_li[[2]][krange], xlab='Number of clusters', ylab='Davies–Bouldin index', frame=TRUE))
+pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =8, height = 8)
+print(clustree(seu, prefix ='Pheno.kn.'))
 dev.off()
 
-
+# save the Seurat object
+saveRDS(paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
