@@ -63,6 +63,7 @@ dm <- dist.matrix(m, as.dist = TRUE)
 # ideas to solve dist matrix problem:
 # 1 calculate in python and save csv then read as.dist
 # 2 after clustering get out the expression matrix and the cluster ideas make a df subset rows (2500), separate into expression matrix and cluster ID vectors, calculate dist matrix and input into the silouette function. 
+# 3. email Saied maybe he knows a better
 
 #try scaling
 # SOM = self organizing map, MST = minimal spanning tree

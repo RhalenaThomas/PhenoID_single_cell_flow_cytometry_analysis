@@ -21,7 +21,7 @@ library(clustree)
 input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/FlowSOM/"
 # add input description to ouptput files
 input_name <- "Flowset"  # this will be the different processing types
 
@@ -41,6 +41,7 @@ print(colnames(df))
 df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71"))
 # the order of the DF is set by the order the colunms are written above
 # create a matrix for later
+print(colnames(df2))
 m <- as.matrix(df2) 
 
 # create the flowframe
@@ -82,24 +83,25 @@ seu <- RunPCA(seu, features = AB, npcs = 25)
 
 
 # here k is the number of clusters
-k = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)
+krange = c(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)
 
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
 
 
-for (i in k){
+for (i in krange){
   # K is the number of clusters not the kn input
   # I'll scale the kn with the k
   kn = i*10
+  print(kn)
   seu <- FindNeighbors(seu, dims = 1:12, k = kn)
   seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn)
   # save feature plots of this UMAP
   # just for testing print
-  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1) + theme(plot.title = element_text(size = 0.1)))
+ 
   # file name
-  UMAP_name = paste("UMAPfeatures_k",i,".pdf",sep="")
+  UMAP_name = paste("UMAPfeatures_k",kn,".pdf",sep="")
   print(UMAP_name) #testing 
   # save feature plots UMAP
   pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
@@ -107,12 +109,12 @@ for (i in k){
   dev.off()
   
   ### run flowSOM clustering 
-  metaClustering <- (metaClustering_consensus(fs$map$codes,k = i,seed=42))
-  
+  flowSOMcluster <- (metaClustering_consensus(fs$map$codes,k = i,seed=42))
+  # gives error - I don't know why
   # name the clustering 
   clust_name = paste('FlowSom.k.',i,sep="")
   # add the cluster ID into seurat object to visualize
-  seu <- AddMetaData(object=seu, metadata=metaClustering[fs$map$mapping[,1]], col.name = clust_name)
+  seu <- AddMetaData(object=seu, metadata= flowSOMcluster[fs$map$mapping[,1]], col.name = clust_name)
  
   
   ### make umap 
@@ -156,6 +158,6 @@ print(clustree(seu, prefix ='FlowSom.k.'))
 dev.off()
 
 # save the Seurat object
-saveRDS(paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
+saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
 
 

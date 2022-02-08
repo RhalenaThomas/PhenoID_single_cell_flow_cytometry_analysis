@@ -12,6 +12,7 @@ library(clv)
 library(Seurat)
 library(dplyr)
 library(ggplot2)
+library(clustree)
 
 ############# set up the data object for clustering ############################
 
@@ -21,7 +22,7 @@ library(ggplot2)
 input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Louvain/"
 # add input description to ouptput files
 input_name <- "Flowset"  # this will be the different processing types
 
@@ -69,8 +70,8 @@ seu <- RunPCA(seu, features = AB, npcs = 25)
 ############################## explore parameters and calculate statistics ###########################
 
 # stats stuff - Shuming adjust 
-ch_li <-list()
-dbi_li <-list()
+#ch_li <-list()
+#dbi_li <-list()
 
 
 
@@ -83,28 +84,30 @@ dbi_li <-list()
 ############################# loop to explore parameters ########################################
 
 
-kn = c(25,50,100,150,200,250,300)
+kn = c(25,50,100,125,150,200,250,300)
 resolutions = c(0.01,0.1,0.25,0.5,0.75,1.0,1.5,2)
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
 
-kn = c(25,50,100)
-resolutions = c(0.01,0.1,0.25,0.5)
+
 
 
 for (i in kn){
   seu <- FindNeighbors(seu, dims = 1:12, k = i)
   seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
   # save feature plots of this UMAP
-  # just for testing print
-  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1) + theme(plot.title = element_text(size = 0.1)))
   # file name
   UMAP_name = paste("UMAPfeatures_kn",i,".pdf",sep="")
-  print(UMAP_name) #testing 
   # save feature plots UMAP
   pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
   print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
+  dev.off()
+  
+  # look at batches
+  UMAP_name = paste("UMAPbatches_kn",i,".pdf",sep="")
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+  print(DimPlot(seu,group.by = 'Batch',label.size = 1))
   dev.off()
   
   for (j in resolutions) {
@@ -113,8 +116,8 @@ for (i in kn){
     # calculate the statistics
     # silouette
     # CHI
-    ch = calinhara(m,seu@meta.data$seurat_clusters,length((unique(seu@meta.data$seurat_clusters))))
-    ch_li[j] <- ch
+    #ch = calinhara(m,seu@meta.data$seurat_clusters,length((unique(seu@meta.data$seurat_clusters))))
+    #ch_li[j] <- ch
     # Davies
     
     # send stats to stats_list (or df or whatever works)
@@ -137,9 +140,15 @@ for (i in kn){
     # save stats for each resolution
     # write.csv(stats_list, paste(output_path,list_name,sep=""))
   }
+  
+  # run clustree
+  pdf(paste(output_path,input_name,clust_method,"kn",i,'Clustree.pdf',sep=""),width =15, height = 10)
+  print(clustree(seu, prefix ='RNA_snn_res.'))
+  dev.off()
+  
   # save seurat object
-  seu_name = paste("SeuratObject",i,"rds",sep="")
-  saveRDS(seu, paste(output_path,seu_name,sep=""))
+  seu_name = paste("SeuratObject",i,".Rds",sep="")
+  saveRDS(seu, paste(output_path,input_name,clust_method,seu_name,sep=""))
   # make clustree plot
   # save all stats outputs for each kn
 }
@@ -152,15 +161,15 @@ for (i in kn){
 #-1: bad clusters  0: neutral, indifferent  1: good clusters
 #plot(krange, type='b', li[[1]][krange], xlab='Number of clusters', ylab='Average Silhouette Scores', frame=TRUE)
 
-#Calinski-Harabasz index: 
-# the highest value is the optimal number of clusters
-pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""))
-print(plot(krange, type='b',ch_li[[1]][krange], xlab='Number of clusters', ylab='Calinski-Harabasz index', frame=TRUE))
-dev.off()
-#Davies–Bouldin index: minimum score is zero
-#the lowest value is the optimal number of clusters
-pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""))
-print(plot(krange, type='b', dbi_li[[2]][krange], xlab='Number of clusters', ylab='Davies–Bouldin index', frame=TRUE))
-dev.off()
+# #Calinski-Harabasz index: 
+# # the highest value is the optimal number of clusters
+# pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""))
+# print(plot(krange, type='b',ch_li[[1]][krange], xlab='Number of clusters', ylab='Calinski-Harabasz index', frame=TRUE))
+# dev.off()
+# #Davies–Bouldin index: minimum score is zero
+# #the lowest value is the optimal number of clusters
+# pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""))
+# print(plot(krange, type='b', dbi_li[[2]][krange], xlab='Number of clusters', ylab='Davies–Bouldin index', frame=TRUE))
+# dev.off()
 
 
