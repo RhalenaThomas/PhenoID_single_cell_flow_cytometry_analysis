@@ -76,7 +76,7 @@ print(DoHeatmap(seu, group.by = "Batch", features = AB))
 dev.off()
 
 # create the UMAP
-seu <- RunPCA(seu, features = AB, npcs = 25)
+seu <- RunPCA(seu, features = AB, npcs = 13)
 
 
 ############################## explore parameters and calculate statistics ###########################

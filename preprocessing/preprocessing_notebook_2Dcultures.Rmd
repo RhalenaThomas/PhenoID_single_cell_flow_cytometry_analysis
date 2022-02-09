@@ -1,8 +1,14 @@
 Run Alex's notebook for 2D cell cultures full surface AB panel to create dataframe of expression values
 
+The 2D cells were taken on two different days. March 6 and March 17th
+
+March 6: Astro, neuron, NPC, oligo
+March 17: astro, ipSC, NPC, oligo (opc)
+
+
 
 ```{r,include=FALSE}
-# setup the envirnoment
+# setup the environment
 # multiple packages may need to be installed
 
 require("flowCore") #Used for reading the data
@@ -71,13 +77,13 @@ rename_markers<-function(flowset){#Defines a function to use marker names
 --The output path will be used for all the outputs (graphs and tables). The variable write_fcs_files has to be set to TRUE for writing fcs files at each step of the workflow (transformed and aligned), a folder for each step is created inside the output folder.
 
 ```{r}
-#input_path <- "/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/cell_line/" #Input folder containing multiple fcs files
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/9MBO"
-#output_path <- "/home/alx/Documents/McGill_Neuro/Datasets/FACS_Paper/output_test/" #Output path 
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs"
+
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/2Dcultures/OneDrive_2_1-19-2022/select"
+
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/2DcellsSelect"
 
 
-write_fcs_files <- TRUE #Set to true to write fcs files at each step (subsampled, transformed, aligned and scaled) - recommanded 
+write_fcs_files <- TRUE #Set to true to write fcs files at each step (subsampled, transformed, aligned and scaled) - recommended 
 
 #Create output folder if it's not already created
 if(dir.exists(output_path)==FALSE){ #check
@@ -119,7 +125,14 @@ sampleNames(flowset) #Prints the name of each flowframe inside the flowset. User
 # this must be a flowCore function
 # note there are two ages - I'll look up the date and calulate ages later for old I'll write A and young B 0306 and 0317 are march 6 and march 17 the experiment dates of dissociation and acquistion
 
-sampleNames(flowset) <- c("3450_0306","AIW002_0306","AJG001C_0306","3450_0317A","AIW002_0317A","AJG001C_0317A","3450_0317B","AIW002_0317B","AJG001C_0317B") #directly modify the names inside the flowset
+# all samples
+#sampleNames(flowset) <- c("Astrocyes1","Neurons","NPC1","Oligo-m","Astrocytes2","IPSC","NPC2","Oligo-e") 
+
+#select samples without duplicates
+sampleNames(flowset) <- c("Neurons","Oligo","Astrocytes","IPSC","NPC") 
+
+
+#directly modify the names inside the flowset
 sampleNames(flowset)
 # now the sample or file names are changed under the 'frame' data slot
 
@@ -146,21 +159,25 @@ read_reg <- function(input_path,regular_expression,desc=FALSE) {
   return(flowset)
 }
 
+# save number of cell per sample (experiment) if desired
+counts.table <- fsApply(flowset,function(x){dim(x@exprs)})[,1]#Counts the number of cells inside each flowframe and writes it into the output folder.
+counts.table
 
 ```
 
+The Astrocytes1 sample has only 686 cells. 
 
 #Subsets - Allows to subset each fcs with a desired number of cells selected randomly (set the seed), go directly to transformation step for not subsetting
 
 To determine if I want to subset cells or how many to subset I need to know the number of cells in each sample. This can be seen in the table above
 
-For this analysis I'll take 9000 events for each sample except the final sample I'll take all 1578
-
 
 Set an arbitrary number of cells for subsetting samples (if a fcs files has less cells it will be completely selected)
 ```{r,include=FALSE}
-desired_size <- 9000
-# I've run this chunk setting the cell number to 9000
+desired_size <- 10000
+# I've run this chunk setting the cell number to 10000 cells
+# only Astrocytes1 will have less
+
 ```
 Set the number to the smallest fcs files (containing the smallest amount of cells)
 ```{r,include=FALSE}
@@ -239,7 +256,7 @@ plotdensity_flowset(transformed_flowset)
 ```
 
 
-Densityplots for showing effects of transformations and alignment
+Density plots for showing effects of transformations and alignment
 ```{r}
 plotdensity_flowset(rename_markers(flowset))
 plotdensity_flowset(rename_markers(transformed_flowset))
@@ -313,7 +330,9 @@ close(fileConn)
 
 ```
 
-/!\ I kept normalization steps (scaling) in the notebook but I don't recommand to use it on cell lines. 
+/!\ I kept normalization steps (scaling) in the notebook but I don't recommend to use it on cell lines. 
+
+I'm running this chunk on the 2D cells and will compare the two outputs.
 
 #Scaling - outlayers make the zscore normalization messy, it is not the case on "clean" dataset such as organoids. 
 ```{r}
@@ -345,6 +364,7 @@ plotdensity_flowset(scaledzscore_transformed_flowset)
 ```{r}
 list_of_flowframes=fsApply(rename_markers(transformed_flowset),function(x){as.data.frame(x@exprs[,-c(1,2,9)])})#Makes a list of dataframes without FSC SSC and LiveDead markers
 mean_values=as.data.frame(lapply(list_of_flowframes,function(x){apply(x,2,function(y){mean(y)})}))#compute the mean by marker within each element of the list of flowframes (dataframes)
-write.csv(mean_values,file="/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/meanvaluepermarker.csv")
+# set the outputs 
+write.csv(mean_values,file=paste(output_path,"/meanvaluepermarker.csv",sep=""))
 ```
 
