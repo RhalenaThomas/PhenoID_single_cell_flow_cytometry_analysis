@@ -1,0 +1,206 @@
+---
+title: "Figure 2 and sup"
+output: html_notebook
+---
+
+From Seurat parameter exploration select kn =25, res =0.25
+
+```{r}
+# set up enviroment / load libraries
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+rm(list=ls())
+
+```
+
+Read in the Seurat object saved from the parameter optimization loop
+
+
+```{r}
+# make the seurat object
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv"
+# note this is not aligned or transformed
+
+# output pathway
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/"
+# add input description to ouptput files
+input_name <- "Flowset_Select"  # this will be the different processing types
+
+# cluster type for file name
+clust_method <- "Seurat"
+
+# read in the dataframe
+df <- read.csv(input_path)
+# print info to log 
+print(dim(df)) # this is specific df has 73578 cells
+# the preprocessing output csv needs to be cleaned - it contains live dead, FSC, SSC and the sample column
+print(colnames(df))
+# create a df with just the expression 
+# need a way to automate this selection 
+# I only want the expression values
+df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71"))
+# the order of the DF is set by the order the columns are written above
+# create a matrix for later
+m <- as.matrix(df2) 
+
+# create the seurat object for visualization
+
+tm <- t(df2)
+rownames(tm) <- colnames(df2)
+colnames(tm) <- rownames(df2)
+seu <- CreateSeuratObject(tm) # create a seurat object 
+
+# add the meta data back in for sample groups
+seu <- AddMetaData(object=seu, metadata=df$Batch, col.name = 'Batch')
+# this doesn't work for making levels
+# create the vector for the antibodies names for feature plotting later
+AB <- colnames(df2)
+# add to scale data slot
+seu <- ScaleData(seu, features = AB)
+
+```
+
+Make heatmap of expression by cell type sample
+
+```{r}
+# plot by batch (cell culture sample)
+
+DoHeatmap(seu, group.by = "Batch", features = AB, size= 6,slot = "scale.data", group.colors = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4"), disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 20))
+
+# colours : dark blue, grey, orange
+
+#c("red","yellow","blue","green","pink")
+# c("#FOF7D4","#OF7DA9","#9EBB35","#B92F22","#72B9D5") error in these colours
+# check the data
+pdf(paste(output_path,input_name,clust_method,"Heatmap_2DcellSamples.pdf",sep=""),width =6, height = 4)
+print(DoHeatmap(seu, group.by = "Batch", features = AB, size= 6,slot = "scale.data", group.colors = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4"), disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 20)))
+dev.off()
+
+#DoHeatmap(object = pbmc_small) + scale_fill_gradientn(colors = c("blue", "white", "red"))
+
+```
+
+
+UMAPS of cell types
+
+```{r}
+# make the UMAP
+seu <- RunPCA(seu, features = AB, npcs = 13)
+seu <- FindNeighbors(seu, dims = 1:12, k = 25)
+seu <- RunUMAP(seu, dims = 1:12, n.neighbors = 25)
+
+DimPlot(seu, group.by = 'Batch', repel = TRUE, cols = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")) 
+
+pdf(paste(output_path,input_name,clust_method,"kn25UMAPcelltypes.pdf",sep=""),width =10, height = 5)
+print(DimPlot(seu, group.by = 'Batch', repel = TRUE, cols = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")) )
+dev.off()
+
+```
+
+Make the clusters  and plot the clusters
+
+```{r}
+seu <- FindClusters(seu, resolution = 0.25)
+
+```
+
+Visualize the clusters
+
+```{r}
+
+DimPlot(seu, group.by = 'RNA_snn_res.0.25', repel = TRUE,shape.by = 'Batch', raster = FALSE, pt.size = 0.25) 
+
+#cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")
+
+pdf(paste(output_path,input_name,clust_method,"UMAPcelltypeandClustersres0.25.pdf",sep=""),width =8, height = 5)
+ print(DimPlot(seu, group.by = 'RNA_snn_res.0.25', repel = TRUE,shape.by = 'Batch', raster = FALSE, pt.size = 0.25) ) 
+dev.off()
+
+
+DimPlot(seu, group.by = 'Batch' , repel = TRUE,shape.by = 'RNA_snn_res.0.25', raster = FALSE, pt.size = 0.5, cols = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")) 
+
+#cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")
+
+pdf(paste(output_path,input_name,clust_method,"UMAPClustersres0.25andCelltype.pdf",sep=""),width =8, height = 5)
+ print(DimPlot(seu, group.by = 'Batch' , repel = TRUE,shape.by = 'RNA_snn_res.0.25', raster = FALSE, pt.size = 1, cols = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")) ) 
+dev.off()
+
+
+
+```
+
+Heatmap of the clusters
+
+```{r}
+
+
+# colours : dark blue, grey, orange
+
+#c("red","yellow","blue","green","pink")
+# c("#FOF7D4","#OF7DA9","#9EBB35","#B92F22","#72B9D5") error in these colours
+# check the data
+pdf(paste(output_path,input_name,clust_method,"Heatmap_2DcellClusterkn25Res0.25.pdf",sep=""),width =12, height = 4)
+print(DoHeatmap(seu, group.by = "RNA_snn_res.0.25", features = AB, size= 4,slot = "scale.data", disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 20)))
+dev.off()
+
+#c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")
+
+```
+
+Label clusters and plot again
+
+```{r}
+Idents(seu) <- "RNA_snn_res.0.25"
+cluster.ids <- c("Astrocytes", "Early Neurons", "iPSCs", "NPC", "Oligo","Radial Glia","Neurons","Neural Stem","Mix-AQP4+","NPC-like","iPSCs")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+
+# save the labels to meta data
+seu[["Lables"]] <- Idents(seu)
+
+# plot the UMAP and heatmap
+
+#UMAP
+DimPlot(seu, group.by = 'Lables', repel = TRUE) 
+
+pdf(paste(output_path,input_name,clust_method,"kn25UMAPcelltypesLabelled2.pdf",sep=""),width =10, height = 5)
+print(DimPlot(seu, group.by = 'Lables', repel = TRUE, label = TRUE) )
+dev.off()
+
+
+DoHeatmap(seu, group.by = 'Lables', features = AB, size= 4,slot = "scale.data", disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 20))
+# heatmap
+pdf(paste(output_path,input_name,clust_method,"Heatmap_2DcellClusterkn25Res0.25Labelled.pdf",sep=""),width =12, height = 4)
+print(DoHeatmap(seu, group.by = 'Lables', features = AB, size= 4,slot = "scale.data", disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 20)))
+dev.off()
+
+#c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

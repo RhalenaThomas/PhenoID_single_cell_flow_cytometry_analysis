@@ -36,6 +36,7 @@ for (AB in antibodies){
   for (i in 1:13){
   p[[i]]<- FeatureScatter(seu, feature1 = AB, feature2 = antibodies[i], slot = 'scale.data')
   } 
+  
   do.call(grid.arrange, p)
 }
 
