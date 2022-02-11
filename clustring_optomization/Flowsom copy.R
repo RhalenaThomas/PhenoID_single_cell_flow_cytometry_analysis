@@ -9,7 +9,6 @@ library(FlowSOM)
 library(flowCore)
 library(cluster)
 library(fpc)
-# library(clv) #we don't need this anymore, can remove
 library(Seurat)
 library(dplyr)
 library(ggplot2)
@@ -88,8 +87,8 @@ seu <- RunPCA(seu, features = AB, npcs = 13)
 # here k is the number of clusters
 #shuming: somehow 2 doesn't work with flowsom, im not suring why
 krange = 3:30 
-# krange = c(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)
-
+# krange = c(3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)
+krange = c(3,10)
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
@@ -175,22 +174,27 @@ stats_list <- list(si, ch, db)
 # write.csv(stats_list, )
 
 #make stats plots
-# shuming: commenting out because I'm not sure where you want the graphes to be saved in
+# shuming: commenting out because I'm not sure where you want the graphs to be saved in
 # pdf(),width =, height = )
 
 #silhouette score:
 #-1: bad clusters  0: neutral, indifferent  1: good clusters
-plot(krange, type='b', stats_list[[1]][krange], xlab='Number of clusters', ylab='Average Silhouette Scores', frame=TRUE)
+pdf(paste(output_path,input_name,clust_method,'statssilhouette.pdf',sep=""),width =4, height = 4)
+print(plot(krange, type='b', stats_list[[1]][krange], xlab='Number of clusters', ylab='Average Silhouette Scores', frame=TRUE))
+dev.off()
 
 #Calinski-Harabasz index: 
 # the highest value is the optimal number of clusters
-plot(krange, type='b', stats_list[[2]][krange], xlab='Number of clusters', ylab='Calinski-Harabasz index', frame=TRUE)
+pdf(paste(output_path,input_name,clust_method,'statsCalinskiHara.pdf',sep=""),width =4, height = 4)
+print(plot(krange, type='b', stats_list[[2]][krange], xlab='Number of clusters', ylab='Calinski-Harabasz index', frame=TRUE))
+dev.off()
 
 #Davies–Bouldin index: minimum score is zero
 #the lowest value is the optimal number of clusters
-plot(krange, type='b', stats_list[[3]][krange], xlab='Number of clusters', ylab='Davies–Bouldin index', frame=TRUE)
+pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
+print(plot(krange, type='b', stats_list[[3]][krange], xlab='Number of clusters', ylab='Davies–Bouldin index', frame=TRUE))
+dev.off()
 
-# dev.off()
 
 # make clustree plot
 
@@ -201,5 +205,8 @@ dev.off()
 
 # save the Seurat object
 saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
+
+# save the stats list
+saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
 
 

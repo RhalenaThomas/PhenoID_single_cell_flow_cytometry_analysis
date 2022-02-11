@@ -188,11 +188,60 @@ dev.off()
 
 
 
+Save the object with labels to try and apply these labels to the organoid using the new Seurat method and see if it can work.
+
+```{r}
+
+saveRDS(seu, paste(output_path,input_name,clust_method,"labels.Rds",sep=""))
+
+```
+
+
+Test if the file saved correctly 
+
+```{r}
+seu2 <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/Flowset_SelectSeuratlabels.Rds")
+```
+
+
+make the umpa with labels
+
+```{r}
+
+DimPlot(seu, group.by = 'Lables', repel = TRUE, label = TRUE)
+DimPlot(seu, group.by = 'Batch', repel = TRUE, label = TRUE)
+
+```
+
+
+
+Try to hightlight the original cells
+
+```{r}
+
+Idents(seu2) <- 'Batch'
+A <- WhichCells(seu2, idents = c("Astrocytes"))
+I <- WhichCells(seu2, idents = c("IPSC"))
+N <- WhichCells(seu2, idents = c("Neurons"))
+NPC <- WhichCells(seu2, idents = c("NPC"))
+O <- WhichCells(seu2, idents = c("Oligo"))
+
+
+DimPlot(seu, group.by = 'Lables', cells.highlight = list(NPC,N,I,A,O),cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","darkblue"), label = TRUE, pt.size = 0.005, cols = "grey")
+
+unique(seu2@meta.data$Batch)
+
+# save the plot
+
+pdf(paste(output_path,input_name,clust_method,"kn25UMAPcolourcelltypeLabelclusters.pdf",sep=""),width =10, height = 5)
+print(DimPlot(seu, group.by = 'Lables', cells.highlight = list(NPC,N,I,A,O),cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","darkblue"), label = TRUE, pt.size = 0.005, cols = "grey"))
+dev.off()
 
 
 
 
 
+```
 
 
 
