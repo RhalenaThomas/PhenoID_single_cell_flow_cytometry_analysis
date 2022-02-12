@@ -23,7 +23,7 @@ library(reshape2) #for plotting multiple lines (resolutions) on the same graph
 input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Louvain/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Louvain2/"
 # add input description to ouptput files
 input_name <- "Flowset"  # this will be the different processing types
 
@@ -70,6 +70,19 @@ seu <- RunPCA(seu, features = AB, npcs = 25)
 
 ############################## explore parameters and calculate statistics ###########################
 
+
+
+############################# define pararmater range and set up list for stats ########################################
+
+#shuming: im getting NaN for all clusters with res = 0.01
+#those clusters seem to have level 0? 
+kn = c(25,50,100,125,150,200,250,300)
+resolutions = c(0.05,0.1,0.25,0.5,0.75,1.0,1.5,2)
+
+# test loop 
+kn = c(25,50)
+resolutions = c(0.1,0.25)
+
 #create 3 df for stats, can be simplified later
 si <- data.frame(matrix(ncol = length(resolutions), nrow = length(kn)))
 colnames(si) <- resolutions
@@ -88,18 +101,9 @@ row_n <- sample(1:nrow(m), 1000)
 dis <- dist(m[row_n,])
 
 
-
-############################# loop to explore parameters ########################################
-
-#shuming: im getting NaN for all clusters with res = 0.01
-#those clusters seem to have level 0? 
-kn = c(25,50,100,125,150,200,250,300)
-resolutions = c(0.01,0.1,0.25,0.5,0.75,1.0,1.5,2)
-
+# In the loop 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
-
-
 
 
 for (i in kn){
@@ -133,7 +137,7 @@ for (i in kn){
     si[as.character(i), as.character(j)] <- mean(silhouette(as.numeric(louvainCluster[row_n]),dis)[, 3])
     length(as.numeric(dis))
     silhouette(as.numeric(louvainCluster[row_n]),dis)
-    
+    # @shuming - what is the point of the next line
     as.numeric(louvainCluster[row_n])
     #Calinski-Harabasz index: 
     ch[as.character(i), as.character(j)] <- calinhara(m,louvainCluster,cn=i)
@@ -177,6 +181,9 @@ for (i in kn){
 }
 
 
+# save the stats 
+saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
+
 
 ############################## Plot outputs ########################################
 
@@ -185,37 +192,37 @@ for (i in kn){
 #silhouette score: ranges from -1  to 1 
 #-1: bad clusters  0: neutral, indifferent  1: good clusters
 
-# pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""))
+pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""), width = 4, height = 4)
 si_new <- cbind(kn = rownames(si), si)
 melted <- melt(si_new,  id.vars = 'kn', variable.name = 'resolutions')
 ggplot(melted, aes(kn, value)) + 
   geom_line(aes(colour = resolutions, group = resolutions)) + 
   labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
   theme(plot.title = element_text(hjust = 0.5))
-# dev.off()
+dev.off()
 
 # #Calinski-Harabasz index: 
 # # the highest value is the optimal number of clusters
 
-# pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""))
+pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""), width = 4, height = 4)
 ch_new <- cbind(kn = rownames(ch), ch)
 melted <- melt(ch_new,  id.vars = 'kn', variable.name = 'resolutions')
 ggplot(melted, aes(kn, value)) + 
   geom_line(aes(colour = resolutions, group = resolutions)) + 
   labs(title = "Calinski-Harabasz Index", x = "kn", y = "Calinski-Harabasz Index") +
   theme(plot.title = element_text(hjust = 0.5))
-# dev.off()
+dev.off()
 
 
 # #Davies–Bouldin index: minimum score is zero
 # #the lowest value is the optimal number of clusters
 
-# pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""))
+pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""), width = 4, height = 4)
 db_new <- cbind(kn = rownames(db), db)
 melted <- melt(db_new,  id.vars = 'kn', variable.name = 'resolutions')
 ggplot(melted, aes(kn, value)) + 
   geom_line(aes(colour = resolutions, group = resolutions)) + 
   labs(title = "Davies–Bouldin Index", x = "kn", y = "Davies–Bouldin Index") +
   theme(plot.title = element_text(hjust = 0.5))
-# dev.off()
+dev.off()
 
