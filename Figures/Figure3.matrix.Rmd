@@ -1,0 +1,58 @@
+---
+title: "Visualize reference matrix"
+output: html_notebook
+---
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(reshape)
+
+```
+
+
+
+```{r}
+# read in the reference matrix
+# then plot each matrix with this script
+ref <- read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix.csv")
+
+ref
+ref$X
+colnames(ref)
+
+# filter the matrix to remove microglia
+A <- ref %>% slice(1:10)
+A
+
+```
+
+Plots
+
+```{r}
+
+# library reshape has function melt
+# takes the table format and makes it into the formate needed for plotting
+longData<-melt(A)
+# try to remove rows NaN
+longData<-longData[longData$value!=0,]
+ggplot(longData, aes(x = variable, y = X)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="Antibodies", y="Cell Types", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+
+png("ReferenceMatrix.png")
+ggplot(longData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="grey90", high="red") +
+  labs(x="Antibodies", y="Cell Types", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=9),
+                     plot.title=element_text(size=11))
+dev.off()
+```
+

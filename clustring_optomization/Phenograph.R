@@ -70,14 +70,17 @@ seu <- RunPCA(seu, features = AB, npcs = 25)
 
 ############################## explore parameters and calculate statistics ###########################
 
-# stats stuff - Shuming adjust 
-ch_li <-list()
-dbi_li <-list()
 
+#create 3 lists for stats
 
+#stats lists
+si <- list()
+ch <- list()
+db <- list()
 
-########## function for stats if Shuming makes function ##### then run in the loop or at the end
-
+#subsampling for silhouette score, n=1000, can make n bigger if needed
+row_n <- sample(1:nrow(m), 1000)
+dis <- dist(m[row_n,])
 
 
 
@@ -86,6 +89,7 @@ dbi_li <-list()
 kn = c(300,375,250,225,200,175,150,125,100,75,50,25)
 # kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
 # larger kn fewer clusters in general but not always
+kn = c(300,100,50)
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
@@ -137,21 +141,17 @@ for (i in kn){
   dev.off()
   
   #### add stats
+  
+  phenocluster <- factor(membership(Rphenograph_out_flow[[2]]))
     
-    # calculate the statistics
-    # silouette
-    # CHI
-    #ch = calinhara(m,seu@meta.data$clust_name,length((unique(seu@meta.data$clust_name))))
-    #ch_li[i] <- ch
-    # Davies
-    
-    # send stats to stats_list (or df or whatever works)
-    
-    # make plots
-    # UMAP
-    
-    # save stats for each resolution
-    # write.csv(stats_list, paste(output_path,list_name,sep=""))
+  #silhouette score:
+  si[i] <- mean(silhouette(phenocluster[row_n],dis)[, 3])
+  
+  #Calinski-Harabasz index: 
+  ch[i] <- calinhara(m,phenocluster,cn=i)
+  
+  # Davies–Bouldin index:
+  db[i] <- index.DB(df2, as.numeric(phenocluster))$DB
   
   }
  
@@ -164,3 +164,33 @@ dev.off()
 
 # save the Seurat object
 saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
+
+
+# save the stats list
+
+stats_list <- list(si,ch,db)
+
+saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
+
+
+
+# make the stats plots
+
+#silhouette score:
+#-1: bad clusters  0: neutral, indifferent  1: good clusters
+pdf(paste(output_path,input_name,clust_method,'statssilhouette.pdf',sep=""),width =4, height = 4)
+print(plot(kn, type='b', stats_list[[1]][kn], xlab='Number of clusters', ylab='Average Silhouette Scores', frame=TRUE))
+dev.off()
+
+#Calinski-Harabasz index: 
+# the highest value is the optimal number of clusters
+pdf(paste(output_path,input_name,clust_method,'statsCalinskiHara.pdf',sep=""),width =4, height = 4)
+print(plot(kn, type='b', stats_list[[2]][kn], xlab='Number of clusters', ylab='Calinski-Harabasz index', frame=TRUE))
+dev.off()
+
+#Davies–Bouldin index: minimum score is zero
+#the lowest value is the optimal number of clusters
+pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
+print(plot(kn, type='b', stats_list[[3]][kn], xlab='Number of clusters', ylab='Davies–Bouldin index', frame=TRUE))
+dev.off()
+
