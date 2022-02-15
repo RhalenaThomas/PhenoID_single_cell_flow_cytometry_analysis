@@ -5,7 +5,7 @@ require("flowCore") #Used for reading the data
 require("ggplot2")
 require("ggridges") #visualization
 require("stringr") #set of functions to manipulate strings type in order to have nice titles
-require("rlist") #set of functions that allows to easely manipulate lists
+require("rlist") #set of functions that allows to easily manipulate lists
 require("reshape2") #visualization
 require("flowStats") #Alignment functions
 require("scales") #scale colour intensity for visualization
@@ -41,7 +41,6 @@ markers <- unlist(select_col[-1])
 #z score markers expression (without X)
 preprocessed[,markers] <- scale(preprocessed[,markers])
 preprocessed
-
 
 
 # subsample <- preprocessed[sample(1:nrow(m), 5),] #test

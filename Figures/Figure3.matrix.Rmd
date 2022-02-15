@@ -32,27 +32,34 @@ Plots
 
 ```{r}
 
+# replace NaN with 0
+class(A)
+#x <- replace(A, is.na(A), 0)
+
 # library reshape has function melt
-# takes the table format and makes it into the formate needed for plotting
+# takes the table format and makes it into the format needed for plotting
 longData<-melt(A)
+
 # try to remove rows NaN
-longData<-longData[longData$value!=0,]
+#longData<-longData[longData$value!=0,]
 ggplot(longData, aes(x = variable, y = X)) + 
   geom_raster(aes(fill=value)) + 
-  scale_fill_gradient(low="grey90", high="red") +
+  scale_fill_gradient(low="grey90", high="red", na.value = "grey") +
   labs(x="Antibodies", y="Cell Types", title="Matrix") +
-  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
-                     axis.text.y=element_text(size=9),
-                     plot.title=element_text(size=11))
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=12),
+                     plot.title=element_text(size=12))
 
-png("ReferenceMatrix.png")
-ggplot(longData, aes(x = Var2, y = Var1)) + 
+pdf("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/ReferenceMatrix.pdf", width = 5, height = 4)
+ggplot(longData, aes(x = variable, y = X)) + 
   geom_raster(aes(fill=value)) + 
-  scale_fill_gradient(low="grey90", high="red") +
+  scale_fill_gradient(low="grey90", high="red", na.value = "grey") +
   labs(x="Antibodies", y="Cell Types", title="Matrix") +
-  theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
-                     axis.text.y=element_text(size=9),
-                     plot.title=element_text(size=11))
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=12),
+                     plot.title=element_text(size=12))
 dev.off()
+
+
 ```
 
