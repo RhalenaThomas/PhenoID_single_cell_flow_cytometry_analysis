@@ -1,0 +1,129 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(Seurat)
+library(dplyr)
+```
+
+
+
+Explore correlation
+
+Looking at the list of cell types assigned 
+
+```{r}
+
+# new dataframe for exploring correlations
+df <- corr_df
+# read in saved df 
+
+# see the size of difference between top correlation and second highest
+df$oneVstwo <- (df$`best correlation` - df$`second correlation`) < 0.05
+
+total <- dim(df)[1] # 73578     6
+
+# check the number of positive cells
+sum(df$oneVstwo, na.rm = TRUE)
+
+# proportion of cells with close labels
+print(sum(df$oneVstwo, na.rm = TRUE)/dim(df)[1])
+
+
+```
+
+
+Now see what the double cell types are 
+
+```{r}
+df$'double cell type' <- paste(df$`best cell type`,df$`second cell type`,sep = "-")
+
+# this takes all the double cell types
+unique(df$`double cell type`)
+
+
+
+```
+
+Try to make a summary table
+
+```{r}
+df.double <- df %>% select(`double cell type`)
+
+df.table <- as.data.frame(table(df.double))
+df.table
+
+```
+
+Apply a cell type label only using double labels when the correlation is close
+```{r}
+# if difference between top correlation and second correlation is < 0.05 than add double label
+# else keep top cell type lable
+
+
+df$cell.lable <- ifelse(df$oneVstwo == TRUE, paste(df$`best cell type`,df$`second cell type`,sep = "-"), df$`best cell type`)
+
+
+unique(df$cell.lable)
+
+
+```
+
+
+See the new counts
+
+```{r}
+df.cells <- df %>% select(`cell.lable`)
+
+df.table2 <- as.data.frame(table(df.cells))
+df.table2
+
+```
+
+
+
+
+
+Try visualizing the cell assignments on the UMAP
+
+```{r}
+# Seurat object UMAP already created 
+# read one in here
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Louvain2/FlowsetSeuratSeuratObject100.Rds")
+# add the cell type labels as meta-data
+
+# read in the df from correlation
+df.cells <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/correlationscorr_df_9000MBOcelltypelabels.csv")
+
+seu <- AddMetaData(object=seu, metadata=df.cells$cell.lable, col.name = 'cor.labels')
+
+DimPlot(seu, group.by = 'cor.labels')
+
+
+```
+
+
+
+```{r}
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/correlations"
+
+#write.csv(corr_df,"/Users/shuming/Desktop/PhenoID_single_cell_flow_cytometry_analysis/correlation/correlation_feb14.csv", row.names = FALSE)
+write.csv(df, paste(output_path, "corr_df_9000MBOcelltypelabels.csv",sep=""))
+
+
+# save the UMAP made above
+
+pdf(paste(output_path,'UMAPcorrcelllabelsFeb15.pdf',sep=""),width =20, height = 10)
+  print(DimPlot(seu, group.by = 'cor.labels'))
+  dev.off()
+
+
+```
+
+
+
+
+

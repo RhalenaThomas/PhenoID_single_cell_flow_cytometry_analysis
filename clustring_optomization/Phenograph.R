@@ -3,7 +3,7 @@
 
 
 # load libraries
-
+library(clusterSim) 
 library(FlowSOM)
 library(flowCore)
 library(cluster)
@@ -25,7 +25,7 @@ input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysi
 # output pathway
 output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Pheno/"
 # add input description to ouptput files
-input_name <- "Flowset"  # this will be the different processing types
+input_name <- "Flowset9000MO"  # this will be the different processing types
 
 # cluster type for file name
 clust_method <- "Phenograph"
@@ -89,7 +89,6 @@ dis <- dist(m[row_n,])
 kn = c(300,375,250,225,200,175,150,125,100,75,50,25)
 # kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
 # larger kn fewer clusters in general but not always
-kn = c(300,100,50)
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
@@ -119,7 +118,7 @@ for (i in kn){
   Rphenograph_out_flow <- Rphenograph(m, k = i)
   
   # add cluster ID back into original df  - this won't work in the loop the column name needs to be the kn
-  df$phenograph_cluster <- factor(membership(Rphenograph_out_flow[[2]]))
+  #df$phenograph_cluster <- factor(membership(Rphenograph_out_flow[[2]]))
   
   clust_name = paste('Pheno.kn.',i,sep="")
   # add the cluster ID into seurat object to visualize
@@ -145,7 +144,7 @@ for (i in kn){
   phenocluster <- factor(membership(Rphenograph_out_flow[[2]]))
     
   #silhouette score:
-  si[i] <- mean(silhouette(phenocluster[row_n],dis)[, 3])
+  si[i] <- mean(silhouette(as.numeric(phenocluster[row_n]),dis)[, 3])
   
   #Calinski-Harabasz index: 
   ch[i] <- calinhara(m,phenocluster,cn=i)
