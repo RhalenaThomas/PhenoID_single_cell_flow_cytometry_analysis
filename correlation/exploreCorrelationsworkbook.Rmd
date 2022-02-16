@@ -93,6 +93,13 @@ df.table2
 ```
 
 
+Plot the correlations and the cell types
+
+```{r}
+
+
+
+```
 
 
 
@@ -133,6 +140,22 @@ pdf(paste(output_path,'UMAPcorrcelllabelsFeb15.pdf',sep=""),width =20, height = 
 ```
 
 
+Look at the 2D cell type data:
+
+```{r}
+# read in the save correlations
+
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/correlationscorr_df_2Dcells.csv"
+df.2d <- read.csv(input_path)
+
+df.cells.2 <- df.2d %>% select(best.cell.type)
+
+df.table3 <- as.data.frame(table(df.cells.2))
+df.table3
+
+
+
+```
 
 
 

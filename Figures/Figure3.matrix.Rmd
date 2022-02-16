@@ -26,6 +26,12 @@ colnames(ref)
 A <- ref %>% slice(1:10)
 A
 
+# save a correlation matrix without microglia
+write.csv(A,"/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix10celltypes.csv", row.names = FALSE)
+# check if it save correctly
+A2 <- read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix10celltypes.csv")
+# it did
+
 ```
 
 Plots
