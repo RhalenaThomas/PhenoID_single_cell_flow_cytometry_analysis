@@ -61,10 +61,19 @@ df.table
 Apply a cell type label only using double labels when the correlation is close
 ```{r}
 # if difference between top correlation and second correlation is < 0.05 than add double label
-# else keep top cell type lable
+# else keep top cell type label
+
+# assign cell type as unknown if max correlation is < 0.1
 
 
 df$cell.lable <- ifelse(df$oneVstwo == TRUE, paste(df$`best cell type`,df$`second cell type`,sep = "-"), df$`best cell type`)
+
+
+# condition on difference between first and second top correlations
+df$cell.lable <- ifelse((df$`best correlation` - df$`second correlation`) < 0.05, paste(df$`best cell type`,df$`second cell type`,sep = "-"), df$`best cell type`)
+
+# add another condition if if max correlation is < 0.1 cell.label = "unknown"
+
 
 
 unique(df$cell.lable)
