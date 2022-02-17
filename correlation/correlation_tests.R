@@ -16,7 +16,7 @@ require("dplyr")
 preprocessed <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv")
 
 # read in the reference matrix
-expected_val=read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix.csv")
+expected_val=read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix10celltypes.csv")
 
 # expected list: X AQP4	CD24	CD44	CD184	CD15	HepaCam	CD29	CD56	O4	CD140a	CD133	Glast	CD71
 # changed to: X AQP4 CD24  CD44  CD184  CD15  HepaCAM  CD29  CD56 O4 CD140a  CD133  GLAST  CD71
@@ -42,7 +42,8 @@ markers <- unlist(select_col[-1])
 #z score markers expression (without X)
 preprocessed[,markers] <- scale(preprocessed[,markers])
 
-
+# z score the reference matrix expected value
+expected_val[,markers] <- scale(expected_val[,markers])
 
 # subsample <- preprocessed[sample(1:nrow(m), 5),] #test
 subsample <- preprocessed
@@ -78,12 +79,44 @@ for (i in 1:nrow(subsample)) {
   corr_df[i,"second cell type"] <- second_ct
 }
 
-head(corr_df)
+# now add a column for cell labels
+df <- corr_df
+
+df$cell.lable <- ifelse(df$`best correlation`<0.1, "unknown", 
+                        ifelse(df$`best correlation` - df$`second correlation` < 0.05, paste(df$`best cell type`,df$`second cell type`,sep = "-"),df$`best cell type`))
+
+
+
+# filter to get frequency table
+df.f <- df %>% select(`cell.lable`)
+
+freq.table <- as.data.frame(table(df.f))
+
+
+
 
 #2:26:!3
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/correlations"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/correlations/"
 
 #write.csv(corr_df,"/Users/shuming/Desktop/PhenoID_single_cell_flow_cytometry_analysis/correlation/correlation_feb14.csv", row.names = FALSE)
-write.csv(corr_df, paste(output_path, "corr_df_2Dcells.csv",sep=""))
+write.csv(df, paste(output_path, "corr_celltypes_2Dcells.csv",sep=""))
+
+write.csv(freq.table, paste(output_path, "Frequencytabletypes_2Dcells.csv",sep=""))
+
+
+# plot the frequencies
+#plotting after filtering for cell types with more than 10 or 100 cells
+# filter 
+df.filter <- df %>% group_by(cell.lable) %>% filter(n()> 100)
+
+pdf(paste(output_path,"FreqCellTypes.pdf",sep=""),width =8, height = 6)
+ggplot(df.filter, aes(x=cell.lable))+ geom_bar()+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+dev.off()
+
+
+
+
+
 
 

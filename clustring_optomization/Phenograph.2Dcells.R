@@ -20,12 +20,12 @@ library(clustree)
 # info to change for each comparison
 # define the input pathway
 # input pathway
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Pheno/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/ExploreParameters/"
 # add input description to ouptput files
-input_name <- "Flowset9000MO"  # this will be the different processing types
+input_name <- "Flowset2D"  # this will be the different processing types
 
 # cluster type for file name
 clust_method <- "Phenograph"

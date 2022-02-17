@@ -157,5 +157,33 @@ df.table3
 
 ```
 
+Plot correlations and cell type frequency or proportions
+
+```{r}
+ggplot(df, aes(x=cell.lable))+ geom_bar()+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+
+# consider plotting after filtering for cell types with more than 10 or 100 cells
+# filter 
+df.filter <- df %>% group_by(cell.lable) %>% filter(n()> 100)
+
+ggplot(df.filter, aes(x=cell.lable))+ geom_bar()+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+
+#try a proportion
+ggplot(df.filter, aes(x=cell.lable))+ geom_bar(aes(y = (..count..)/sum(..count..)))+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+
+# vln plot of the 
+# need to reformat the df
+
+
+ggplot(df.filter, aes(cell.lable, , fill = m)) + geom_split_violin()
+
+
+
+
+```
+
 
 
