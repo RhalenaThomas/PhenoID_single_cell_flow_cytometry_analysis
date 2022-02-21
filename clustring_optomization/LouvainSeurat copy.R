@@ -123,6 +123,7 @@ for (i in kn){
   for (j in resolutions) {
     seu <- FindClusters(seu, resolution = j)
     louvainCluster <- seu@meta.data$seurat_clusters
+    numb.clusters = unique(seu@meta.data$seurat_clusters)
     
     #shuming: get an error whenever i run stats on level 0 clusters (mentioned in 
     #line 94) this line skips the rest of the loop when that happens, you might  
@@ -142,9 +143,6 @@ for (i in kn){
     # Davies–Bouldin index:
     db[as.character(i), as.character(j)] <- index.DB(df2, as.numeric(louvainCluster))$DB
     
-    # write.csv(stats_list, paste(output_path,list_name,sep=""))
-    # write.csv(stats_list, paste(output_path,list_name,sep=""))
-    # write.csv(stats_list, paste(output_path,list_name,sep=""))
     
     # make plots
     # UMAP

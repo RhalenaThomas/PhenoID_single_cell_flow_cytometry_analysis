@@ -18,17 +18,16 @@ library(clustree)
 ############# set up the data object for clustering ############################
 
 # info to change for each comparison
-# define the input pathway
-# input pathway
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/Pheno/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/ExploreParameters/Phenograph/"
 # add input description to ouptput files
-input_name <- "Flowset9000MO"  # this will be the different processing types
+input_name <- "Flowset2D"  # this will be the different processing types
 
 # cluster type for file name
 clust_method <- "Phenograph"
+
 
 # read in the dataframe
 df <- read.csv(input_path)
@@ -85,14 +84,14 @@ dis <- dist(m[row_n,])
 
 
 ############################# loop to explore parameters ########################################
-
-kn = c(300,375,250,225,200,175,150,125,100,75,50,25)
-# kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
+# actually need a higher range
+#kn = seq(from = 5, to = 50, by = 5)
+kn = c(25,50,100,150,200,300,350,375,400,450,500)
 # larger kn fewer clusters in general but not always
 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
-
+# clustree plots upside down even when the order is reversed
 
 for (i in kn){
   seu <- FindNeighbors(seu, dims = 1:12, k = i)
@@ -133,10 +132,10 @@ for (i in kn){
   print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE, group.by = clust_name)) # will automatically group by active ident
   dev.off()
   # heatmap
-  heatmap_name = paste("Heatmapclusters_kn",i,".pdf",sep="")
+  heatmap_name = paste("Heatmapclusters_kn",i,".png",sep="")
   #testing 
-  pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =8, height = 5)
-  print(DoHeatmap(seu, features = AB,group.by = clust_name))
+  png(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =800, height = 500)
+  print(DoHeatmap(seu, features = AB,group.by = clust_name) +theme(text = element_text(size = 30)))
   dev.off()
   
   #### add stats

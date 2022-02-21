@@ -18,17 +18,16 @@ library(clustree)
 
 # define the input pathway
 # input pathway
-
-# input_path <- "/Users/shuming/Desktop/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsflowset.csv"
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/test/FlowSOM/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/ExploreParameters/flowsom/"
 # add input description to ouptput files
-input_name <- "Flowset"  # this will be the different processing types
+input_name <- "Flowset2D"  # this will be the different processing types
 
 # cluster type for file name
 clust_method <- "FlowSOM"
+
 
 
 # read in the dataframe
@@ -85,8 +84,10 @@ seu <- RunPCA(seu, features = AB, npcs = 13)
 # here k is the number of clusters
 #shuming: somehow 2 doesn't work with flowsom, im not suring why
 #krange = 3:30 
-krange = seq(from = 3, to = 99, by = 3)
+krange = seq(from = 5, to = 100, by = 5)
+# this cause a problem - it doesn't include the last 2 values in the loop
 
+krange = c( 5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90)
 # the k will be the max k for the metaclustering clustering. 
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
@@ -106,7 +107,7 @@ dis <- dist(m[row_n,])
 for (i in krange){
   # K is the number of clusters not the kn input
   # I'll scale the kn with the k
-  kn = i*10
+  kn = i*5
   print(kn)
   seu <- FindNeighbors(seu, dims = 1:12, k = kn)
   seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn)

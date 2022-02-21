@@ -73,10 +73,10 @@ for (i in 1:nrow(subsample)) {
     }
   }
   corr_df[i,"X"] <- subsample[i,1]
-  corr_df[i,"best correlation"] <- best_cor
-  corr_df[i,"best cell type"] <- best_ct
-  corr_df[i,"second correlation"] <- second_cor
-  corr_df[i,"second cell type"] <- second_ct
+  corr_df[i,"best.correlation"] <- best_cor
+  corr_df[i,"best.cell.type"] <- best_ct
+  corr_df[i,"second.correlation"] <- second_cor
+  corr_df[i,"second.cell.type"] <- second_ct
 }
 
 # now add a column for cell labels
@@ -88,7 +88,7 @@ df$cell.lable <- ifelse(df$`best correlation`<0.1, "unknown",
 
 
 # filter to get frequency table
-df.f <- df %>% select(`cell.lable`)
+df.f <- df %>% select(`cell.label`)
 
 freq.table <- as.data.frame(table(df.f))
 
@@ -110,11 +110,37 @@ write.csv(freq.table, paste(output_path, "Frequencytabletypes_2Dcells.csv",sep="
 df.filter <- df %>% group_by(cell.lable) %>% filter(n()> 100)
 
 pdf(paste(output_path,"FreqCellTypes.pdf",sep=""),width =8, height = 6)
-ggplot(df.filter, aes(x=cell.lable))+ geom_bar()+theme_classic()+
+ggplot(df.filter, aes(x=cell.label))+ geom_bar()+theme_classic()+
   theme(axis.text.x=element_text(angle=90))
 dev.off()
 
 
+#### can't run without editing
+
+df.melt <- melt(df)
+
+# second corr values are sometime so low it messes up the plot
+
+# vln plot of the 
+# need to reformat the df
+pdf(paste(output_path,"vlnPlotbestcells.pdf",sep=""))
+ggplot(df, aes(x=best.cell.type, y=best.correlation ))+ geom_violin()+ ylim(-0.1,1)+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+dev.off()
+
+# this plot the best and second best corr are together 
+pdf(paste(output_path,"boxPlotdoublecelltypes.pdf",sep=""))
+ggplot(df.melt, aes(x=cell.lable, y=value ))+ geom_boxplot()+ ylim(-0.1,1)+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+dev.off()
+
+# splitting the max and 2nmax corr
+pdf(paste(output_path,"boxPlot2corr.pdf",sep=""))
+ggplot(df.melt, aes(x=best.cell.type, y=value, fill= variable, colour = variable ))+ geom_boxplot()+ ylim(-0.25,1)+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+dev.off()
+
+# the second best correlation is so low it was removed from STEM with axis limit -0.1 and even -1
 
 
 

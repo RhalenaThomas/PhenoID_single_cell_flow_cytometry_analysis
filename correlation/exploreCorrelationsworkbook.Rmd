@@ -7,6 +7,7 @@ output: html_notebook
 library(ggplot2)
 library(Seurat)
 library(dplyr)
+library(reshape2)
 ```
 
 
@@ -174,16 +175,114 @@ ggplot(df.filter, aes(x=cell.lable))+ geom_bar()+theme_classic()+
 ggplot(df.filter, aes(x=cell.lable))+ geom_bar(aes(y = (..count..)/sum(..count..)))+theme_classic()+
   theme(axis.text.x=element_text(angle=90))
 
-# vln plot of the 
-# need to reformat the df
 
-
-ggplot(df.filter, aes(cell.lable, , fill = m)) + geom_split_violin()
 
 
 
 
 ```
+
+Read in the data
+
+```{r}
+
+df <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/correlations/corr_celltypes_2Dcells.csv")
+
+df <- df %>% select(-X.1)
+
+```
+
+
+Create long df to plot the correlations
+
+```{r}
+#df <- df %>% select(-X.1)
+df.melt <- melt(df)
+
+# second corr values are sometime so low it messes up the plot
+
+# vln plot of the 
+# need to reformat the df
+ggplot(df, aes(x=best.cell.type, y=best.correlation ))+ geom_violin()+ ylim(-0.1,1)+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+
+# this plot the best and second best corr are together 
+ggplot(df.melt, aes(x=cell.lable, y=value ))+ geom_boxplot()+ ylim(-0.1,1)+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+
+# splitting the max and 2nmax corr
+ggplot(df.melt, aes(x=best.cell.type, y=value, fill= variable, colour = variable ))+ geom_boxplot()+ ylim(-0.25,1)+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))
+# the second best correlation is so low it was removed from STEM with axis limit -0.1 and even -1
+
+
+
+```
+
+
+```{r}
+
+library(plyr)
+
+# this take a huge amount of time to run - next time downsample by randomly selecting rows maybe 5000
+# it cannot run
+
+# need to sample before melt to keep matching data.
+df <- rename(df, c("best.correlation"= "cor.1", "second.correlation" = "cor.2"))
+
+
+# down sample
+set.seed(64)
+df.downsample <- sample_n(df, 1000)
+df.melt.down <- melt(df.downsample)
+
+# reformat the table to work with the before after plot
+# y is the measurement in df.melt = value
+# x is before after in df.melt = variable
+# class another variable - in the example this is different shapes - for us this is best cell type
+# might use facet to split the cell type - needs to be a factor
+# id is the individual id this is the X column
+ggplot(df.melt.down, aes(x = variable, y = value,colour= variable, group= X)) +
+  geom_line(show.legend = F, size = 0.1, color = "black") + geom_point()+ scale_color_manual(values = c("#4E84C4", "#52854C")) + ylim(-0.25,0.95) +
+  facet_wrap(~(as.factor(best.cell.type))) +
+#theme_few() +
+#theme(legend.position = "none") +
+ylab("Correlation Coefficient") +
+  xlab("")
+
+
+
+# see with the double labels
+
+ggplot(df.melt.down, aes(x = variable, y = value,colour= variable, group= X)) +
+  geom_line(show.legend = F, size = 0.1, color = "black") + geom_point()+ scale_color_manual(values = c("#4E84C4", "#52854C")) + ylim(-0.25,0.95) +
+  facet_wrap(~(as.factor(cell.lable))) +
+#theme_few() +
+#theme(legend.position = "none") +
+ylab("Correlation Coefficient") +
+  xlab("")
+
+
+# this will be an excellent visualization but I need to subset only the double labels, then I can plot more cells and see more clearly. 
+
+double.cells <- df[grep("-", df$cell.lable),]
+
+df.melt.double <- melt(double.cells)
+
+ggplot(df.melt.double, aes(x = variable, y = value,colour= variable, group= X)) +
+  geom_line(show.legend = F, size = 0.1, color = "black") + geom_point()+ scale_color_manual(values = c("#4E84C4", "#52854C")) + ylim(-0.25,0.95) +
+  facet_wrap(~(as.factor(cell.lable))) +
+#theme_few() +
+#theme(legend.position = "none") +
+ylab("Correlation Coefficient") +
+  xlab("")
+
+
+
+
+
+```
+
 
 
 
