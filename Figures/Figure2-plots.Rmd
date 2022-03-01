@@ -23,12 +23,12 @@ input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysi
 # note this is not aligned or transformed
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/FigureStuff/"
 # add input description to ouptput files
 input_name <- "Flowset_Select"  # this will be the different processing types
 
 # cluster type for file name
-clust_method <- "Seurat"
+clust_method <- "Louvain"
 
 # read in the dataframe
 df <- read.csv(input_path)
@@ -200,7 +200,7 @@ saveRDS(seu, paste(output_path,input_name,clust_method,"labels.Rds",sep=""))
 Test if the file saved correctly 
 
 ```{r}
-seu2 <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/Flowset_SelectSeuratlabels.Rds")
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/FigureStuff/Flowset_SelectSeuratlabels.Rds")
 ```
 
 
@@ -219,12 +219,12 @@ Try to hightlight the original cells
 
 ```{r}
 
-Idents(seu2) <- 'Batch'
-A <- WhichCells(seu2, idents = c("Astrocytes"))
-I <- WhichCells(seu2, idents = c("IPSC"))
-N <- WhichCells(seu2, idents = c("Neurons"))
-NPC <- WhichCells(seu2, idents = c("NPC"))
-O <- WhichCells(seu2, idents = c("Oligo"))
+Idents(seu) <- 'Batch'
+A <- WhichCells(seu, idents = c("Astrocytes"))
+I <- WhichCells(seu, idents = c("IPSC"))
+N <- WhichCells(seu, idents = c("Neurons"))
+NPC <- WhichCells(seu, idents = c("NPC"))
+O <- WhichCells(seu, idents = c("Oligo"))
 
 
 DimPlot(seu, group.by = 'Lables', cells.highlight = list(NPC,N,I,A,O),cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","darkblue"), label = TRUE, pt.size = 0.005, cols = "grey")
@@ -246,10 +246,67 @@ dev.off()
 
 
 
+Add in the correlaiton labels
+
+```{r}
+# correlation labels from Feb 21, 2022
+
+cor.df <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/correlations/corr_celltypes_2Dcells2.csv")
+
+head(cor.df)
+
+# add the labels as meta data
+
+seu <- AddMetaData(object=seu, metadata=cor.df$best.cell.type, col.name = 'celltype')
+seu <- AddMetaData(object=seu, metadata=cor.df$cell.label, col.name = 'cell.label')
+
+```
+
+
+Plot the correlations
+
+```{r}
+
+DimPlot(seu, group.by = 'celltype', repel = TRUE, label = TRUE)
+DimPlot(seu, group.by = 'cell.label', repel = TRUE, label = TRUE)
 
 
 
+DimPlot(seu, group.by = 'celltype', cells.highlight = list(NPC,N,I,A,O),cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","darkblue"), label = TRUE, pt.size = 0.005, cols = "grey")
 
+
+DimPlot(seu, group.by = 'cell.label', cells.highlight = list(NPC,N,I,A,O),cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","darkblue"), label = TRUE, pt.size = 0.005, cols = "grey")
+
+```
+
+
+save all the plots
+
+```{r}
+
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/FigureStuff/"
+
+pdf(paste(output_path,input_name,clust_method,"kn25res025UMAPcorcelltype.pdf",sep=""),width =8, height = 5)
+DimPlot(seu, group.by = 'celltype', repel = TRUE, label = TRUE)
+dev.off()
+
+
+pdf(paste(output_path,input_name,clust_method,"kn25res025UMAPcorcelllabel.pdf",sep=""),width =20, height = 5)
+DimPlot(seu, group.by = 'cell.label', repel = TRUE, label = TRUE)
+dev.off()
+
+
+pdf(paste(output_path,input_name,clust_method,"kn25res025UMAPcorcelltypeand2D.pdf",sep=""),width =8, height = 5)
+DimPlot(seu, group.by = 'celltype', cells.highlight = list(NPC,N,I,A,O),cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","darkblue"), label = TRUE, pt.size = 0.005, cols = "grey")
+dev.off()
+
+
+
+pdf(paste(output_path,input_name,clust_method,"kn25res025UMAPcorcelllabeland2D.pdf",sep=""),width =14, height = 6)
+DimPlot(seu, group.by = 'cell.label', cells.highlight = list(NPC,N,I,A,O),cols.highlight = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","darkblue"), label = TRUE, pt.size = 0.005, cols = "grey")
+dev.off()
+
+```
 
 
 

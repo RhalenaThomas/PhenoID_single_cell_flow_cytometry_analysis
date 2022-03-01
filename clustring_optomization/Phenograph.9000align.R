@@ -20,15 +20,15 @@ library(clustree)
 # info to change for each comparison
 # define the input pathway
 # input pathway
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/ExploreParameters/"
-# add input description to ouptput files
-input_name <- "Flowset2D"  # this will be the different processing types
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
+# add input description to output files
+input_name <- "FlowAlignTrans"  # this will be the different processing types
 
 # cluster type for file name
-clust_method <- "Phenograph"
+clust_method <- "Pheno"
 
 # read in the dataframe
 df <- read.csv(input_path)
@@ -65,7 +65,33 @@ print(DoHeatmap(seu, group.by = "Batch", features = AB))
 dev.off()
 
 # create the UMAP
-seu <- RunPCA(seu, features = AB, npcs = 25)
+seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
+
+
+# like FlowSOM Phenograph doesn't relate directly to the UMAP like Louvain
+# we will make on seurat UMAP and visualize the clusters there
+
+
+kn = round(sqrt(dim(df2)[1]))
+seu <- FindNeighbors(seu, dims = 1:12, k.param = kn)
+seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn)
+# save feature plots of this UMAP
+# just for testing print
+
+# we also only need to plot the features once
+# file name
+UMAP_name = paste("UMAPfeatures_kn",kn,".pdf",sep="")
+print(UMAP_name) #testing
+
+# save feature plots UMAP
+pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
+dev.off()
+
+# we also want to see the batch on the UMAP
+pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 6)
+print(DimPlot(seu, group.by = 'Batch'))
+dev.off()
 
 
 ############################## explore parameters and calculate statistics ###########################
@@ -77,72 +103,56 @@ seu <- RunPCA(seu, features = AB, npcs = 25)
 si <- list()
 ch <- list()
 db <- list()
+numb.clust <- list()
 
 #subsampling for silhouette score, n=1000, can make n bigger if needed
+set.seed(25)
 row_n <- sample(1:nrow(m), 1000)
 dis <- dist(m[row_n,])
 
 
 
 ############################# loop to explore parameters ########################################
-kn = c(25,50,100,150,200,300,350,375,400,450,500)
+kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
 # kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
 # larger kn fewer clusters in general but not always
-kn = c(50,500)
+#kn = c(50,500)
 # save a data object for each kn - will only keep temporarily
 # the clusters will write over with each new kn
 
 
 for (i in kn){
-  seu <- FindNeighbors(seu, dims = 1:12, k = i)
-  seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
-  # save feature plots of this UMAP
-  # file name
-  UMAP_name = paste("UMAPfeatures_kn",i,".pdf",sep="")
-  print(UMAP_name) #testing 
-  # save feature plots UMAP
-  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
-  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
-  dev.off()
-  
-  # see how the sample alignment looks
-  UMAP_name = paste("UMAPfeatures_kn",i,"batch.pdf",sep="")
-  print(UMAP_name) #testing 
-  # save feature plots UMAP
-  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 5)
-  print(DimPlot(seu, group.by = 'Batch'))
-  dev.off()
-  
+ 
   ### run phenograph clustering
   Rphenograph_out_flow <- Rphenograph(m, k = i)
-  
-  # add cluster ID back into original df  - this won't work in the loop the column name needs to be the kn
-  #df$phenograph_cluster <- factor(membership(Rphenograph_out_flow[[2]]))
   
   clust_name = paste('Pheno.kn.',i,sep="")
   # add the cluster ID into seurat object to visualize
   seu <- AddMetaData(object=seu, factor(membership(Rphenograph_out_flow[[2]])), col.name = clust_name) 
-
+  number.clusters <- length(unique(factor(membership(Rphenograph_out_flow[[2]]))))
+  
   ### make umap 
   
   UMAP_name = paste("UMAPclusters_kn",i,".pdf",sep="")
   print(UMAP_name) #testing 
-  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 5)
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
   # save UMAP grouped
   print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE, group.by = clust_name)) # will automatically group by active ident
   dev.off()
   # heatmap
   heatmap_name = paste("Heatmapclusters_kn",i,".pdf",sep="")
   #testing 
-  pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =8, height = 5)
+  pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =25, height = 10)
   print(DoHeatmap(seu, features = AB,group.by = clust_name))
   dev.off()
   
   #### add stats
   
-  phenocluster <- factor(membership(Rphenograph_out_flow[[2]]))
+  numb.clust[i] <- number.clusters # calculated above
     
-  #silhouette score:
+ # get the cluster indexes 
+  phenocluster <- factor(membership(Rphenograph_out_flow[[2]]))
+  #silhouette score: 
   si[i] <- mean(silhouette(as.numeric(phenocluster[row_n]),dis)[, 3])
   
   #Calinski-Harabasz index: 
@@ -166,7 +176,7 @@ saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep="")
 
 # save the stats list
 
-stats_list <- list(si,ch,db)
+stats_list <- list(si,ch,db,numb.clust)
 
 saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
 

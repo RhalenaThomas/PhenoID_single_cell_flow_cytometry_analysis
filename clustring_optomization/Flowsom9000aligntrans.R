@@ -18,16 +18,16 @@ library(clustree)
 
 # define the input pathway
 # input pathway
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/ExploreParameters/flowsom/"
-# add input description to ouptput files
-input_name <- "Flowset2D"  # this will be the different processing types
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/FlowSOM/"
+# add input description to output files
+input_name <- "FlowAlignTrans"  # this will be the different processing types
+
 
 # cluster type for file name
 clust_method <- "FlowSOM"
-
 
 
 # read in the dataframe
@@ -75,7 +75,7 @@ print(DoHeatmap(seu, group.by = "Batch", features = AB))
 dev.off()
 
 # create the UMAP
-seu <- RunPCA(seu, features = AB, npcs = 13)
+seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
 
 # I've tried scaling the kn with the k but the values to no result in UMAP that spatial match cluster
 # I'll just run the UMAP once with the kn = square root of the number of inputs
@@ -102,7 +102,7 @@ dev.off()
 # here k is the number of clusters
 #shuming: somehow 2 doesn't work with flowsom, im not suring why
 #krange = 3:30 
-krange = seq(from = 5, to = 100, by = 5)
+#krange = seq(from = 5, to = 100, by = 5)
 # this cause a problem - it doesn't include the last 2 values in the loop
 
 krange = c( 5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90)
@@ -114,6 +114,7 @@ krange = c( 5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90)
 si <- list()
 ch <- list()
 db <- list()
+numb.clust <- list()
 
 #subsample for silhouette score
 #shuming: here im using 1000 so it's not too slow, but 30,000 would be have better representation 
@@ -123,10 +124,7 @@ dis <- dist(m[row_n,])
 
 
 for (i in krange){
-  # K is the number of clusters not the kn input
-  
-
- 
+  # K max number of clusters not the kn input
   ## run flowSOM clustering
   ## easy flowsom method : scales data nClus is the k we are forcing
   fs <- FlowSOM(
@@ -141,7 +139,7 @@ for (i in krange){
   clust_name = paste('FlowSom.k.',i,sep="")
   # add the cluster ID into seurat object to visualize
   seu <- AddMetaData(object=seu, metadata= flowSOMcluster[fs$map$mapping[,1]], col.name = clust_name)
-
+  number.clusters <- length(unique(flowSOMcluster[fs$map$mapping[,1]]))
 
   ### make umap
   #UMAP_name = paste("UMAPclusters_k",i,".pdf",sep="")
@@ -175,6 +173,9 @@ for (i in krange){
   #### add stats
   # calculate the statistics
   
+  #number of clusters 
+  numb.clust[i] <- number.clusters # calculated above
+  
   #silhouette score:
   si[i] <- mean(silhouette(flowSOMcluster[row_n],dis)[, 3])
   
@@ -195,7 +196,7 @@ for (i in krange){
 
 
 #stats list
-stats_list <- list(si, ch, db)
+stats_list <- list(numb.clust, si, ch, db)
 # write.csv(stats_list, )
 
 #make stats plots

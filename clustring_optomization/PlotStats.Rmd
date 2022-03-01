@@ -1,0 +1,56 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Replot Phenograph outputs
+
+
+```{r}
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
+input_name <- "FlowAlignTrans"  # this will be the different processing types
+
+# cluster type for file name
+clust_method <- "Pheno"
+stats_list <- readRDS(paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
+
+kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
+
+pdf(paste(output_path,input_name,clust_method,'statssilhouette.pdf',sep=""),width =4, height = 4)
+print(plot(kn, type='b', stats_list[[2]][kn], xlab='k-neigbours', ylab='Average Silhouette Scores', frame=TRUE))
+dev.off()
+
+#Calinski-Harabasz index: 
+# the highest value is the optimal number of clusters
+pdf(paste(output_path,input_name,clust_method,'statsCalinskiHara.pdf',sep=""),width =4, height = 4)
+print(plot(kn, type='b', stats_list[[3]][kn], xlab='k-neigbours', ylab='Calinski-Harabasz index', frame=TRUE))
+dev.off()
+
+#Davies–Bouldin index: minimum score is zero
+#the lowest value is the optimal number of clusters
+pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
+print(plot(kn, type='b', stats_list[[4]][kn], xlab='k-neigbours', ylab='Davies–Bouldin index', frame=TRUE))
+dev.off()
+
+
+```
+
+
+
+Fix stats from Louvain
+
+```{r}
+
+
+#stats lists
+si <- list()
+ch <- list()
+db <- list()
+numb.clust <- list()
+
+kn = c(25,50,100,125,150,200,250,300)
+resolutions = c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,1.8)
+
+
+```
+
