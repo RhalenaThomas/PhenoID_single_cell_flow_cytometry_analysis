@@ -1,3 +1,8 @@
+# @Shuming - make into a function that takes input:
+# pathways: preprocessed(test), expected_val (reference), output_path
+# arguments for cutoff "unknown" min_corr, for cutoff for double label min_diff
+# see below
+
 
 
 ############################## correlation ########################################
@@ -67,7 +72,7 @@ for (i in 1:nrow(subsample)) {
   best_ct <- ""
   
   for (j in 1:nrow(expected_val)) {
-    corr <- cor(as.numeric(subsample[i,markers]),as.numeric(expected_val[j,markers]))
+    corr <- cor(as.numeric(subsample[i,markers]),as.numeric(expected_val[j,markers])) # pearson by default and we use default
     if ((is.na(corr) == FALSE) & (corr > best_cor)) {
       #update the second best correlation & cell type
       second_cor <- best_cor 
@@ -83,14 +88,17 @@ for (i in 1:nrow(subsample)) {
   corr_df[i,"best.cell.type"] <- best_ct
   corr_df[i,"second.correlation"] <- second_cor
   corr_df[i,"second.cell.type"] <- second_ct
-  corr_df[i,"cell.label"] <- ifelse(best_cor < 0.1, "unknown", 
-                                    ifelse(best_cor - second_cor < 0.05, paste(best_ct,second_ct,sep = "-"),best_ct))
+  # add variables for cutoffs 
+  # min_corr - cells are labelled unknown if best corr is less than this threshold
+  # min_diff - best - second corr is less than this value then the cells are double labelled
+  min_corr = 0.1
+  min_diff = 0.05
+  corr_df[i,"cell.label"] <- ifelse(best_cor < min_corr, "unknown", 
+                                    ifelse(best_cor - second_cor < min_diff, paste(best_ct,second_ct,sep = "-"),best_ct))
 }
 
 # now add a column for cell labels
 df <- corr_df
-
-#df$cell.lable <- ifelse(df$`best.correlation`<0.1, "unknown", ifelse(df$`best.correlation` - df$`second.correlation` < 0.05, paste(df$`best.cell.type`,df$`second.cell.type`,sep = "-"),df$`best.cell.type`))
 
 
 
@@ -115,6 +123,10 @@ write.csv(freq.table, paste(output_path, "Frequencytabletypes.csv",sep=""))
 #plotting after filtering for cell types with more than 10 or 100 cells
 # filter 
 df.filter <- df %>% group_by(cell.label) %>% dplyr::filter(n()> 100)
+
+# bar plot of how many cells get each label
+# reorder x axis to be most to least frequent @Shuming
+
 
 pdf(paste(output_path,"FreqCellTypes.pdf",sep=""),width =8, height = 6)
 ggplot(df.filter, aes(x=cell.label))+ geom_bar()+theme_classic()+
