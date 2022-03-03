@@ -1,0 +1,55 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+
+stats_list <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/FlowSOM/FlowAlignTransFlowSOMstatslist.Rds")
+
+```
+
+
+```{r}
+
+
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/FlowSOM/"
+
+input_name = "FlowAlignTrans"
+
+clust_method = "FlowSOM"
+krange = c( 5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90)
+#silhouette score:
+#-1: bad clusters  0: neutral, indifferent  1: good clusters
+pdf(paste(output_path,input_name,clust_method,'statssilhouette.pdf',sep=""),width =4, height = 4)
+print(plot(krange, type='b', stats_list[[2]][krange], xlab='k max', ylab='Average Silhouette Scores', frame=TRUE))
+dev.off()
+
+#Calinski-Harabasz index: 
+# the highest value is the optimal number of clusters
+pdf(paste(output_path,input_name,clust_method,'statsCalinskiHara.pdf',sep=""),width =4, height = 4)
+print(plot(krange, type='b', stats_list[[3]][krange], xlab='k max', ylab='Calinski-Harabasz index', frame=TRUE))
+dev.off()
+
+#Davies–Bouldin index: minimum score is zero
+#the lowest value is the optimal number of clusters
+pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
+print(plot(krange, type='b', stats_list[[4]][krange], xlab='k max', ylab='Davies–Bouldin index', frame=TRUE))
+dev.off()
+```
+
+```{r}
+plot(stats_list[[1]][krange], type='b', stats_list[[4]][krange], xlab='number of clusters', ylab='Davies–Bouldin index', frame=TRUE)
+
+plot(stats_list[[1]][krange], type='b', stats_list[[3]][krange], xlab='number of clusters', ylab='Calinski-Harabasz index', frame=TRUE)
+
+plot(stats_list[[1]][krange], type='b', stats_list[[2]][krange], xlab='number of clusters', ylab='Average Silhouette Scores', frame=TRUE)
+
+```
+
+
+plot(krange, type='b', stats_list[[4]][krange], xlab='k max', ylab='Davies–Bouldin index', frame=TRUE)
+
+
+

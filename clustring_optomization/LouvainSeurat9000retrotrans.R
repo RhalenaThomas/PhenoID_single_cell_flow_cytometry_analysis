@@ -34,12 +34,12 @@ library(reshape2) #for plotting multiple lines (resolutions) on the same graph
 # define the input pathway
 # input pathway
 # input pathway
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsretrotransformed_flowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
 
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Louvain-retro/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Louvain/"
 # add input description to output files
-input_name <- "AlignRetroTrans"  # this will be the different processing types
+input_name <- "AlignTrans"  # this will be the different processing types
 
 # cluster type for file name
 clust_method <- "Louvain"
@@ -90,8 +90,8 @@ seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
 
 #shuming: im getting NaN for all clusters with res = 0.01
 #those clusters seem to have level 0? 
-kn = c(25,50,100,125,150,200,250,300)
-resolutions = c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,1.8)
+kn = c(25,50,100,125,150,200,250,300,350)
+resolutions = c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0)
 
 # not in the aligned transformed the number of clusters is very high at low k and higher
 # more clusters are being formed in all methods
@@ -132,13 +132,13 @@ for (i in kn){
   # file name
   UMAP_name = paste("UMAPfeatures_kn",i,".pdf",sep="")
   # save feature plots UMAP
-  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""))
   print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
   dev.off()
   
   # look at batches
   UMAP_name = paste("UMAPbatches_kn",i,".pdf",sep="")
-  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""))
   print(DimPlot(seu,group.by = 'Batch',label.size = 1))
   dev.off()
   
@@ -150,6 +150,20 @@ for (i in kn){
     #shuming: get an error whenever i run stats on level 0 clusters (mentioned in 
     #line 94) this line skips the rest of the loop when that happens, you might  
     #want to move stats to the end of the inner loop so you don't skip the plots 
+    # make plots
+    # UMAP
+    UMAP_name = paste("UMAPclusters_kn",i,"_res_",j,".pdf",sep="")
+    print(UMAP_name) #testing 
+    pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""))
+    # save UMAP grouped
+    print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE)) # will automatically group by active ident
+    dev.off()
+    # heatmap
+    heatmap_name = paste("Heatmapclusters_kn",i,"_res_",j,".pdf",sep="")
+    #testing 
+    pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""))
+    print(DoHeatmap(seu, features = AB))
+    dev.off()
     
     # this should add the number of clusters into a list - it didn't seem to work, something like this should work
     nc[as.character(i), as.character(j)] <- length(unique(louvainCluster))
@@ -167,23 +181,6 @@ for (i in kn){
     
     # Davies–Bouldin index:
     db[as.character(i), as.character(j)] <- index.DB(df2, as.numeric(louvainCluster))$DB
-    
-   
-    
-    # make plots
-    # UMAP
-    UMAP_name = paste("UMAPclusters_kn",i,"_res_",j,".pdf",sep="")
-    print(UMAP_name) #testing 
-    pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 5)
-    # save UMAP grouped
-    print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE)) # will automatically group by active ident
-    dev.off()
-    # heatmap
-    heatmap_name = paste("Heatmapclusters_kn",i,"_res_",j,".pdf",sep="")
-    #testing 
-    pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =8, height = 5)
-    print(DoHeatmap(seu, features = AB))
-    dev.off()
     
     # save stats for each resolution
     # write.csv(stats_list, paste(output_path,list_name,sep=""))
