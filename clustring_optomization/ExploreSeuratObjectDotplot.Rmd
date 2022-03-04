@@ -1,0 +1,85 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+
+# load libraries
+library(clusterSim) 
+library(FlowSOM)
+library(flowCore)
+library(cluster)
+library(fpc)
+library(clv)
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(clustree)
+library(reshape2)
+
+
+
+```
+
+
+```{r}
+# read in the seurat objects
+
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/retro-louv-moreparm/retrotransLouvainSeuratObject60.Rds")
+
+# Feature list
+# "AQP4"    "CD24"    "CD44"    "CD184"   "CD15"    "HepaCAM" "CD29"    "CD56"    "O4"      "CD140a" 
+# "CD133"   "GLAST"   "CD71"  
+
+AB <- c("CD24","CD56","CD71","CD29","CD15", "CD184","CD133", "GLAST","CD44","AQP4","HepaCAM","CD140a", "O4" )
+
+```
+
+```{r}
+# make dotplot
+DotPlot(seu, features = AB, group.by = 'RNA_snn_res.0.05', scale = TRUE) 
+# it worked when I had the an object already loaded
+
+```
+
+```{r}
+DoHeatmap(seu, raster = FALSE, features = AB, combine = FALSE)
+
+```
+
+```{r}
+Idents(seu) <- "RNA_snn_res.0.2"
+RidgePlot(seu, features = c("CD24","CD56"), ncol = 2, slot = 'scale.data')
+RidgePlot(seu, features = c("CD29","CD15"), ncol = 2, slot = 'scale.data')
+RidgePlot(seu, features = c("O4","CD184"), ncol = 2, slot = 'scale.data')
+
+```
+
+```{r}
+VlnPlot(seu, features = c("CD24","CD56","CD71"), ncol = 3, slot = 'scale.data',pt.size = 0)
+VlnPlot(seu, features = c("CD29","CD15","CD184"), ncol = 3, slot = 'scale.data',pt.size = 0)
+VlnPlot(seu, features = c("O4","CD140a","CD133"), ncol = 3, slot = 'scale.data',pt.size = 0)
+VlnPlot(seu, features = c("CD44","GLAST","AQP4","HepaCAM"), ncol = 2, slot = 'scale.data',pt.size = 0)
+
+```
+
+```{r}
+# get mean expression values per cluster for each marker
+res = 'RNA_snn_res.0.2'
+
+df.scale <- as.data.frame(AverageExpression(seu, features = AB, group.by = res, slot = 'scale.data'))
+
+heatmap(as.matrix(df.scale), scale="column")
+
+heatmap(as.matrix(df.scale), scale="row")
+
+
+heatmap(as.matrix(df.scale))
+
+
+```
+
+
+

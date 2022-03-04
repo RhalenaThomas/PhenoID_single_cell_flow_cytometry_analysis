@@ -1,0 +1,10 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Explore UMAP parameters
+
+```{r}
+plot(cars)
+```

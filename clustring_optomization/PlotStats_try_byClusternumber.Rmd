@@ -49,7 +49,10 @@ plot(stats_list[[1]][krange], type='b', stats_list[[2]][krange], xlab='number of
 ```
 
 
-plot(krange, type='b', stats_list[[4]][krange], xlab='k max', ylab='Davies–Bouldin index', frame=TRUE)
+
+
+
+
 
 
 

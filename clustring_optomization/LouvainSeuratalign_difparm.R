@@ -34,11 +34,12 @@ library(reshape2) #for plotting multiple lines (resolutions) on the same graph
 # define the input pathway
 # input pathway
 # input pathway
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsretrotransformed_flowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/retro-louv-moreparm/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/align_newparm/"
 # add input description to output files
-input_name <- "retrotrans"  # this will be the different processing types
+input_name <- "AlignTrans"  # this will be the different processing types
 
 # cluster type for file name
 clust_method <- "Louvain"
@@ -89,10 +90,8 @@ seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
 
 #shuming: im getting NaN for all clusters with res = 0.01
 #those clusters seem to have level 0? 
-kn = c(20,40,60,80,100,120,140,160,200,240,280)
-resolutions = c(0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5)
-
-
+kn = c(200,250,300,350)
+resolutions = c(0.01,0.02,0.3,0.04,0.05)
 
 # not in the aligned transformed the number of clusters is very high at low k and higher
 # more clusters are being formed in all methods
@@ -166,16 +165,10 @@ for (i in kn){
     print(DoHeatmap(seu, features = AB))
     dev.off()
     
-    dotplot_name = paste("Dotplotclusters_kn",i,"_res_",j,".pdf",sep="")
-    #testing 
-    pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""))
-    print(DotPlot(seu, features = AB, group.by = 'seurat_clusters'))
-    dev.off()
-    
     # this should add the number of clusters into a list - it didn't seem to work, something like this should work
     nc[as.character(i), as.character(j)] <- length(unique(louvainCluster))
     
-    #if (length(unique(louvainCluster))==1) next
+    if (length(unique(louvainCluster))==1) next
   
     #silhouette score:
     si[as.character(i), as.character(j)] <- mean(silhouette(as.numeric(louvainCluster[row_n]),dis)[, 3])
