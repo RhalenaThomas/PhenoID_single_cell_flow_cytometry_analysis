@@ -125,12 +125,12 @@ write.csv(freq.table, paste(output_path, "Frequencytabletypes.csv",sep=""))
 df.filter <- df %>% group_by(cell.label) %>% dplyr::filter(n()> 100)
 
 # bar plot of how many cells get each label
-# reorder x axis to be most to least frequent @Shuming
+# reorder x axis to be most to least frequent DONE
 
 
 pdf(paste(output_path,"FreqCellTypes.pdf",sep=""),width =8, height = 6)
-ggplot(df.filter, aes(x=cell.label))+ geom_bar()+theme_classic()+
-  theme(axis.text.x=element_text(angle=90))
+ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x))))+ geom_bar()+theme_classic()+
+  theme(axis.text.x=element_text(angle=90))+ xlab()
 dev.off()
 
 

@@ -1,0 +1,97 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+# load libraries
+# load libraries
+library(clusterSim) 
+library(FlowSOM)
+library(flowCore)
+library(cluster)
+library(fpc)
+library(clv)
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(clustree)
+library(reshape2)
+
+```
+
+
+
+
+
+Visialize correlations on UMAP
+
+```{r}
+# read in correlation
+
+
+
+# read in Seurat object to make UMAP
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/retro-louv-moreparm/retrotransLouvainSeuratObject60.Rds")
+
+# Feature list
+# "AQP4"    "CD24"    "CD44"    "CD184"   "CD15"    "HepaCAM" "CD29"    "CD56"    "O4"      "CD140a" 
+# "CD133"   "GLAST"   "CD71"  
+
+AB <- c("CD24","CD56","CD71","CD29","CD15", "CD184","CD133", "GLAST","CD44","AQP4","HepaCAM","CD140a", "O4" )
+
+
+
+
+```
+
+
+Add the cell labels into seurat object
+
+```{r}
+
+seu <- AddMetaData(object=seu, metadata=df$cell.label, col.name = 'cor.labels')
+```
+
+
+
+
+Make UMAP
+
+
+```{r}
+seu <- RunUMAP(seu,spread = 2, min.dist = 0.1, dims = 1:12)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'cor.labels', repel = TRUE)
+
+
+
+
+
+```
+
+
+Save UMAPS
+
+```{r}
+
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/"
+
+pdf(paste(outpath,"UMAPlouvk60res02CorLables.pdf"), width = 20, height = 8)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'cor.labels', repel = TRUE)
+dev.off()
+
+
+# save the clusters
+
+pdf(paste(outpath,"UMAPlouvk60res02Clusters.pdf"), width = 20, height = 8)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'RNA_snn_res.0.5', repel = TRUE)
+dev.off()
+
+
+```
+
+
+
+
+
