@@ -22,4 +22,4 @@ seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analys
 # "CD133"   "GLAST"   "CD71"  
 
 # make dotplot
-DotPlot(seu, features = AB, group.by = 'seurat_clusters')
+DotPlot(seu, features = AB, group.by = 'seurat_clusters') + +RotatedAxis()+coord_flip()+theme(axis.text.x=element_text(size=7),axis.text.y=element_text(size=7))

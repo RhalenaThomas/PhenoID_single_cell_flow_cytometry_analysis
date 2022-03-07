@@ -21,7 +21,7 @@ library(dplyr) # for df formating
 # 9000 cells per 9 MBO
 # use aligned sample transformed
 #preprocessed <- read.csv("/Users/shuming/Desktop/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv")
-preprocessed <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv")
+preprocessed <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsretrotransformed_flowset.csv")
 # 2D cultures
 #preprocessed <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/preprocessing/select/2DcellsSelectflowset.csv")
 
@@ -111,7 +111,7 @@ freq.table <- as.data.frame(table(df.f))
 
 
 #2:26:!3
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/retro/"
 
 #write.csv(corr_df,"/Users/shuming/Desktop/PhenoID_single_cell_flow_cytometry_analysis/correlation/correlation_feb14.csv", row.names = FALSE)
 write.csv(df, paste(output_path, "corr_celltypes.csv",sep=""))
