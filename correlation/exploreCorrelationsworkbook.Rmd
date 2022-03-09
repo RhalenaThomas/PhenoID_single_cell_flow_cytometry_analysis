@@ -115,11 +115,13 @@ seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analys
 # read in the df from correlation
 df.cells <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/correlationscorr_df_9000MBOcelltypelabels.csv")
 
-seu <- AddMetaData(object=seu, metadata=df.cells$cell.lable, col.name = 'cor.labels')
+seu <- AddMetaData(object=seu, metadata=df.cells$cell.label, col.name = 'cor.labels')
 
 DimPlot(seu, group.by = 'cor.labels')
+```
 
 
+```{r}
 ```
 
 
@@ -282,7 +284,24 @@ ylab("Correlation Coefficient") +
 
 
 ```
+Remake Freq plot - more attractive and in order of most to least frequent
 
+```{r}
+df.filter <- df %>% group_by(cell.label) %>% dplyr::filter(n()> 100)
+
+# bar plot of how many cells get each label
+# reorder x axis to be most to least frequent @Shuming
+
+
+pdf(paste(output_path,"FreqCellTypesRankColours.pdf",sep=""),width =12, height = 6)
+ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
+  theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')
+dev.off()
+
+
+
+
+```
 
 
 

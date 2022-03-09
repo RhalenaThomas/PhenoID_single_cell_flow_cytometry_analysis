@@ -6,5 +6,59 @@ output: html_notebook
 Explore UMAP parameters
 
 ```{r}
-plot(cars)
+# load libraries
+library(clusterSim) 
+library(FlowSOM)
+library(flowCore)
+library(cluster)
+library(fpc)
+library(clv)
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(clustree)
+library(reshape2)
 ```
+
+```{r}
+
+# read in the seurat objects
+
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/retro-louv-moreparm/retrotransLouvainSeuratObject60.Rds")
+
+# Feature list
+# "AQP4"    "CD24"    "CD44"    "CD184"   "CD15"    "HepaCAM" "CD29"    "CD56"    "O4"      "CD140a" 
+# "CD133"   "GLAST"   "CD71"  
+
+AB <- c("CD24","CD56","CD71","CD29","CD15", "CD184","CD133", "GLAST","CD44","AQP4","HepaCAM","CD140a", "O4" )
+
+
+```
+
+
+```{r}
+# blog on parameter tuning
+# https://jlmelville.github.io/uwot/abparams.html
+
+seu <- RunUMAP(seu,spread = 2, min.dist = 0.1, dims = 1:12)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'RNA_snn_res.0.5', repel = TRUE)
+
+```
+
+
+```{r}
+# spread higher values push things apart until to high
+# smaller min dist pushes clusters apart
+
+seu <- RunUMAP(seu,spread = 1, min.dist = 0.05, dims = 1:12)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'RNA_snn_res.0.2', repel = TRUE)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'RNA_snn_res.0.35', repel = TRUE)
+
+```
+```{r}
+
+FeaturePlot(seu, features = AB, slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1))
+
+```
+
+

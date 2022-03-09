@@ -45,7 +45,7 @@ DotPlot(seu, features = AB, group.by = 'RNA_snn_res.0.05', scale = TRUE)
 ```
 
 ```{r}
-DoHeatmap(seu, raster = FALSE, features = AB, combine = FALSE)
+DoHeatmap(seu, raster = FALSE, features = AB, combine = FALSE, group.by = "RNA_snn_res.0.2")
 
 ```
 
@@ -71,12 +71,11 @@ res = 'RNA_snn_res.0.2'
 
 df.scale <- as.data.frame(AverageExpression(seu, features = AB, group.by = res, slot = 'scale.data'))
 
+heatmap(as.matrix(df.scale))
+
 heatmap(as.matrix(df.scale), scale="column")
 
 heatmap(as.matrix(df.scale), scale="row")
-
-
-heatmap(as.matrix(df.scale))
 
 
 ```
