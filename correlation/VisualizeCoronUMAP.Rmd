@@ -188,7 +188,7 @@ DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels4', repel = TRU
 ```{r}
 # save the labelled seurat object to apply labels to other clustering
 # use an inputs to Random Forest
-saveRDS(seu,paste(outpath,"Louvkn60DifferentCellLabels09032022.Rds"))
+saveRDS(seu,"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels09032022.Rds")
 
 
 # save some plots

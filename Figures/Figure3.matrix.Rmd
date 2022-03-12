@@ -45,7 +45,7 @@ A2 <- read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_a
 # it did
 
 # reorder AB
-A <- A2 %>% select(c("CD24","CD56","CD71","CD29","CD15", "CD184","CD133", "Glast","CD44","AQP4","HepaCAM","CD140a", "O4" ))
+A <- A2 %>% select(c("X","CD24","CD56","CD71","CD29","CD15", "CD184","CD133", "Glast","CD44","AQP4","HepaCam","CD140a", "O4" ))
 
 
 ```

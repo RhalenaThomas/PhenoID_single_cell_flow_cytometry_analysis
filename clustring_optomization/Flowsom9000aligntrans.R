@@ -43,6 +43,7 @@ df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","C
 # the order of the DF is set by the order the colunms are written above
 # create a matrix for later
 print(colnames(df2))
+col.names <- colnames(df2)
 m <- as.matrix(df2) 
 
 # create the flowframe
