@@ -187,6 +187,6 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
 # output_path <- "/Users/shumingli/Desktop/"
 test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsretrotransformed_flowset.csv"
 reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix10celltypes.csv"
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/retro/8celltypes/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/retro/9celltypes/"
 
 find_correlation(test_path, reference_path, output_path)
