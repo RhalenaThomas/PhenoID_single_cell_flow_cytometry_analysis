@@ -78,12 +78,14 @@ ggplot(longData, aes(x = variable, y = X)) +
                      axis.text.y=element_text(size=12),
                      plot.title=element_text(size=12))
 
+longData$variable <- as.factor(longData$variable)
+
 pdf("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/ReferenceMatrix9celltypesReorder.pdf", width = 5, height = 4)
-ggplot(longData, aes(x = variable, y = X)) + 
+ggplot(longData, aes(x = X, y = variable)) + 
   geom_raster(aes(fill=value)) + 
-  scale_fill_gradient(low="grey90", high="red", na.value = "grey") +
-  labs(x="Antibodies", y="Cell Types") +
-  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3, colour = 'black'),
+  scale_fill_gradient(low="grey90", high="red", na.value = "grey") + scale_x_discrete(position = "top")+ scale_y_discrete(limits = rev) +
+  labs(x="Cell Types", y= "Antibodies")  + theme_classic() +  theme(axis.line = element_blank()) +
+   theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3, colour = 'black'),
                      axis.text.y=element_text(size=12, color = 'black'))
 dev.off()
 
