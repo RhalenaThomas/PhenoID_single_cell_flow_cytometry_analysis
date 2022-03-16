@@ -82,5 +82,129 @@ rf_mtry <- train(lables~.,
 print(rf_mtry)
 
 # the mtry with the best accuracy was mtry = 5
+rf_mtry$bestTune$mtry
+max(rf_mtry$results$Accuracy)
 
+best_mtry <- rf_mtry$bestTune$mtry 
+best_mtry
+
+# search the best maxnodes
+store_maxnode <- list()
+tuneGrid <- expand.grid(.mtry = best_mtry)
+for (maxnodes in c(5: 15)) {
+  set.seed(1234)
+  rf_maxnode <- train(lables~.,
+                      data = train,
+                      method = "rf",
+                      metric = "Accuracy",
+                      tuneGrid = tuneGrid,
+                      trControl = trControl,
+                      importance = TRUE,
+                      nodesize = 14,
+                      maxnodes = maxnodes,
+                      ntree = 300)
+  current_iteration <- toString(maxnodes)
+  store_maxnode[[current_iteration]] <- rf_maxnode
+}
+results_mtry <- resamples(store_maxnode)
+summary(results_mtry)
+
+# like in the tutorial the highest max node has the highest value
+# higher values might give better accuracy
+# the accuracy is already very good.
+
+store_maxnode <- list()
+tuneGrid <- expand.grid(.mtry = best_mtry)
+for (maxnodes in c(20: 30)) {
+  set.seed(1234)
+  rf_maxnode <- train(lables~.,
+                      data = train,
+                      method = "rf",
+                      metric = "Accuracy",
+                      tuneGrid = tuneGrid,
+                      trControl = trControl,
+                      importance = TRUE,
+                      nodesize = 14,
+                      maxnodes = maxnodes,
+                      ntree = 300)
+  key <- toString(maxnodes)
+  store_maxnode[[key]] <- rf_maxnode
+}
+results_node <- resamples(store_maxnode)
+summary(results_node)
+
+# best max node 29
+# node size 15 was best
+
+# now search of the best number of trees
+store_maxtrees <- list()
+for (ntree in c(250, 300, 350, 400, 450, 500, 550, 600, 800, 1000, 2000)) {
+  set.seed(5678)
+  rf_maxtrees <- train(lables~.,
+                       data = train,
+                       method = "rf",
+                       metric = "Accuracy",
+                       tuneGrid = tuneGrid,
+                       trControl = trControl,
+                       importance = TRUE,
+                       nodesize = 15,
+                       maxnodes = 30,
+                       ntree = ntree)
+  key <- toString(ntree)
+  store_maxtrees[[key]] <- rf_maxtrees
+}
+results_tree <- resamples(store_maxtrees)
+summary(results_tree)
+# best number of trees is 600
+
+# now fit the model with the best conditions
+#  mtry = 5
+# maxnodes = 29
+# node size 15
+# ntree = 600
+
+fit_rf <- train(lables~.,
+                train,
+                method = "rf",
+                metric = "Accuracy",
+                tuneGrid = tuneGrid,
+                trControl = trControl,
+                importance = TRUE,
+                nodesize = 15,
+                ntree = 600,
+                maxnodes = 29)
+# not sure if mtry is being input as a variable or not
+
+prediction.train <-predict(fit_rf, train)
+prediction.test <-predict(fit_rf, test)
+
+print("predict training data")
+confusionMatrix(prediction.train, train$lables)
+
+print("predict test data")
+confusionMatrix(prediction.test, test$lables)
+
+# results from test data
+#Accuracy : 0.7632          
+#95% CI : (0.7588, 0.7676)
+#No Information Rate : 0.1859          
+#P-Value [Acc > NIR] : < 2.2e-16       
+#Kappa : 0.7262  
+
+# varImpPlot(fit_rf) # can't run because the model is not class randomForst but train.formula
+
+# train with RandomForest and save the model
+rf <- randomForest(lables~.,
+                   train,
+                   mtry = 5,
+                   nodesize = 15,
+                   ntree = 600,
+                   maxnodes = 29)
+
+# now the predictions
+p1 <- predict(rf, train)
+confusionMatrix(p1, train$lables)
+
+p2 <- predict(rf, test)
+confusionMatrix(p2, test$lables)
 
