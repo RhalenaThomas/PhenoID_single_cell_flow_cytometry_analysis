@@ -45,8 +45,14 @@ A2 <- read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_a
 # it did
 
 # reorder AB
-A <- A2 %>% select(c("X","CD24","CD56","CD71","CD29","CD15", "CD184","CD133", "Glast","CD44","AQP4","HepaCam","CD140a", "O4" ))
+A <- A2 %>% select(c("X","CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","Glast","AQP4","HepaCam", "CD140a","O4"))
 
+# rename some columns to keep consistent names
+col.names <- c("X","CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+names(A) <- col.names
+
+write.csv(A,"/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv", row.names = FALSE)
 
 ```
 
@@ -72,14 +78,13 @@ ggplot(longData, aes(x = variable, y = X)) +
                      axis.text.y=element_text(size=12),
                      plot.title=element_text(size=12))
 
-pdf("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/ReferenceMatrix9celltypes.pdf", width = 5, height = 4)
+pdf("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/ReferenceMatrix9celltypesReorder.pdf", width = 5, height = 4)
 ggplot(longData, aes(x = variable, y = X)) + 
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient(low="grey90", high="red", na.value = "grey") +
-  labs(x="Antibodies", y="Cell Types", title="Matrix") +
-  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
-                     axis.text.y=element_text(size=12),
-                     plot.title=element_text(size=12))
+  labs(x="Antibodies", y="Cell Types") +
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3, colour = 'black'),
+                     axis.text.y=element_text(size=12, color = 'black'))
 dev.off()
 
 

@@ -211,3 +211,23 @@ dev.off()
 
 ```
 
+Visualize split UMAPs by batch 
+
+```{r}
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/"
+
+pdf(paste(outpath,"UMAPsplitBatch_clusterlabels.pdf"), width = 30, height = 5)
+  DimPlot(seu, split.by = 'Batch')
+dev.off()
+
+
+FeaturePlot(seu, split.by = 'Batch', features = "CD24")
+DimPlot(seu, group.by = 'Batch', label = FALSE, shuffle = TRUE)
+
+
+```
+
+
+
+
+

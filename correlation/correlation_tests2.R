@@ -6,8 +6,8 @@ rm(list=ls())
 library(kit) # for finding max and second max (function topn)
 library(ggplot2)  # for plotting
 library(reshape2) # for plotting (function melt)
-library(dplyr) # for df formating (function select)
 library(tidyr) #for the last plot in the function
+library(dplyr) # for df formating (function select)
 
 #function: find_correlation
 #compare pre-processed expression matrix with the expected value for each cell 

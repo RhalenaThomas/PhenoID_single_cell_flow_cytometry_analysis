@@ -206,5 +206,19 @@ p1 <- predict(rf, train)
 confusionMatrix(p1, train$lables)
 
 p2 <- predict(rf, test)
-confusionMatrix(p2, test$lables)
+c2 <- confusionMatrix(p2, test$lables)
+c2.table <- as.data.frame(c2$table)
 
+# try to plot the results
+
+library(ggplot2)
+ggplot(data =  c2.table, mapping = aes(x = Prediction, y = Reference, fill= Freq)) +
+  geom_tile(aes(fill = Freq), colour = "white") +
+  geom_text(aes(label = sprintf("%1.0f",Freq)), vjust = 1) +
+  scale_fill_gradient(low = "white", high = "steelblue") + theme(axis.text.x = element_text(angle = 90))
+
+
+# save the model for later
+
+saveRDS(rf, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/rf_trained_march15.Rds")
+write.csv(c2.table, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/confusionm_values_march15.csv")
