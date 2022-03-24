@@ -1,0 +1,431 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+# load libraries
+# load libraries
+library(clusterSim) 
+library(FlowSOM)
+library(flowCore)
+library(cluster)
+library(fpc)
+library(clv)
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(clustree)
+library(reshape2)
+
+```
+
+Visialize correlations on UMAP
+
+```{r}
+# read in correlation
+
+# read in Seurat object to make UMAP
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/LouvainFinal/FlowAlignRetroTransLouvainSeuratObject60.Rds")
+
+
+# keep feature order the same as in other figures
+
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+
+
+```
+
+
+Add the cell labels into seurat object
+
+```{r}
+
+cor <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/retro/9celltypes/corr_celltypes.csv")
+
+seu <- AddMetaData(object=seu, metadata=cor$cell.label, col.name = 'cor.labels')
+unique(seu$cor.labels)
+
+```
+
+
+Make UMAP
+
+
+```{r}
+seu <- RunUMAP(seu,spread = 1.2, min.dist = 0.25, dims = 1:12)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'RNA_snn_res.0.4', repel = TRUE)
+
+DimPlot(seu, reduction = "umap", label = FALSE, group.by = 'cor.labels', repel = TRUE) #+ theme(legend.position ="none")
+
+
+
+
+```
+
+
+Save UMAPS
+
+```{r}
+
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/"
+
+pdf(paste(outpath,"UMAPCorLables9celltypes202203018.pdf"), width = 20, height = 8)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'cor.labels', repel = TRUE, shuffle = TRUE)
+dev.off()
+
+
+pdf(paste(outpath,"Fig3UMAP202203018.pdf"), width = 12, height = 6)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'RNA_snn_res.0.4', repel = TRUE)
+dev.off()
+
+
+
+# save the clusters
+
+#pdf(paste(outpath,"UMAPlouvk60res02Clusters.pdf"), width = 20, height = 8)
+#DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'RNA_snn_res.0.5', repel = TRUE)
+#dev.off()
+
+
+```
+
+
+```{r}
+# save feature plot with new UMAP structure and better dimensions
+pdf(paste(outpath,"UMAPlouvk60res02FeaturePlots.pdf"), width = 20, height = 8)
+FeaturePlot(seu, reduction = "umap", features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1))
+dev.off()
+
+FeaturePlot(seu, reduction = "umap", features = AB,slot = 'scale.data',label.size = 1)+ theme(plot.title = element_text(size = 0.1))
+
+
+
+
+```
+
+
+Add labels
+
+0-Epithelial
+1-Astrocytes-RG
+2-Neurons
+3-NPC (neural stem)
+4-RG-CD133
+5-RG-CD184
+6-Astrocytes
+7-Neurons-early
+8-Astrocytes
+9-Glia (RG/neuron)
+10-Endothelial
+11-Oligodendrocytes
+12-mix
+13-OPC
+14-Neurons-early
+
+
+```{r}
+Idents(seu) <- "RNA_snn_res.0.4"
+cluster.ids <- c("Epithelial","Astro-RG","Neurons","NPC","RG-1","RG-2","Astro-1","Neurons-early","Astro-2","Glia","Endothelial","Oligo","mix","OPC","Neurons-early")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$labels <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels', repel = TRUE)
+
+# few labels
+
+Idents(seu) <- "RNA_snn_res.0.4"
+cluster.ids <- c("Epithelial","Astrocytes","Neurons","Neural-Stem","RG","RG","Astrocytes","Neurons-early","Astrocytes","RG","Endothelial","Oligo","mix","OPC","Neurons-early")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$labels2 <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels2', repel = TRUE)
+
+
+Idents(seu) <- "RNA_snn_res.0.4"
+cluster.ids <- c("Epithelial","Astro","Neurons","NPC","RG-1","RG-2","Astro","Neurons-early","Astro","Glia","Endothelial","Oligo","mix","OPC","Neurons-early")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$labels3 <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels3', repel = TRUE)
+
+Idents(seu) <- "RNA_snn_res.0.4"
+cluster.ids <- c("Epithelial","Astrocytes-1","Neurons","NPC","RG-1","RG-2","Astrocytes-2","Neurons-early","Astrocytes-1","Astrocytes-2","Endothelial","Oligo","mix","OPC","Neurons-early")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$labels4 <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels4', repel = TRUE)
+
+
+```
+
+
+```{r}
+# save the labelled seurat object to apply labels to other clustering
+# use an inputs to Random Forest
+saveRDS(seu,"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
+
+
+# save some plots
+pdf(paste(outpath,"UMAPcelltype20220318.pdf"), width = 8, height = 5)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels4', repel = TRUE, shuffle = TRUE, label.size = 5)
+dev.off()
+
+
+
+pdf(paste(outpath,"HeatMapcell20220318.pdf"), width = 8, height = 5)
+DoHeatmap(seu, group.by = 'labels4', features = AB, size= 5,slot = "scale.data", disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+
+
+```
+
+Visualize split UMAPs by batch 
+
+```{r}
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/"
+
+pdf(paste(outpath,"UMAPsplitBatch_clusterlabels2.pdf"), width = 30, height = 5)
+  DimPlot(seu, split.by = 'Batch', label = TRUE)
+dev.off()
+
+
+FeaturePlot(seu, split.by = 'Batch', features = "CD24")
+DimPlot(seu, group.by = 'Batch', label = FALSE, shuffle = TRUE)
+
+
+```
+
+Plot the correlations with less mix-cell types
+
+```{r}
+ df.filter <- cor %>% group_by(cell.label) %>% dplyr::filter(n()> 500)
+
+plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
+   theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')
+  print(plot1)
+
+  # # plot
+  pdf(paste(outpath,"FreqCellTypes_filt500.pdf",sep=""),width =12, height = 6)
+  plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
+   theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')
+  print(plot1)
+  dev.off()
+
+
+```
+
+
+Try to calculate how many of each cell type are in each cluster
+
+```{r}
+
+# total proportion in each cell type
+table(seu$RNA_snn_res.0.4)
+
+
+```
+
+
+```{r}
+table(seu$labels4)
+#proportions
+prop.table(table(seu$labels4))
+
+```
+
+
+```{r}
+
+# cor labels per cluster label??
+
+cor.lables <- as.data.frame(table(seu$labels4, seu$cor.labels))
+pr.cor.lables <- as.data.frame(prop.table(table(seu$labels4, seu$cor.labels)))
+cor.lables$Freq <- as.double(cor.lables$Freq)
+# try to make a heatmap
+
+# not working
+hm <- ggplot(data = pr.cor.lables, mapping = aes(x= Var1, y = Var2, fill = Freq))
+hm
+
+# try bar chart
+ggplot(cor.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")
+
+
+#Filter by most frequent per group
+
+
+
+
+```
+
+
+Proportions of each sample:
+
+```{r}
+sample.lables <- as.data.frame(table(seu$Batch, seu$labels4))
+
+sample.lables$Freq <- as.double(sample.lables$Freq)
+# try to make a heatmap
+
+
+# try bar chart
+ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(axis.text.x=element_text(angle=90))+ xlab('Batch') + ylab('Frequency of Cell type')
+
+
+
+```
+
+
+Use correlation labels to help label clusters
+
+```{r}
+
+cor.lables <- as.data.frame(table(seu$RNA_snn_res.1.2, seu$cor.labels))
+cor.lables$Freq <- as.double(cor.lables$Freq)
+# try to make a heatmap
+
+
+# try bar chart
+ggplot(cor.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")
+```
+
+
+See the same format of UMAP
+```{r}
+DimPlot(seu, group.by = "RNA_snn_res.1.2", label = TRUE)
+
+```
+
+
+
+Make a lot of rigde plots
+
+```{r}
+
+
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = AB, log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "CD15", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "CD29", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "CD184", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "HepaCAM", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "CD24", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "CD56", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "CD44", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "AQP4", log = TRUE)
+RidgePlot(seu, group.by = "RNA_snn_res.1.2", features = "CD140a", log = TRUE)
+
+```
+
+Add some new labels from resolution 1.2
+
+
+
+```{r}
+
+Idents(seu) <- "RNA_snn_res.1.2"
+cluster.ids <- c("Mix","RG-1","Neurons-Mix","Neurons-1","NPC","Astro-1","Glia-1","RG-2","EarlyNeuron-endo","RG-3","Endothelial","Astro-2","Neurons","Glia-2","Astro-3","Astro-2","RG-4","Glia-3","NPC","Astro-1","Oligo","mix","OPC","Endothelial","EarlyNeuron-2","Epithelial")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$labels5 <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels5', repel = TRUE)
+
+
+Idents(seu) <- "RNA_snn_res.1.2"
+cluster.ids <- c("Mix","RG-1","Neurons-Mix","Neurons","NPC","Astro-1","Astro-2","RG-2","EarlyNeurons","RG-3","Endothelial","Astro-2","Neurons","Astro-1","RG-1","Astro-2","RG-2","Astro-2","NPC","Astro-1","Oligo","Mix","OPC","Endothelial","EarlyNeurons","Epithelial")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$labels6 <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'labels6', repel = TRUE)
+
+
+
+```
+
+
+
+
+
+
+See the expression in each group in ridge plot
+
+```{r}
+
+RidgePlot(seu, group.by = "labels4", features = AB, log = TRUE)
+
+RidgePlot(seu, group.by = "labels6", features = AB, log = TRUE)
+
+```
+
+
+
+
+
+Get mean expression per group/cell type  of each antibody 
+
+```{r}
+
+
+```
+
+
+
+Label transfer using Seurat
+
+```{r}
+# single cell reference mapping
+# uses the function TransferData
+
+# I'll try a different kn in the same data as the query
+
+seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/LouvainFinal/FlowAlignRetroTransLouvainSeuratObject20.Rds")
+
+# the current labelled seurat object will be the reference  
+#saveRDS(seu,"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
+  
+#reference 
+seu.r<- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
+
+
+# find the anchors for label transfer
+anchors <- FindTransferAnchors(reference = seu, query = seu.q, features = AB, reference.reduction = "pca", dim= 1:10) 
+# this step is computationally intensive and take a long time
+
+seu.q <- IntegrateData(anchorset = anchors, new.assay.name = 'integrated', dims = 1:10, features = AB)
+
+
+```
+
+
+
+
+
+
+Maybe the dotplot can work now???  Nope - but it worked once before so why not now????
+
+
+```{r}
+seu <- ScaleData(seu)
+DotPlot(seu, features = AB, cols = c("red","blue"), group.by = 'RNA_snn_res.0.4', dot.scale = 8) + RotatedAxis()
+
+```
+
+
+
+
+

@@ -38,7 +38,7 @@ input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysi
 # output pathway
 output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs_jan19allcells/Clusters/Louvain/"
 # add input description to output files
-input_name <- "retrotrans"  # this will be the different processing types
+input_name <- "Allcellsretros_"  # this will be the different processing types
 
 # cluster type for file name
 clust_method <- "Louvain"
@@ -52,8 +52,10 @@ print(colnames(df))
 # create a df with just the expression 
 # need a way to automate this selection 
 # I only want the expression values
-df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71"))
+df2 <- df %>% dplyr::select("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
 # the order of the DF is set by the order the columns are written above
+# reorder to match across figures and table in a consistent order - default order is the flurophore order in FlowJO
 # create a matrix for later
 m <- as.matrix(df2) 
 
@@ -89,8 +91,8 @@ seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
 
 #shuming: im getting NaN for all clusters with res = 0.01
 #those clusters seem to have level 0? 
-kn = c(50,100,120,140,160,200,250,300)
-resolutions = c(0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5, 0..8, 1.2)
+kn = c(50,100,200,300)
+resolutions = c(0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5, 0.8, 1.2)
 
 
 

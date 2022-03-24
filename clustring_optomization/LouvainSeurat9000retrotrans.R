@@ -90,7 +90,7 @@ seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
 #shuming: im getting NaN for all clusters with res = 0.01
 #those clusters seem to have level 0? 
 kn = c(50,100,120,140,160,200,250,300)
-resolutions = c(0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5, 0..8, 1.2)
+resolutions = c(0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5, 0.8, 1.2)
 
 
 

@@ -26,10 +26,10 @@ library(flowCore)
 library(cluster)
 library(fpc)
 library(Seurat)
-library(dplyr)
 library(ggplot2)
 library(clustree)
 library(reshape2) #for plotting multiple lines (resolutions) on the same graph
+library(dplyr)
 
 ############# set up the data object for clustering ############################
 
@@ -50,7 +50,8 @@ df <- read.csv(input_path) # read in the dataframe
 # create a df with just the expression
 # need a way to automate this selection
 # I only want the expression values
-df2 <- df %>% select(c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4"))
+df2 <- df %>% dplyr::select(c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4"))
+
 
 # the order of the DF is set by the order the columns are written above
 # create a matrix for later
@@ -207,7 +208,7 @@ siplot <- ggplot(stats_ls, aes(kn, si)) +
   geom_point(aes(colour = resolution, group=resolution)) + 
   geom_line(aes(colour = resolution, group=resolution)) +
   labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5)) + theme_classic()
 print(siplot)
 dev.off()
 
@@ -219,7 +220,7 @@ chplot <- ggplot(stats_ls, aes(kn, ch)) +
   geom_point(aes(colour = resolution, group=resolution)) + 
   geom_line(aes(colour = resolution, group=resolution)) +
   labs(title = "Calinski-Harabasz Index", x = "kn", y = "Calinski-Harabasz Index") +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5)) + theme_classic()
 print(chplot)
 dev.off()
 
@@ -230,6 +231,6 @@ dbplot <- ggplot(stats_ls, aes(kn, db)) +
   geom_point(aes(colour = resolution, group=resolution)) + 
   geom_line(aes(colour = resolution, group=resolution)) +
   labs(title = "Davies–Bouldin Index", x = "kn", y = "Davies–Bouldin Index") +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5)) + theme_classic()
 print(dbplot)
 dev.off()

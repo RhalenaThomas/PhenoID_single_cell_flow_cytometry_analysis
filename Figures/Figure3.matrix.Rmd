@@ -24,35 +24,39 @@ colnames(ref)
 
 # filter the matrix to remove microglia
 A <- ref %>% slice(1:10)
-A
 
-# save a correlation matrix without microglia
-write.csv(A,"/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix10celltypes.csv", row.names = FALSE)
-# check if it save correctly
-A2 <- read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix10celltypes.csv")
-# it did
 
 
 # filter out the pericytes
 
 A <- ref %>% slice(1:8,10)
-A
+print(head(A))
 
 # save matrix without pericytes
-write.csv(A,"/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypes.csv", row.names = FALSE)
+#write.csv(A,"/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypes.csv", row.names = FALSE)
 # check if it save correctly
-A2 <- read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypes.csv")
+#A2 <- read.csv("/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypes.csv")
 # it did
 
 # reorder AB
-A <- A2 %>% select(c("X","CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","Glast","AQP4","HepaCam", "CD140a","O4"))
+A <- A %>% select(c("X","CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","Glast","AQP4","HepaCam", "CD140a","O4"))
 
 # rename some columns to keep consistent names
 col.names <- c("X","CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
 
 names(A) <- col.names
-
 write.csv(A,"/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv", row.names = FALSE)
+
+# z-scale in the same way as for the correlation test
+B<- A %>% select(c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4"))
+X <- A$X
+B<- as.data.frame(scale(B))
+B<- cbind(X,B)
+
+
+write.csv(B,"/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9scaled.csv", row.names = FALSE)
+
+A<- B
 
 ```
 
@@ -66,8 +70,9 @@ class(A)
 
 # library reshape has function melt
 # takes the table format and makes it into the format needed for plotting
-longData<-melt(A)
+longData<- melt(A)
 
+longData<- melt(B)
 # try to remove rows NaN
 #longData<-longData[longData$value!=0,]
 ggplot(longData, aes(x = variable, y = X)) + 
@@ -80,7 +85,7 @@ ggplot(longData, aes(x = variable, y = X)) +
 
 longData$variable <- as.factor(longData$variable)
 
-pdf("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/ReferenceMatrix9celltypesReorder.pdf", width = 5, height = 4)
+pdf("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/ReferenceMatrix9cellScaled.pdf", width = 5, height = 4)
 ggplot(longData, aes(x = X, y = variable)) + 
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient(low="grey90", high="red", na.value = "grey") + scale_x_discrete(position = "top")+ scale_y_discrete(limits = rev) +
@@ -92,4 +97,6 @@ dev.off()
 
 
 ```
+
+
 
