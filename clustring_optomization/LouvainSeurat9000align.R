@@ -34,6 +34,85 @@ library(reshape2) #for plotting multiple lines (resolutions) on the same graph
 ############################ function #########################################
 # input_path, output_path, input_name, cluster_method, kn, resolutions
 
+louvain_stats_plotting <- function(stats_ls, input_path, output_path, input_name, clust_method) {
+  
+  # ############################# 3. Plot outputs #############################
+  
+  ##silhouette score: ranges from -1  to 1
+  ##-1: bad clusters  0: neutral, indifferent  1: good clusters
+  
+  pdf(paste(output_path,input_name,clust_method,"Silhouetteplot.pdf",sep=""))
+  #x axis = number of cluster
+  siplot1 <- ggplot(stats_ls, aes(x=nc, y=si, label=resolution)) +
+    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
+    geom_text(aes(label=resolution, colour=factor(kn)), 
+              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
+    labs(color = "kn", title = "Silhouette Scores", 
+         x = "Number of Clusters", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  print(siplot1)
+  
+  #x axis = kn
+  siplot2 <- ggplot(stats_ls, aes(kn, si)) + 
+    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
+    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
+    labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(siplot2)
+  
+  dev.off()
+  
+  
+  ##Calinski-Harabasz index:
+  ## the highest value is the optimal number of clusters
+  
+  #x axis = number of cluster
+  pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""), width = 4, height = 4)
+  chplot1 <- ggplot(stats_ls, aes(x=nc, y=ch, label=resolution)) +
+    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
+    geom_text(aes(label=resolution, colour=factor(kn)), 
+              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
+    labs(color = "kn", title = "Calinski-Harabasz Index", 
+         x = "Number of Clusters", y = "Calinski-Harabasz Index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  print(chplot1)
+  
+  #x axis = kn
+  chplot2 <- ggplot(stats_ls, aes(kn, ch)) + 
+    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
+    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
+    labs(title = "Calinski-Harabasz Index", x = "kn", y = "Calinski-Harabasz Index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(chplot2)
+  
+  dev.off()
+  
+  
+  
+  ## #Davies–Bouldin index: minimum score is zero
+  ## #the lowest value is the optimal number of clusters
+  pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""), width = 4, height = 4)
+  #x axis = number of cluster
+  dbplot1 <- ggplot(stats_ls, aes(x=nc, y=db, label=resolution)) +
+    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
+    geom_text(aes(label=resolution, colour=factor(kn)), 
+              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
+    labs(color = "kn", title = "Davies–Bouldin index", 
+         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  print(dbplot1)
+  
+  #x axis = kn
+  dbplot2 <- ggplot(stats_ls, aes(kn, db)) + 
+    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
+    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
+    labs(title = "Davies–Bouldin index", x = "kn", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(dbplot2)
+  dev.off()
+}
+
+
 louvain_clustering <- function(input_path, 
                                output_path, 
                                input_name, 
@@ -174,81 +253,8 @@ louvain_clustering <- function(input_path,
   # save the stats
   saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
   
-  
-  # ############################# 3. Plot outputs #############################
-  
-  ##silhouette score: ranges from -1  to 1
-  ##-1: bad clusters  0: neutral, indifferent  1: good clusters
-
-  pdf(paste(output_path,input_name,clust_method,"Silhouetteplot.pdf",sep=""))
-  #x axis = number of cluster
-  siplot1 <- ggplot(stats_ls, aes(x=nc, y=si, label=resolution)) +
-    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
-    geom_text(aes(label=resolution, colour=factor(kn)), 
-              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
-    labs(color = "kn", title = "Silhouette Scores", 
-         x = "Number of Clusters", y = "Average Silhouette Scores") +
-    theme(plot.title = element_text(hjust = 0.5)) 
-  print(siplot1)
-  
-  #x axis = kn
-  siplot2 <- ggplot(stats_ls, aes(kn, si)) + 
-    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
-    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
-    labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
-    theme(plot.title = element_text(hjust = 0.5))
-  print(siplot2)
-  
-  dev.off()
-
-
-  ##Calinski-Harabasz index:
-  ## the highest value is the optimal number of clusters
-  
-  #x axis = number of cluster
-  pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""), width = 4, height = 4)
-  chplot1 <- ggplot(stats_ls, aes(x=nc, y=ch, label=resolution)) +
-    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
-    geom_text(aes(label=resolution, colour=factor(kn)), 
-              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
-    labs(color = "kn", title = "Silhouette Scores", 
-         x = "Number of Clusters", y = "Average Silhouette Scores") +
-    theme(plot.title = element_text(hjust = 0.5)) 
-  print(chplot1)
-    
-  #x axis = kn
-  chplot2 <- ggplot(stats_ls, aes(kn, ch)) + 
-    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
-    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
-    labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
-    theme(plot.title = element_text(hjust = 0.5))
-  print(chplot2)
-  
-  dev.off()
-  
-
-  
-  ## #Davies–Bouldin index: minimum score is zero
-  ## #the lowest value is the optimal number of clusters
-  pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""), width = 4, height = 4)
-  #x axis = number of cluster
-  dbplot1 <- ggplot(stats_ls, aes(x=nc, y=db, label=resolution)) +
-    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
-    geom_text(aes(label=resolution, colour=factor(kn)), 
-              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
-    labs(color = "kn", title = "Silhouette Scores", 
-         x = "Number of Clusters", y = "Average Silhouette Scores") +
-    theme(plot.title = element_text(hjust = 0.5)) 
-  print(dbplot1)
-  
-  #x axis = kn
-  dbplot2 <- ggplot(stats_ls, aes(kn, db)) + 
-    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
-    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
-    labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
-    theme(plot.title = element_text(hjust = 0.5))
-  print(dbplot2)
-  dev.off()
+  #stats plot
+  louvain_stats_plotting(stats_ls, output_path, input_name, clust_method)
 }
 
 
