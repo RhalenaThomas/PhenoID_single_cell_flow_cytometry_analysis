@@ -1,0 +1,768 @@
+# flowsom clustering
+# parameter tuning, statistic and visualizations for manual annotation
+
+# if(!require(devtools)){
+#   install.packages("devtools") # If not already installed
+# }
+# devtools::install_github("JinmiaoChenLab/Rphenograph")
+
+
+
+#library for 3 stats
+library(clusterSim) #new package for dbi
+library(FlowSOM)
+library(flowCore)
+library(cluster)
+library(fpc)
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(clustree)
+
+library(Rphenograph)
+
+library(reshape2) #for plotting multiple lines (resolutions) on the same graph
+
+
+
+
+#helper function 1: stats plotting function
+stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
+  #silhouette score:
+  #-1: bad clusters  0: neutral, indifferent  1: good clusters
+  pdf(paste(output_path,input_name,clust_method,'statssilhouette.pdf',sep=""),width =4, height = 4)
+  siplot1 <- ggplot(stats_ls) + 
+    geom_point(aes(x=krange, y=si)) +
+    labs(title = "Silhouette Scores",
+         x = "krange", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  
+  siplot2 <- ggplot(stats_ls) + 
+    geom_point(aes(x=nc, y=si)) +
+    labs(title = "Silhouette Scores",
+         x = "Number of Clusters", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  
+  print(siplot1)
+  print(siplot2)
+  dev.off()
+  
+  #Calinski-Harabasz index: 
+  # the highest value is the optimal number of clusters
+  pdf(paste(output_path,input_name,clust_method,'statsCalinskiHara.pdf',sep=""),width =4, height = 4)
+  chplot1 <- ggplot(stats_ls) + 
+    geom_point(aes(x=krange, y=ch)) +
+    labs(title = "Calinski-Harabasz Index",
+         x = "krange", y = "Calinski-Harabasz Index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  
+  
+  chplot2 <- ggplot(stats_ls) + 
+    geom_point(aes(x=nc, y=ch)) +
+    labs(title = "Calinski-Harabasz Index",
+         x = "Number of Clusters", y = "Calinski-Harabasz Index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  
+  print(chplot1)
+  print(chplot2)
+  dev.off()
+  
+  #Davies–Bouldin index: minimum score is zero
+  #the lowest value is the optimal number of clusters
+  pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
+  dbplot1 <- ggplot(stats_ls) + 
+    geom_point(aes(x=krange, y=db)) +
+    labs(title = "Davies–Bouldin index",
+         x = "krange", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  
+  dbplot2 <- ggplot(stats_ls) + 
+    geom_point(aes(x=nc, y=db)) +
+    labs(title = "Davies–Bouldin index",
+         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  
+  print(dbplot2)
+  print(dbplot2)
+  
+  dev.off()
+}
+
+
+#helper function 2: louvain stats plot
+louvain_stats_plotting <- function(stats_ls, output_path, input_name, clust_method) {
+  
+  # ############################# 3. Plot outputs #############################
+  
+  ##silhouette score: ranges from -1  to 1
+  ##-1: bad clusters  0: neutral, indifferent  1: good clusters
+  
+  pdf(paste(output_path,input_name,clust_method,"Silhouetteplot.pdf",sep=""))
+  #x axis = number of cluster
+  siplot1 <- ggplot(stats_ls, aes(x=nc, y=si, label=resolution)) +
+    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
+    geom_text(aes(label=resolution, colour=factor(kn)), 
+              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
+    labs(color = "kn", title = "Silhouette Scores", 
+         x = "Number of Clusters", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  print(siplot1)
+  
+  #x axis = kn
+  siplot2 <- ggplot(stats_ls, aes(kn, si)) + 
+    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
+    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
+    labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(siplot2)
+  
+  dev.off()
+  
+  
+  ##Calinski-Harabasz index:
+  ## the highest value is the optimal number of clusters
+  
+  #x axis = number of cluster
+  pdf(paste(output_path,input_name,clust_method,"CHIplot.pdf",sep=""), width = 4, height = 4)
+  chplot1 <- ggplot(stats_ls, aes(x=nc, y=ch, label=resolution)) +
+    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
+    geom_text(aes(label=resolution, colour=factor(kn)), 
+              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
+    labs(color = "kn", title = "Calinski-Harabasz Index", 
+         x = "Number of Clusters", y = "Calinski-Harabasz Index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  print(chplot1)
+  
+  #x axis = kn
+  chplot2 <- ggplot(stats_ls, aes(kn, ch)) + 
+    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
+    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
+    labs(title = "Calinski-Harabasz Index", x = "kn", y = "Calinski-Harabasz Index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(chplot2)
+  
+  dev.off()
+  
+  
+  
+  ## #Davies–Bouldin index: minimum score is zero
+  ## #the lowest value is the optimal number of clusters
+  pdf(paste(output_path,input_name,clust_method,"DBplot.pdf",sep=""), width = 4, height = 4)
+  #x axis = number of cluster
+  dbplot1 <- ggplot(stats_ls, aes(x=nc, y=db, label=resolution)) +
+    geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
+    geom_text(aes(label=resolution, colour=factor(kn)), 
+              check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
+    labs(color = "kn", title = "Davies–Bouldin index", 
+         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5)) 
+  print(dbplot1)
+  
+  #x axis = kn
+  dbplot2 <- ggplot(stats_ls, aes(kn, db)) + 
+    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
+    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
+    labs(title = "Davies–Bouldin index", x = "kn", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(dbplot2)
+  dev.off()
+}
+
+#helper function 3: louvain clustering
+louvain_clustering <- function(input_path, 
+                               output_path, 
+                               input_name, 
+                               clust_method, 
+                               kn = c(25,50,100,125,150,200,250,300), #test all values by default 
+                               resolutions = c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,1.8)) {
+  
+  # ========================= 1. processing input data =========================
+  df <- read.csv(input_path)
+  
+  # create a df with just the expression
+  # need a way to automate this selection
+  # I only want the expression values
+  df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29",
+                         "CD56", "O4","CD140a","CD133","GLAST","CD71"))
+  
+  m <- as.matrix(df2)
+  
+  # create the seurat object for visualization
+  tm <- t(df2)
+  rownames(tm) <- colnames(df2)
+  colnames(tm) <- rownames(df2)
+  seu <- CreateSeuratObject(tm)
+  
+  # add the meta data back in for sample groups
+  seu <- AddMetaData(object=seu, metadata=df$Batch, col.name = 'Batch')
+  # this doesn't work for making levels
+  # create the vector for the antibodies names for feature plotting later
+  AB <- colnames(df2)
+  # add to scale data slot
+  seu <- ScaleData(seu)
+  
+  # check the data
+  pdf(paste(output_path,input_name,clust_method,"Heatmap_batch.pdf",sep=""),width =8, height = 6)
+  print(DoHeatmap(seu, group.by = "Batch", features = AB))
+  dev.off()
+  
+  # create PCA 
+  #from Shuming: @Rhalena is this still necessary?
+  seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
+  
+  # not in the aligned transformed the number of clusters is very high at low k and higher
+  # more clusters are being formed in all methods
+  
+  
+  
+  # ==== 2. clustering with diff combination of kn and resolution and stats ====
+  
+  #subsampling for silhouette score, n=1000, can make n bigger if needed
+  row_n <- sample(1:nrow(m), 1000) #testing
+  dis <- dist(m[row_n,])
+  
+  
+  #create a df to store all stats
+  stats_ls <- data.frame(matrix(ncol = 6, nrow = length(length(kn)*length(resolutions))))
+  colnames(stats_ls) <- c("kn", "resolution", "nc","si", "ch", "db")
+  count <- 0
+  
+  # In the loop
+  # save a data object for each kn - will only keep temporarily
+  # the clusters will write over with each new kn
+  for (i in kn){
+    seu <- FindNeighbors(seu, dims = 1:12, k.param = i)
+    seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
+    
+    # save feature plots of this UMAP
+    UMAP_name = paste("UMAPfeatures_kn",i,".pdf",sep="")  # file name
+    pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+    print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
+    dev.off()
+    
+    # look at batches
+    UMAP_name = paste("UMAPbatches_kn",i,".pdf",sep="")
+    pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+    print(DimPlot(seu,group.by = 'Batch',label.size = 1))
+    dev.off()
+    
+    for (j in resolutions) {
+      seu <- FindClusters(seu, resolution = j)
+      louvainCluster <- seu@meta.data$seurat_clusters
+      numb.clusters = unique(seu@meta.data$seurat_clusters)
+      
+      if (length(unique(louvainCluster))==1) next #skip the ones with only 1 cluster
+      
+      count <- 1+count
+      print(count)
+      colnames(stats_ls) <- c("kn", "resolution", "nc","si", "ch", "db")
+      stats_ls[count,"kn"] <- i
+      stats_ls[count,"resolution"] <- j
+      
+      
+      # number of clusters
+      stats_ls[count,"nc"] <- length(unique(louvainCluster))
+      
+      # silhouette score:
+      stats_ls[count,"si"] <- mean(silhouette(as.numeric(louvainCluster[row_n]),dis)[, 3])
+      
+      # Calinski-Harabasz index:
+      stats_ls[count,"ch"] <- calinhara(m,louvainCluster,cn=i)
+      
+      # Davies–Bouldin index:
+      stats_ls[count,"db"] <- index.DB(df2, as.numeric(louvainCluster))$DB
+      
+      
+      # make plots
+      # UMAP
+      UMAP_name = paste("UMAPclusters_kn",i,"_res_",j,".pdf",sep="")
+      print(UMAP_name) #testing
+      pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =15, height = 10)
+      # save UMAP grouped
+      print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE)) # will automatically group by active ident
+      dev.off()
+      
+      
+      # heatmap
+      heatmap_name = paste("Heatmapclusters_kn",i,"_res_",j,".pdf",sep="")
+      print(UMAP_name) #testing
+      pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =15, height = 10)
+      print(DoHeatmap(seu, features = AB))
+      dev.off()
+    }
+    
+    # run clustree
+    pdf(paste(output_path,input_name,clust_method,"kn",i,'Clustree.pdf',sep=""),width =15, height = 10)
+    print(clustree(seu, prefix ='RNA_snn_res.'))
+    dev.off()
+    
+    # save seurat object
+    seu_name = paste("SeuratObject",i,".Rds",sep="")
+    saveRDS(seu, paste(output_path,input_name,clust_method,seu_name,sep=""))
+    # make clustree plot
+    # save all stats outputs for each kn
+  }
+  
+  #testing
+  write.csv(stats_ls, paste(output_path, "stats.csv",sep=""), row.names = FALSE)
+  
+  # save the stats
+  saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
+  
+  #stats plot
+  louvain_stats_plotting(stats_ls, output_path, input_name, clust_method)
+}
+
+
+
+#helper function 4: flowsom clustering
+flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90),
+                               input_path, output_path, input_name, clust_method) {
+  
+  
+  # read in the dataframe
+  df <- read.csv(input_path)
+  # print info to log 
+  print(dim(df)) # this is specific df has 73578 cells
+  # the preprocessing output csv needs to be cleaned - it contains live dead, FSC, SSC and the sample column
+  print(colnames(df))
+  # create a df with just the expression 
+  # need a way to automate this selection 
+  # I only want the expression values
+  df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71"))
+  # the order of the DF is set by the order the colunms are written above
+  # create a matrix for later
+  print(colnames(df2))
+  m <- as.matrix(df2) 
+  
+  # create the flowframe
+  # if reading in a csv convert to flowset
+  frame <- new("flowFrame", exprs = m) #convert input to flowframe
+  fs <- ReadInput(frame) #convert flowframe to flowsom object
+  fs <- BuildSOM(fs) # build flowSOM object, no need for -1 because I cleaned the df about before making flowset 
+  fs <- BuildMST(fs) # build minimum spanning tree 
+  # BuildMST(flowSOM object generated by buildSOM)
+  
+  # create the seurat object for visualization
+  
+  tm <- t(df2)
+  rownames(tm) <- colnames(df2)
+  colnames(tm) <- rownames(df2)
+  seu <- CreateSeuratObject(tm) # create a seurat object 
+  
+  # add the meta data back in for sample groups
+  seu <- AddMetaData(object=seu, metadata=df$Batch, col.name = 'Batch')
+  # this doesn't work for making levels
+  # create the vector for the antibodies names for feature plotting later
+  AB <- colnames(df2)
+  # add to scale data slot
+  seu <- ScaleData(seu)
+  
+  
+  # check the data
+  pdf(paste(output_path,input_name,clust_method,"Heatmap_batch.pdf",sep=""),width =8, height = 6)
+  print(DoHeatmap(seu, group.by = "Batch", features = AB))
+  dev.off()
+  
+  # create the UMAP
+  seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
+  
+  # I've tried scaling the kn with the k but the values to no result in UMAP that spatial match cluster
+  # I'll just run the UMAP once with the kn = square root of the number of inputs
+  
+  kn = round(sqrt(dim(df2)[1]))
+  seu <- FindNeighbors(seu, dims = 1:12, k = kn)
+  seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn)
+  # save feature plots of this UMAP
+  # just for testing print
+  
+  # we also only need to plot the features once
+  # file name
+  UMAP_name = paste("UMAPfeatures_kn",kn,".pdf",sep="")
+  print(UMAP_name) #testing
+  
+  # save feature plots UMAP
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
+  dev.off()
+  
+  # here k is the number of clusters
+  #shuming: somehow 2 doesn't work with flowsom, im not suring why
+  #krange = 3:30 
+  #krange = seq(from = 5, to = 100, by = 5)
+  # this cause a problem - it doesn't include the last 2 values in the loop
+  
+  # the k will be the max k for the metaclustering clustering. 
+  # save a data object for each kn - will only keep temporarily
+  # the clusters will write over with each new kn
+  
+  
+  #create a df to store all stats, col = nc, si, ch, db
+  stats_ls <- data.frame(matrix(ncol = 5, nrow = length(krange)))
+  colnames(stats_ls) <- c("krange", "nc","si", "ch", "db")
+  count <- 0
+  
+  
+  #subsample for silhouette score
+  #shuming: here im using 1000 so it's not too slow, but 30,000 would be have better representation 
+  row_n <- sample(1:nrow(m), 1000)
+  dis <- dist(m[row_n,])
+  
+  
+  for (i in krange){
+    # K max number of clusters not the kn input
+    ## run flowSOM clustering
+    ## easy flowsom method : scales data nClus is the k we are forcing
+    fs <- FlowSOM(
+      frame,
+      nClus = i,
+      seed = 42
+    )
+    # get the clusters from FlowSom
+    flowSOMcluster <- GetMetaclusters(fs, meta=metaClustering_consensus(fs$map$codes,k = i,seed=42))
+    
+    # name the clustering
+    clust_name = paste('FlowSom.k.',i,sep="")
+    # add the cluster ID into seurat object to visualize
+    seu <- AddMetaData(object=seu, metadata= flowSOMcluster[fs$map$mapping[,1]], col.name = clust_name)
+    number.clusters <- length(unique(flowSOMcluster[fs$map$mapping[,1]]))
+    
+    ### make umap
+    #UMAP_name = paste("UMAPclusters_k",i,".pdf",sep="")
+    #print(UMAP_name) #testing
+    #pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 5)
+    # save UMAP grouped
+    #print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE, group.by = clust_name)) # will automatically group by active ident
+    #dev.off()
+    
+    # the pdf don't work well for a quick figure
+    UMAP_name = paste("UMAPclusters_k",i,".png",sep="")
+    print(UMAP_name) #testing
+    png(paste(output_path,input_name,clust_method,UMAP_name,sep=""))
+    # save UMAP grouped
+    print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE, group.by = clust_name)) # will automatically group by active ident
+    dev.off()
+    
+    # heatmap
+    #heatmap_name = paste("Heatmapclusters_k",i,".pdf",sep="")
+    #testing
+    #pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =8, height = 5)
+    #print(DoHeatmap(seu, features = AB,group.by = clust_name))
+    #dev.off()
+    # heatmap
+    heatmap_name = paste("Heatmapclusters_k",i,".png",sep="")
+    #testing
+    png(paste(output_path,input_name,clust_method,heatmap_name,sep=""), width = 600, height = 500)
+    print(DoHeatmap(seu, features = AB,group.by = clust_name, size = 10) +theme(text = element_text(size = 30)))
+    dev.off()
+    
+    #### add stats
+    # calculate the statistics
+    
+    #number of clusters 
+    # "krange", "nc","si", "ch", "db"
+    count <- 1+count
+    
+    stats_ls[count, "krange"] <- i 
+    
+    #number of clusters:
+    stats_ls[count, "nc"] <- number.clusters # calculated above
+    
+    #silhouette score:
+    stats_ls[count, "si"] <- mean(silhouette(flowSOMcluster[row_n],dis)[, 3])
+    
+    #Calinski-Harabasz index: 
+    stats_ls[count, "ch"] <- calinhara(m,flowSOMcluster,cn=i)
+    
+    # Davies–Bouldin index:
+    stats_ls[count, "db"] <- index.DB(df2, as.numeric(flowSOMcluster))$DB
+    
+  }
+  
+  
+  stats_plot(stats_ls, output_path, input_name, clust_method)
+  
+  
+  
+  
+  # make clustree plot
+  
+  
+  pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =8, height = 8)
+  print(clustree(seu, prefix ='FlowSom.k.'))
+  dev.off()
+  
+  # save the UMAP with cell types
+  
+  pdf(paste(output_path,input_name,clust_method,'UMAPcelltype.pdf',sep=""),width =8, height = 6)
+  print(DimPlot(seu,group.by = 'Batch'))
+  dev.off()
+  
+  # save the Seurat object
+  saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
+  
+  # save the stats list
+  saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
+  
+}
+
+
+
+#helper function 5: phenograph clustering
+phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500), 
+                                  input_path, output_path, input_name, clust_method) {
+  kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500) #testing, take out
+  # read in the dataframe
+  df <- read.csv(input_path)
+  # print info to log 
+  print(dim(df)) # this is specific df has 73578 cells
+  # the preprocessing output csv needs to be cleaned - it contains live dead, FSC, SSC and the sample column
+  print(colnames(df))
+  # create a df with just the expression 
+  # need a way to automate this selection 
+  # I only want the expression values
+  df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71"))
+  # the order of the DF is set by the order the columns are written above
+  # create a matrix for later
+  m <- as.matrix(df2) 
+  
+  # create the seurat object for visualization
+  
+  tm <- t(df2)
+  rownames(tm) <- colnames(df2)
+  colnames(tm) <- rownames(df2)
+  seu <- CreateSeuratObject(tm) # create a seurat object 
+  
+  # add the meta data back in for sample groups
+  seu <- AddMetaData(object=seu, metadata=df$Batch, col.name = 'Batch')
+  # this doesn't work for making levels
+  # create the vector for the antibodies names for feature plotting later
+  AB <- colnames(df2)
+  # add to scale data slot
+  seu <- ScaleData(seu)
+  
+  # check the data
+  pdf(paste(output_path,input_name,clust_method,"Heatmap_batch.pdf",sep=""),width =8, height = 6)
+  print(DoHeatmap(seu, group.by = "Batch", features = AB))
+  dev.off()
+  
+  # create the UMAP
+  seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
+  
+  
+  # like FlowSOM Phenograph doesn't relate directly to the UMAP like Louvain
+  # we will make on seurat UMAP and visualize the clusters there
+  
+  
+  kn = round(sqrt(dim(df2)[1]))
+  seu <- FindNeighbors(seu, dims = 1:12, k.param = kn)
+  seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn)
+  # save feature plots of this UMAP
+  # just for testing print
+
+  # we also only need to plot the features once
+  # file name
+  UMAP_name = paste("UMAPfeatures_kn",kn,".pdf",sep="")
+  print(UMAP_name) #testing
+  
+  # save feature plots UMAP
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+  print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
+  dev.off()
+  
+  # we also want to see the batch on the UMAP
+  pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 6)
+  print(DimPlot(seu, group.by = 'Batch'))
+  dev.off()
+
+  
+  ############################## explore parameters and calculate statistics ###########################
+  
+  
+  #create 3 lists for stats
+  
+  #create a df to store all stats, col = nc, si, ch, db
+  stats_ls <- data.frame(matrix(ncol = 5, nrow = length(kn)))
+  colnames(stats_ls) <- c("kn", "nc","si", "ch", "db")
+  count <- 0
+  
+  #subsampling for silhouette score, n=1000, can make n bigger if needed
+  set.seed(25)
+  row_n <- sample(1:nrow(m), 1000)
+  dis <- dist(m[row_n,])
+
+  
+  
+  ############################# loop to explore parameters ########################################
+  # kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
+  # kn = c(25,50,75,100,125,150,175,200,225,250,275,300)
+  # larger kn fewer clusters in general but not always
+  #kn = c(50,500)
+  # save a data object for each kn - will only keep temporarily
+  # the clusters will write over with each new kn
+
+
+  for (i in kn){
+    
+    ### run phenograph clustering
+    Rphenograph_out_flow <- Rphenograph(m, k = i)
+    
+    clust_name = paste('Pheno.kn.',i,sep="")
+    # add the cluster ID into seurat object to visualize
+    seu <- AddMetaData(object=seu, factor(membership(Rphenograph_out_flow[[2]])), col.name = clust_name) 
+    number.clusters <- length(unique(factor(membership(Rphenograph_out_flow[[2]]))))
+    
+    ### make umap 
+    
+    UMAP_name = paste("UMAPclusters_kn",i,".pdf",sep="")
+    print(UMAP_name) #testing 
+    pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
+    # save UMAP grouped
+    print(DimPlot(seu,reduction = "umap", repel = TRUE, label = TRUE, group.by = clust_name)) # will automatically group by active ident
+    dev.off()
+    # heatmap
+    heatmap_name = paste("Heatmapclusters_kn",i,".pdf",sep="")
+    #testing 
+    pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =25, height = 10)
+    print(DoHeatmap(seu, features = AB,group.by = clust_name))
+    dev.off()
+    
+    #### add stats
+    
+  
+  
+    # "kn", "nc","si", "ch", "db"
+    count <- 1+count
+    
+    #number of clusters 
+    stats_ls[count, "nc"] <- number.clusters # calculated above
+    
+    # get the cluster indexes 
+    phenocluster <- factor(membership(Rphenograph_out_flow[[2]]))
+  
+    
+    
+    stats_ls[count, "kn"] <- i 
+    
+    #number of clusters:
+    stats_ls[count, "nc"] <- number.clusters # calculated above
+    
+    #silhouette score:
+    stats_ls[count, "si"] <- mean(silhouette(as.numeric(phenocluster[row_n]),dis)[, 3])
+    
+    #Calinski-Harabasz index: 
+    stats_ls[count, "ch"] <- calinhara(m,phenocluster,cn=i)
+    
+    # Davies–Bouldin index:
+    stats_ls[count, "db"] <- index.DB(df2, as.numeric(phenocluster))$DB
+    
+  }
+
+
+
+  # make clustree plot
+  pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =15, height = 10)
+  print(clustree(seu, prefix ='Pheno.kn.'))
+  dev.off()
+  
+  # save the Seurat object
+  saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
+  
+  
+  # save the stats list
+  
+  stats_list <- list(si,ch,db,numb.clust)
+  
+  saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
+  
+  
+  stats_plot(stats_ls, output_path, input_name, clust_method)
+}
+
+
+#MAIN FUNCTION function with all clustering methods
+clustering <- function(input_path, output_path, input_name, clust_method) {
+  case_when(clust_method=="Louvain" ~ louvain_clustering(input_path, output_path, input_name, clust_method),
+            clust_method=="FlowSOM" ~ flowsom_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method),
+            clust_method=="Pheno" ~ phenograph_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method),
+  )
+}
+
+
+
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Louvain/"
+# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
+# output_path <- "/Users/shumingli/Desktop/"
+
+input_name <- "Flowset"  # processing type for file name
+clust_method <- "Louvain" # cluster type for file name
+
+clustering(input_path, output_path, input_name, clust_method)
+
+
+# 
+# ############# louvain input ############################
+# 
+# 
+# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+# output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Louvain/"
+# # input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
+# # output_path <- "/Users/shumingli/Desktop/"
+# 
+# 
+# input_name <- "Flowset"  # processing type for file name
+# clust_method <- "Louvain" # cluster type for file name
+# 
+# louvain_clustering(input_path, output_path, input_name, clust_method)
+# 
+# 
+# 
+# 
+# 
+# 
+# ############# flowsom input ############################
+# 
+# # define the input pathway
+# # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
+# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsflowset.csv"
+# 
+# 
+# # output pathway
+# # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/FlowSom-cat/"
+# output_path <- "/Users/shumingli/Desktop/"
+# 
+# 
+# 
+# # add input description to output files
+# input_name <- "Flowset"  # this will be the different processing types
+# 
+# # cluster type for file name
+# clust_method <- "FlowSOM"
+# 
+# flowsom_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
+# 
+# 
+# 
+# 
+# 
+# ############# set up the data object for phenograph clustering ############################
+# 
+# # info to change for each comparison
+# # define the input pathway
+# # input pathway
+# # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
+# 
+# # output pathway
+# # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
+# output_path <- "/Users/shumingli/Desktop/"
+# 
+# # add input description to output files
+# input_name <- "FlowAlignTrans"  # this will be the different processing types
+# 
+# # cluster type for file name
+# clust_method <- "Pheno"
+# 
+# phenograph_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method) 
+# 
