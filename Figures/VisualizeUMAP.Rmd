@@ -48,6 +48,8 @@ cor <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analy
 seu <- AddMetaData(object=seu, metadata=cor$cell.label, col.name = 'cor.labels')
 unique(seu$cor.labels)
 
+
+
 ```
 
 
@@ -189,6 +191,7 @@ DoHeatmap(seu, group.by = 'labels4', features = AB, size= 5,slot = "scale.data",
 dev.off()
 
 
+
 ```
 
 Visualize split UMAPs by batch 
@@ -210,7 +213,8 @@ DimPlot(seu, group.by = 'Batch', label = FALSE, shuffle = TRUE)
 Plot the correlations with less mix-cell types
 
 ```{r}
- df.filter <- cor %>% group_by(cell.label) %>% dplyr::filter(n()> 500)
+ 
+df.filter <- cor %>% group_by(cell.label) %>% dplyr::filter(n()> 500)
 
 plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
    theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')
@@ -223,6 +227,7 @@ plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-lengt
   print(plot1)
   dev.off()
 
+  
 
 ```
 
@@ -274,7 +279,7 @@ ggplot(cor.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "
 Proportions of each sample:
 
 ```{r}
-sample.lables <- as.data.frame(table(seu$Batch, seu$labels4))
+sample.lables <- as.data.frame(table(seu.r$Batch, seu.r$labels6))
 
 sample.lables$Freq <- as.double(sample.lables$Freq)
 # try to make a heatmap
@@ -282,6 +287,25 @@ sample.lables$Freq <- as.double(sample.lables$Freq)
 
 # try bar chart
 ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(axis.text.x=element_text(angle=90))+ xlab('Batch') + ylab('Frequency of Cell type')
+
+# number of cells in each group
+
+table(seu.r$Batch)
+# all samples are 9000 except AJG001C 
+# need to find a way to pull out these numbers and apply to the df to calculate proportions 
+# for now I'll use elseif
+
+sample.lables$ptc <- ifelse(sample.lables$Var1 == 'A', sample.lables$Freq/1578*100, sample.lables$Freq/9000*100)
+# this doesn't work --- but why???
+
+
+
+
+# bar chart of with percent 
+ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity") + scale_y_continuous(labels = scales::percent_format()) + theme_classic() + xlab('Batch') + ylab('Percent of Cell type') + RotatedAxis()
+
+
+
 
 
 
@@ -403,10 +427,42 @@ seu.r<- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analy
 
 
 # find the anchors for label transfer
-anchors <- FindTransferAnchors(reference = seu, query = seu.q, features = AB, reference.reduction = "pca", dim= 1:10) 
+anchors <- FindTransferAnchors(reference = seu.r, query = seu.q,features = AB ,reference.reduction = "pca", dim= 1:10) 
 # this step is computationally intensive and take a long time
+# refdata = reference$cell_lables_wanted
+predictions <- TransferData(anchorset = anchors, refdata = seu.r$labels6, dims = 1:10)
 
-seu.q <- IntegrateData(anchorset = anchors, new.assay.name = 'integrated', dims = 1:10, features = AB)
+seu.q <- AddMetaData(seu.q, metadata = predictions)
+
+```
+
+
+Lets see the transfer labels
+
+```{r}
+DimPlot(seu.q, group.by = 'predicted.id', label = TRUE, repel = TRUE)
+DimPlot(seu.q, group.by = 'RNA_snn_res.0.25', label = TRUE, repel = TRUE)
+
+DimPlot(seu.r, group.by = 'RNA_snn_res.0.25', label = TRUE, repel = TRUE)
+DimPlot(seu.r, group.by = 'labels6', label = TRUE, repel = TRUE)
+
+DoHeatmap(seu.q, group.by = 'predicted.id', features = AB)
+DoHeatmap(seu.q, group.by = 'RNA_snn_res.0.25', features = AB)
+
+```
+
+
+
+We can see how many match if we had labels already
+
+I can see how many match between two other labelss!
+
+```{r}
+# matches 
+
+seu.r$cor.cell.match <- seu.r$cor.labels == seu.r$labels6
+table(seu.r$cor.cell.match)
+# Not a good match!
 
 
 ```
@@ -415,16 +471,73 @@ seu.q <- IntegrateData(anchorset = anchors, new.assay.name = 'integrated', dims 
 
 
 
-
-Maybe the dotplot can work now???  Nope - but it worked once before so why not now????
+For some reason the dotplot doesn't work - I'll remake the dotplot with ggplot
 
 
 ```{r}
-seu <- ScaleData(seu)
-DotPlot(seu, features = AB, cols = c("red","blue"), group.by = 'RNA_snn_res.0.4', dot.scale = 8) + RotatedAxis()
+
+express.by.cluster <- as.data.frame(AverageExpression(seu.q, features = AB, group.by = 'labels', slot = 'scale.data'))
+express.by.cluster <- scale(express.by.cluster)
+
+# reformat
+longData<- melt(express.by.cluster)
+
+# heatmap
+
+ggplot(longData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="grey90", high="red", na.value = "grey") +
+  labs(x="Antibodies", y="Cell Types", title="Matrix") +
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=12),
+                     plot.title=element_text(size=12))
+
+
+
+ggplot(data = df.plot, aes(x = Var1, y = Var2, color = , size = GeneRatio)) +
+  geom_point() +
+  scale_color_gradient(low = "red", high = "blue") 
+
+
+
+
 
 ```
 
+
+
+Visualize Random Forest predictions
+
+```{r}
+
+rf.pred <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/ prediction_march15rf_dl2.csv")
+
+seu <- AddMetaData(object=seu, metadata= rf.pred$x, col.name = 'rf.pred.march15.2')
+unique(seu$rf.pred.march15.2)
+
+
+rf.pred <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/ prediction_march15rf.csv")
+
+seu <- AddMetaData(object=seu, metadata= as.factor(rf.pred$x), col.name = 'rf.pred.march15')
+unique(seu$rf.pred.march15)
+
+rf.pred <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/ prediction_march25rf_dl2.csv")
+
+seu <- AddMetaData(object=seu, metadata= rf.pred$x, col.name = 'rf.pred.march25.2')
+unique(seu$rf.pred.march25.2)
+
+seu <- AddMetaData(object=seu, metadata= rf.pred$x, col.name = 'rf.pred.march25')
+unique(seu$rf.pred.march25)
+
+DimPlot(seu, group.by = 'rf.pred.march15', label = TRUE)
+DimPlot(seu, group.by = 'rf.pred.march25', label = TRUE)
+DimPlot(seu, group.by = 'rf.pred.march15.2', label = TRUE)
+DimPlot(seu, group.by = 'rf.pred.march25.2', label = TRUE)
+DimPlot(seu, group.by = 'labels6', label = TRUE)
+DimPlot(seu, group.by = 'labels4', label = TRUE)
+
+
+```
 
 
 

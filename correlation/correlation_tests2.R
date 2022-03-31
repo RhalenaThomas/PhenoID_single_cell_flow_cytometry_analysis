@@ -177,3 +177,12 @@ reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometr
 output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/retro/9celltypes/"
 
 find_correlation(test_path, reference_path, output_path)
+
+# run for full 9MBO set
+
+reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/correlations"
+test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv"
+
+find_correlation(test_path, reference_path, output_path)
+
