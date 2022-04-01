@@ -18,9 +18,7 @@ library(Seurat)
 library(dplyr)
 library(ggplot2)
 library(clustree)
-
 library(Rphenograph)
-
 library(reshape2) #for plotting multiple lines (resolutions) on the same graph
 
 
@@ -82,7 +80,7 @@ stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
          x = "Number of Clusters", y = "Davies–Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
-  print(dbplot2)
+  print(dbplot1)
   print(dbplot2)
   
   dev.off()
@@ -333,6 +331,7 @@ flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,
   # the order of the DF is set by the order the colunms are written above
   # create a matrix for later
   print(colnames(df2))
+  col.names <- colnames(df2)
   m <- as.matrix(df2) 
   
   # create the flowframe
@@ -478,8 +477,7 @@ flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,
     stats_ls[count, "db"] <- index.DB(df2, as.numeric(flowSOMcluster))$DB
     
   }
-  
-  
+
   stats_plot(stats_ls, output_path, input_name, clust_method)
   
   
@@ -511,7 +509,6 @@ flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,
 #helper function 5: phenograph clustering
 phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500), 
                                   input_path, output_path, input_name, clust_method) {
-  kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500) #testing, take out
   # read in the dataframe
   df <- read.csv(input_path)
   # print info to log 
@@ -554,15 +551,15 @@ phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,30
   # we will make on seurat UMAP and visualize the clusters there
   
   
-  kn = round(sqrt(dim(df2)[1]))
-  seu <- FindNeighbors(seu, dims = 1:12, k.param = kn)
-  seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn)
+  kn_umap = round(sqrt(dim(df2)[1]))
+  seu <- FindNeighbors(seu, dims = 1:12, k.param = kn_umap)
+  seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn_umap)
   # save feature plots of this UMAP
   # just for testing print
 
   # we also only need to plot the features once
   # file name
-  UMAP_name = paste("UMAPfeatures_kn",kn,".pdf",sep="")
+  UMAP_name = paste("UMAPfeatures_kn",kn_umap,".pdf",sep="")
   print(UMAP_name) #testing
   
   # save feature plots UMAP
@@ -634,13 +631,9 @@ phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,30
     # "kn", "nc","si", "ch", "db"
     count <- 1+count
     
-    #number of clusters 
-    stats_ls[count, "nc"] <- number.clusters # calculated above
-    
     # get the cluster indexes 
     phenocluster <- factor(membership(Rphenograph_out_flow[[2]]))
   
-    
     
     stats_ls[count, "kn"] <- i 
     
@@ -675,7 +668,6 @@ phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,30
   
   saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
   
-  
   stats_plot(stats_ls, output_path, input_name, clust_method)
 }
 
@@ -690,13 +682,17 @@ clustering <- function(input_path, output_path, input_name, clust_method) {
 
 
 
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Louvain/"
-# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
-# output_path <- "/Users/shumingli/Desktop/"
+# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
 
-input_name <- "Flowset"  # processing type for file name
-clust_method <- "Louvain" # cluster type for file name
+# output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
+output_path <- "/Users/shumingli/Desktop/"
+
+# add input description to output files
+input_name <- "FlowAlignTrans"  # this will be the different processing types
+
+# cluster type for file name
+clust_method <- "Pheno"
 
 clustering(input_path, output_path, input_name, clust_method)
 
@@ -723,10 +719,9 @@ clustering(input_path, output_path, input_name, clust_method)
 # 
 # ############# flowsom input ############################
 # 
-# # define the input pathway
-# # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
-# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsflowset.csv"
-# 
+# define the input pathway
+# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
 # 
 # # output pathway
 # # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/FlowSom-cat/"
