@@ -34,9 +34,9 @@ library(dplyr)
 ############# set up the data object for clustering ############################
 
 ## path
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs_jan19allcells/prepro_outsretrotransformed_flowset.csv"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv"
 # output pathway
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs_jan19allcells/Clusters/Louvain/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/"
 # add input description to output files
 input_name <- "Allcellsretros_"  # this will be the different processing types
 
