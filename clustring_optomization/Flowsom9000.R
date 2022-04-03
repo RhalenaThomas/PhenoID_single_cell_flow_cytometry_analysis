@@ -18,6 +18,8 @@ library(clustree)
 ############################## functions ###########################
 
 
+
+
 #stats plotting function
 stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
   #silhouette score:
@@ -74,7 +76,7 @@ stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
          x = "Number of Clusters", y = "Davies–Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
-  print(dbplot2)
+  print(dbplot1)
   print(dbplot2)
   
   dev.off()

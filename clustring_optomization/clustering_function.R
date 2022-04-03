@@ -167,11 +167,12 @@ louvain_stats_plotting <- function(stats_ls, output_path, input_name, clust_meth
 }
 
 #helper function 3: louvain clustering
+#= c(25,50,100,125,150,200,250,300)
 louvain_clustering <- function(input_path, 
                                output_path, 
                                input_name, 
                                clust_method, 
-                               kn = c(25,50,100,125,150,200,250,300), #test all values by default 
+                               kn,
                                resolutions = c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,1.8)) {
   
   # ========================= 1. processing input data =========================
@@ -314,7 +315,8 @@ louvain_clustering <- function(input_path,
 
 
 #helper function 4: flowsom clustering
-flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90),
+#= c(5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90)
+flowsom_clustering <- function(krange,
                                input_path, output_path, input_name, clust_method) {
   
   
@@ -507,7 +509,8 @@ flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,
 
 
 #helper function 5: phenograph clustering
-phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500), 
+#= c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
+phenograph_clustering <- function(kn, 
                                   input_path, output_path, input_name, clust_method) {
   # read in the dataframe
   df <- read.csv(input_path)
@@ -652,7 +655,7 @@ phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,30
   }
 
 
-
+  stats_ls <- read.csv("/Users/shumingli/Documents/stats.csv")
   # make clustree plot
   pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =15, height = 10)
   print(clustree(seu, prefix ='Pheno.kn.'))
@@ -664,7 +667,6 @@ phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,30
   
   # save the stats list
   
-  stats_list <- list(si,ch,db,numb.clust)
   
   saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
   
@@ -673,10 +675,10 @@ phenograph_clustering <- function(kn = c(25,50,75,100,125,150,175,200,225,250,30
 
 
 #MAIN FUNCTION function with all clustering methods
-clustering <- function(input_path, output_path, input_name, clust_method) {
-  case_when(clust_method=="Louvain" ~ louvain_clustering(input_path, output_path, input_name, clust_method),
-            clust_method=="FlowSOM" ~ flowsom_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method),
-            clust_method=="Pheno" ~ phenograph_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method),
+clustering <- function(kn, input_path, output_path, input_name, clust_method) {
+  case_when(clust_method=="Louvain" ~ louvain_clustering(input_pat=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method, kn=kn),
+            clust_method=="FlowSOM" ~ flowsom_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method, krange=kn),
+            clust_method=="Pheno" ~ phenograph_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method,kn=kn),
   )
 }
 
@@ -686,7 +688,7 @@ clustering <- function(input_path, output_path, input_name, clust_method) {
 input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
 
 # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
-output_path <- "/Users/shumingli/Desktop/"
+output_path <- "/Users/shumingli/Documents/"
 
 # add input description to output files
 input_name <- "FlowAlignTrans"  # this will be the different processing types
@@ -694,7 +696,9 @@ input_name <- "FlowAlignTrans"  # this will be the different processing types
 # cluster type for file name
 clust_method <- "Pheno"
 
-clustering(input_path, output_path, input_name, clust_method)
+kn = c(25, 50)
+
+clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
 
 
 # 
