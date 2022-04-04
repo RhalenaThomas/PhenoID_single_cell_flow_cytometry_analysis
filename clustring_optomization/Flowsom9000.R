@@ -273,7 +273,8 @@ flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,
   
   # save the stats list
   saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
-
+  write.csv(stats_ls, paste(output_path, "stats.csv",sep=""), row.names = FALSE)
+  
 }
 
 
