@@ -540,24 +540,27 @@ phenograph_clustering <- function(kn,
   # create the vector for the antibodies names for feature plotting later
   AB <- colnames(df2)
   # add to scale data slot
+  print("test1")
   seu <- ScaleData(seu)
-  
+  print("test2")
   # check the data
   pdf(paste(output_path,input_name,clust_method,"Heatmap_batch.pdf",sep=""),width =8, height = 6)
   print(DoHeatmap(seu, group.by = "Batch", features = AB))
   dev.off()
-  
+  print("test3")
   # create the UMAP
   seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
   
-  
+  print("test4")
   # like FlowSOM Phenograph doesn't relate directly to the UMAP like Louvain
   # we will make on seurat UMAP and visualize the clusters there
   
   
   kn_umap = round(sqrt(dim(df2)[1]))
   seu <- FindNeighbors(seu, dims = 1:12, k.param = kn_umap)
+  print("test5")
   seu <- RunUMAP(seu, dims = 1:12, n.neighbors = kn_umap)
+  print("test6")
   # save feature plots of this UMAP
   # just for testing print
 
@@ -570,12 +573,12 @@ phenograph_clustering <- function(kn,
   pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =20, height = 10)
   print(FeaturePlot(seu, features = AB,slot = 'scale.data',min.cutoff = 'q1', max.cutoff ='99',label.size = 1)+ theme(plot.title = element_text(size = 0.1)))
   dev.off()
-  
+  print("test7")
   # we also want to see the batch on the UMAP
   pdf(paste(output_path,input_name,clust_method,UMAP_name,sep=""),width =8, height = 6)
   print(DimPlot(seu, group.by = 'Batch'))
   dev.off()
-
+  print("test8")
   
   ############################## explore parameters and calculate statistics ###########################
   
@@ -592,7 +595,7 @@ phenograph_clustering <- function(kn,
   row_n <- sample(1:nrow(m), 1000)
   dis <- dist(m[row_n,])
 
-  
+  print("test9")
   
   ############################# loop to explore parameters ########################################
   # kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
@@ -607,12 +610,13 @@ phenograph_clustering <- function(kn,
     
     ### run phenograph clustering
     Rphenograph_out_flow <- Rphenograph(m, k = i)
-    
+    print("test10")
     clust_name = paste('Pheno.kn.',i,sep="")
     # add the cluster ID into seurat object to visualize
     seu <- AddMetaData(object=seu, factor(membership(Rphenograph_out_flow[[2]])), col.name = clust_name) 
+    print("test11")
     number.clusters <- length(unique(factor(membership(Rphenograph_out_flow[[2]]))))
-    
+    print("test12")
     ### make umap 
     
     UMAP_name = paste("UMAPclusters_kn",i,".pdf",sep="")
@@ -627,7 +631,7 @@ phenograph_clustering <- function(kn,
     pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =25, height = 10)
     print(DoHeatmap(seu, features = AB,group.by = clust_name))
     dev.off()
-    
+    print("test13")
     #### add stats
     
   
@@ -637,7 +641,7 @@ phenograph_clustering <- function(kn,
     
     # get the cluster indexes 
     phenocluster <- factor(membership(Rphenograph_out_flow[[2]]))
-  
+    print("test14")
     
     stats_ls[count, "kn"] <- i 
     
@@ -652,7 +656,7 @@ phenograph_clustering <- function(kn,
     
     # Davies–Bouldin index:
     stats_ls[count, "db"] <- index.DB(df2, as.numeric(phenocluster))$DB
-    
+    print("test15")
   }
 
 
@@ -660,7 +664,7 @@ phenograph_clustering <- function(kn,
   pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =15, height = 10)
   print(clustree(seu, prefix ='Pheno.kn.'))
   dev.off()
-  
+  print("test16")
   # save the Seurat object
   saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
   
@@ -672,7 +676,7 @@ phenograph_clustering <- function(kn,
   stats_plot(stats_ls, output_path, input_name, clust_method)
   
   write.csv(stats_ls, paste(output_path, "stats.csv",sep=""), row.names = FALSE)
-  
+  print("test17")
 }
 
 
@@ -818,23 +822,23 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
 
 
 
-#Testing for phenogrpah
-
-# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
-input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
-
-# output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
-output_path <- "/Users/shumingli/Documents/"
-
-# add input description to output files
-input_name <- "FlowAlignTrans"  # this will be the different processing types
-
-# cluster type for file name
-clust_method <- "Pheno"
-
-kn = c(25, 50)
-
-clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
+# #Testing for phenogrpah
+# 
+# # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
+# 
+# # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
+# output_path <- "/Users/shumingli/Documents/"
+# 
+# # add input description to output files
+# input_name <- "FlowAlignTrans"  # this will be the different processing types
+# 
+# # cluster type for file name
+# clust_method <- "Pheno"
+# 
+# kn = c(25, 50)
+# 
+# clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
 
 
 # 
@@ -882,22 +886,24 @@ clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=inp
 # 
 # 
 # ############# set up the data object for phenograph clustering ############################
-# 
-# # info to change for each comparison
-# # define the input pathway
-# # input pathway
-# # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
-# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
-# 
-# # output pathway
-# # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
-# output_path <- "/Users/shumingli/Desktop/"
-# 
-# # add input description to output files
-# input_name <- "FlowAlignTrans"  # this will be the different processing types
-# 
-# # cluster type for file name
-# clust_method <- "Pheno"
-# 
-# phenograph_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method) 
-# 
+
+# info to change for each comparison
+# define the input pathway
+# input pathway
+# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
+
+# output pathway
+# output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
+output_path <- "/Users/shumingli/Desktop/"
+
+# add input description to output files
+input_name <- "FlowAlignTrans"  # this will be the different processing types
+
+# cluster type for file name
+clust_method <- "Pheno"
+
+kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
+
+phenograph_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
+
