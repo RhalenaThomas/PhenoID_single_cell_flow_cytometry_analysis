@@ -503,6 +503,7 @@ flowsom_clustering <- function(krange,
   
   # save the stats list
   saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
+  write.csv(stats_ls, paste(output_path, "stats.csv",sep=""), row.names = FALSE)
   
 }
 
@@ -655,7 +656,6 @@ phenograph_clustering <- function(kn,
   }
 
 
-  stats_ls <- read.csv("/Users/shumingli/Documents/stats.csv")
   # make clustree plot
   pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =15, height = 10)
   print(clustree(seu, prefix ='Pheno.kn.'))
@@ -666,11 +666,13 @@ phenograph_clustering <- function(kn,
   
   
   # save the stats list
-  
-  
+
   saveRDS(stats_list,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
   
   stats_plot(stats_ls, output_path, input_name, clust_method)
+  
+  write.csv(stats_ls, paste(output_path, "stats.csv",sep=""), row.names = FALSE)
+  
 }
 
 
@@ -683,6 +685,140 @@ clustering <- function(kn, input_path, output_path, input_name, clust_method) {
 }
 
 
+#plot stats for all
+#takes 3 stats list (louvain, flowsom, phenograph) and compare each stat 
+#for all three clustering types
+#input is df, so should read in rds or csv as df beforehand
+plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograph) {
+  
+  #krange in flowsom=kn? 
+  colnames(flowsom)[colnames(flowsom) == "krange"] <- "kn"
+  flowsom['resolution'] <- NA
+ 
+  #add a column for clustering methodd to each df
+  flowsom <- cbind(method="flowsom",flowsom)
+  phenograph <- cbind(method="phenograph",phenograph)
+  louvain <- cbind(method="louvain",louvain)
+  
+  #rename the clustering method for louvain with kn  
+  for (i in row(louvain)) {
+    louvain[i, 'method'] <- paste("louvain ",louvain[i,'kn'],sep="")
+  } 
+  
+  
+  #merge 3 df in one file (louvain method + kn)
+  stats_ls <-rbind(flowsom, phenograph, louvain)
+  
+  #rename the clustering method for louvain with resolution
+  for (i in row(louvain)) {
+    louvain[i, 'method'] <- paste("louvain ",louvain[i,'resolution'],sep="")
+  } 
+  
+  #create a df that contains louvain method + resolution
+  stats_ls2 <-rbind(flowsom, phenograph, louvain)
+  
+  #reorder the method so that the legend is displayed in order
+  stats_ls$method <- factor(stats_ls$method,
+                            levels = unique(stats_ls$method))
+  
+  stats_ls2$method <- factor(stats_ls2$method,
+                            levels = unique(stats_ls2$method))
+
+  #color palette, can add more color to it later
+  palette <- c("#d62828", "#fd9e02", "#a9d6e5", "#89c2d9", "#61a5c2", "#468faf", "#2c7da0", "#2a6f97", "#014f86","#01497c", "#013a63", "#012a4a")
+  
+  #plot comparison for silhouette score
+  pdf(paste(output_path,input_name,clust_method,"Silhouette_plot_comparison.pdf",sep=""))
+  
+  siplot1 <- ggplot(stats_ls, aes(x=nc, y=si, label=method)) +
+    geom_point(aes(group=method,color=method), size=1) +
+    geom_line(aes(group=method,color=method), size=0.1) +
+    scale_colour_manual(values=palette) +
+    labs(color = "method", title = "Silhouette Scores",
+         x = "Number of Clusters", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(siplot1)
+  
+  siplot2 <- ggplot(stats_ls2, aes(x=kn, y=si, label=method)) +
+    geom_point(aes(group=method,color=method), size=1) +
+    geom_line(aes(group=method,color=method), size=0.1) +
+    scale_colour_manual(values=palette) +
+    labs(color = "method", title = "Silhouette Scores",
+         x = "kn", y = "Average Silhouette Scores") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(siplot2)
+
+  dev.off()
+  
+  
+  
+  #plot comparison for Calinski-Harabasz index
+  pdf(paste(output_path,input_name,clust_method,"calinski_harabasz_plot_comparison.pdf",sep=""))
+  
+  chplot1 <- ggplot(stats_ls, aes(x=nc, y=ch, label=method)) +
+    geom_point(aes(group=method,color=method), size=1) +
+    geom_line(aes(group=method,color=method), size=0.1) +
+    scale_colour_manual(values=palette) +
+    labs(color = "method", title = "Calinski-Harabasz index",
+         x = "Number of Clusters", y = "Calinski-Harabasz index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(chplot1)
+  
+  chplot2 <- ggplot(stats_ls2, aes(x=kn, y=ch, label=method)) +
+    geom_point(aes(group=method,color=method), size=1) +
+    geom_line(aes(group=method,color=method), size=0.1) +
+    scale_colour_manual(values=palette) +
+    labs(color = "method", title = "Calinski-Harabasz index",
+         x = "kn", y = "Calinski-Harabasz index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(chplot2)
+  
+  dev.off()
+  
+  
+  #plot comparison for Davies–Bouldin index
+  pdf(paste(output_path,input_name,clust_method,"davies_bouldin_plot_comparison.pdf",sep=""))
+  
+  dbplot1 <- ggplot(stats_ls, aes(x=nc, y=db, label=method)) +
+    geom_point(aes(group=method,color=method), size=1) +
+    geom_line(aes(group=method,color=method), size=0.1) +
+    scale_colour_manual(values=palette) +
+    labs(color = "method", title = "Davies–Bouldin index",
+         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(dbplot1)
+  
+  dbplot2 <- ggplot(stats_ls2, aes(x=kn, y=db, label=method)) +
+    geom_point(aes(group=method,color=method), size=1) +
+    geom_line(aes(group=method,color=method), size=0.1) +
+    scale_colour_manual(values=palette) +
+    labs(color = "method", title = "Davies–Bouldin index",
+         x = "kn", y = "Davies–Bouldin index") +
+    theme(plot.title = element_text(hjust = 0.5))
+  print(dbplot2)
+  
+  dev.off()
+}
+
+
+# #testing for plot comparison
+# 
+# #shuming's input path
+# louvain <- read.csv("/Users/shumingli/Desktop/louvain_output/stats.csv")
+# flowsom <- readRDS("/Users/shumingli/Desktop/flowsom_output/FlowsetFlowSOMstatslist.Rds")
+# phenograph <- read.csv("/Users/shumingli/Desktop/phenograph_output/stats.csv")
+# 
+# input_name <- "AlignTrans"  
+# output_path <- "/Users/shumingli/Desktop/"
+# 
+# plot_comparison(input_name=input_name, output_path=output_path, louvain=louvain, flowsom=flowsom, phenograph=phenograph)
+#   
+
+
+
+
+
+#Testing for phenogrpah
 
 # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
 input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
@@ -702,7 +838,7 @@ clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=inp
 
 
 # 
-# ############# louvain input ############################
+# ############# testing for louvain ############################
 # 
 # 
 # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
@@ -721,7 +857,7 @@ clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=inp
 # 
 # 
 # 
-# ############# flowsom input ############################
+# ############# testing for flowsom  ############################
 # 
 # define the input pathway
 # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
