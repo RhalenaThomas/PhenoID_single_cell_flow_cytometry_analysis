@@ -235,14 +235,14 @@ flowsom_stats_plot <- function(stats_ls, output_path, input_name, clust_method) 
   pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
   dbplot1 <- ggplot(stats_ls) + 
     geom_point(aes(x=krange, y=db)) +
-    labs(title = "Davies–Bouldin index",
-         x = "krange", y = "Davies–Bouldin index") +
+    labs(title = "Davies-Bouldin index",
+         x = "krange", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
   dbplot2 <- ggplot(stats_ls) + 
     geom_point(aes(x=nc, y=db)) +
-    labs(title = "Davies–Bouldin index",
-         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    labs(title = "Davies-Bouldin index",
+         x = "Number of Clusters", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
   print(dbplot1)
@@ -962,7 +962,7 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   palette <- c("#d62828", "#fd9e02", "#a9d6e5", "#89c2d9", "#61a5c2", "#468faf", "#2c7da0", "#2a6f97", "#014f86","#01497c", "#013a63", "#012a4a")
   
   #plot comparison for silhouette score
-  pdf(paste(output_path,input_name,clust_method,"Silhouette_plot_comparison.pdf",sep=""))
+  pdf(paste(output_path,input_name,"Silhouette_plot_comparison.pdf",sep=""))
   
   siplot1 <- ggplot(stats_ls, aes(x=nc, y=si, label=method)) +
     geom_point(aes(group=method,color=method), size=1) +
@@ -987,7 +987,7 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   
   
   #plot comparison for Calinski-Harabasz index
-  pdf(paste(output_path,input_name,clust_method,"calinski_harabasz_plot_comparison.pdf",sep=""))
+  pdf(paste(output_path,input_name,"calinski_harabasz_plot_comparison.pdf",sep=""))
   
   chplot1 <- ggplot(stats_ls, aes(x=nc, y=ch, label=method)) +
     geom_point(aes(group=method,color=method), size=1) +
@@ -1011,14 +1011,14 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   
   
   #plot comparison for Davies–Bouldin index
-  pdf(paste(output_path,input_name,clust_method,"davies_bouldin_plot_comparison.pdf",sep=""))
+  pdf(paste(output_path,input_name,"davies_bouldin_plot_comparison.pdf",sep=""))
   
   dbplot1 <- ggplot(stats_ls, aes(x=nc, y=db, label=method)) +
     geom_point(aes(group=method,color=method), size=1) +
     geom_line(aes(group=method,color=method), size=0.1) +
     scale_colour_manual(values=palette) +
-    labs(color = "method", title = "Davies–Bouldin index",
-         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    labs(color = "method", title = "Davies-Bouldin index",
+         x = "Number of Clusters", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5))
   print(dbplot1)
   
@@ -1026,8 +1026,8 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
     geom_point(aes(group=method,color=method), size=1) +
     geom_line(aes(group=method,color=method), size=0.1) +
     scale_colour_manual(values=palette) +
-    labs(color = "method", title = "Davies–Bouldin index",
-         x = "kn", y = "Davies–Bouldin index") +
+    labs(color = "method", title = "Davies-Bouldin index",
+         x = "kn", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5))
   print(dbplot2)
   
