@@ -30,8 +30,8 @@ print(table(df.l$lables))
 set.seed(222)
 ind <- sample(2, nrow(df.l), replace = TRUE, prob = c(0.5, 0.5)) # prop is the proportions
 # split the data into train and test
-train <- df.l[ind==1,]
-test <- df.l[ind==2,]
+train.old <- df.l[ind==1,]
+test.old <- df.l[ind==2,]
 
 # now train the classifier and run the test
 # 

@@ -1,0 +1,55 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+# load libraries
+
+
+
+```
+
+Hypergate takes in 
+1. an expression matrix
+2. a vector of events to attempt to gate on - there are different ways to get these
+
+interactive gating - try later
+Clustering - this is what I want to use
+
+hypergate is the function to optomize gating strategies
+
+xp = a numberic matrix encoding expression 
+gate_vector a vector with a few unique values --- this should be the cluster labels
+level specifies what value of gate vector togate upon 
+
+```{r}
+library("hypergate")
+
+input.xm = as.matrix(GetAssayData(seu.q, slot = 'scale.data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.q$labels)
+
+
+hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = 'Astro1')
+
+# writing level = 1 resulted empty output
+# putting 'Astro1' is running but taking a very long time
+# I believe I will have to down sample the Seurat object.  I thing I might want to subset the AIW002 first
+
+
+
+```
+
+
+Try checking the results
+
+```{r}
+hgate_pheno(hg_output)
+
+```
+
+
+

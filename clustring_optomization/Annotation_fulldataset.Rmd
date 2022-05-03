@@ -292,11 +292,84 @@ DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels3', repel = T
 DoHeatmap(seu.q, group.by = 'labels3', features = AB)
 
 
+# grouping for gating maintaining subgroups
+# for gating I will subset out the mix populations
+
+Idents(seu.q) <- "RNA_snn_res.1"
+cluster.ids <- c("Mix","Neurons-CD24+","Astro-CD44+","RG-CD184+","RG-CD133+","Mix","Astro-Glast+","Astro-CD44+","RG-CD184+","Mix","Astro-CD44+","Endothelial","Astro-CD44+","Neurons-CD56+","Neurons-CD24+CD56+","Neurons-CD56+","Astro-CD44+","Neurons-CD56+","Neurons-CD24+","RG-CD133+","Oligo","Epithelial","Neurons-CD24+CD56+")
+
+
+names(cluster.ids) <- levels(seu.q)
+seu.q <- RenameIdents(seu.q, cluster.ids)
+seu.q$labels.groups <- Idents(seu.q)
+
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels.groups', repel = TRUE)
+
+
+# grouping for gating maintaining subgroups
+# remain for even more basic groups 
+# I'm leaving CD56 neurons as one thing and the CD15/CD24 neurons together
+# joining the two astro together
+# joining the two RG together
+
+
+Idents(seu.q) <- "RNA_snn_res.1"
+cluster.ids <- c("Mix","Neurons1","Astro","RG","RG","Mix","Astro","Astro","RG","Mix","Astro","Endothelial","Astro","Neurons2","Neurons1","Neurons2","Astro","Neurons2","Neurons1","RG","Oligo","Epithelial","Neurons1")
+
+
+names(cluster.ids) <- levels(seu.q)
+seu.q <- RenameIdents(seu.q, cluster.ids)
+seu.q$labels.main.groups <- Idents(seu.q)
+
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels.main.groups', repel = TRUE)
+
+
+# now try with more groups than before
+# split astrocytes into more groups 
+# astro1 and 3 together 
+# astro2 alone
+# astro4 and 5 together
+
+cluster.ids <- c("Mix","Neurons-CD24+","Astro-CD44+","RG-CD184+","RG-CD133+","Mix","Astro-Glast+","Astro-CD44+","RG-CD184+","Mix","Astro-CD44+","Endothelial","Astro-CD44+","Neurons-CD56+","Neurons-CD24+CD56+","Neurons-CD56+","Astro-CD44+","Neurons-CD56+","Neurons-CD24+","RG-CD133+","Oligo","Epithelial","Neurons-CD24+CD56+")
+
+cluster.ids <- c("Mix","NPC","Astro1","RG1","RG2","N-E-NPC-Astro","Astro2","Astro3","RG3","N-OPC-Mix","Astro4","Endothelial","Astro4","Neurons1","EarlyNeurons","Neurons2","Astro5","Neurons3","NPC-Neuro","RG2","Oligo","Epithelial","Neurons4")
+
+
+Idents(seu.q) <- "RNA_snn_res.1"  #set to the clusters you want to rename - it's probably 'seurat.clusters' in your oject
+cluster.ids <- c("Mix","Neurons1","Astro1","RG1","RG2","Mix","Astro2","Astro1","RG1","Mix","Astro3","Endothelial","Astro3","Neurons2","Neurons3","Neurons2","Astro3","Neurons2","Neurons1","RG2","Oligo","Epithelial","Neurons3")
+# vector with the new names - you need this vector from me
+
+names(cluster.ids) <- levels(seu.q)    # where seu.q is your seurat object
+seu.q <- RenameIdents(seu.q, cluster.ids) 
+seu.q$cell.types <- Idents(seu.q)   # cell.types is a new slot in metadata you can call this whatever you want
+
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'cell.types', repel = TRUE)
+
+
+
 saveRDS(seu.q, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/AllcellLablesMarch25.Rds")
 
 
 
 ```
+
+
+Quick check proportion of cell types across samples
+
+```{r}
+
+table(Idents(seu.q), seu.q$Batch)
+
+# proportion across channels
+prp.t <- as.data.frame(prop.table(table(Idents(seu.q))))
+
+
+
+```
+
+
+
+
 
 
 Proportions of cell types
@@ -324,6 +397,61 @@ ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "f
 
 ```
 
+Calculate if the proportions are different
+
+```{r}
+# https://github.com/rpolicastro/scProportionTest
+
+# now made into a package
+
+#devtools::install_github("rpolicastro/scProportionTest")
+library("scProportionTest")
+
+prop_test <- sc_utils(seu.r)
+
+unique(seu.r$Batch)
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "labels6",
+	sample_1 = "3450_0306", sample_2 = "3450_0317A",
+	sample_identity = "Batch"
+)
+
+permutation_plot(prop_test)
+
+```
+
+
+
+```{r}
+
+# I want to compare proportions across groups - like a 2 way anova
+# need to setup the data
+
+ # sample.lables this is the cell counts per cluster from above
+
+
+wide.data <- reshape(data= sample.lables,idvar = Var1 )
+
+
+
+
+
+
+```
+
+
+
+
+See ridge plots for grouping clusters together
+
+```{r}
+RidgePlot(seu.q, group.by = 'labels', features = "CD24", log= TRUE)
+RidgePlot(seu.q, group.by = 'labels', features = "CD56", log= TRUE)
+RidgePlot(seu.q, group.by = 'labels', features = "CD29", log= TRUE)
+RidgePlot(seu.q, group.by = 'labels', features = "CD15", log= TRUE)
+
+```
 
 
 

@@ -159,7 +159,7 @@ For this analysis I'll take 9000 events for each sample except the final sample 
 
 Set an arbitrary number of cells for subsetting samples (if a fcs files has less cells it will be completely selected)
 ```{r,include=FALSE}
-desired_size <- 9000
+desired_size <- 50000
 # I've run this chunk setting the cell number to 9000
 ```
 Set the number to the smallest fcs files (containing the smallest amount of cells)
@@ -254,6 +254,7 @@ plotdensity_flowset(rename_markers(retrotransformed_flowset))
 # watchout -I'm renaming all the columns to match the first dataframe in the list to avoid the R bind error
 # they were all the same by visual instruction but it's possible I'm renaming with the wrong AB which will be a huge problem
 
+# saving function
 flowset_to_csv=function(flowset){  
   list_of_flowframes=fsApply(rename_markers(flowset),function(x){as.data.frame(x@exprs)})#Makes a list of dataframes
   list_names=names(list_of_flowframes)#extract names for not calling names() function at each loop

@@ -1,0 +1,725 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+#install 
+
+# dependencies
+install.packages(c("sp", "polyclip", "rgeos"))
+
+
+
+# package from github
+
+library(devtools)
+install_github(repo = "ebecht/hypergate")
+
+
+library("Seurat")
+library("ggplot2")
+library("dplyr")
+
+
+```
+
+Hypergate takes in 
+1. an expression matrix
+2. a vector of events to attempt to gate on - there are different ways to get these
+
+interactive gating - try later
+Clustering - this is what I want to use
+
+hypergate is the function to optomize gating strategies
+
+xp = a numberic matrix encoding expression 
+gate_vector a vector with a few unique values --- this should be the cluster labels
+level specifies what value of gate vector togate upon 
+
+```{r}
+library("hypergate")
+
+input.xm = as.matrix(GetAssayData(seu.q, slot = 'scale.data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.q$labels)
+
+
+hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = 'Astro1')
+
+# writing level = 1 resulted empty output
+# putting 'Astro1' is running but taking a very long time
+# I believe I will have to down sample the Seurat object.  I thing I might want to subset the AIW002 first
+
+
+
+
+```
+
+
+I'll need to downsample the seurat object
+
+```{r}
+Idents(seu.q) <- 'Batch'
+
+unique(seu$Batch)
+# subset the AIW because we will use AIW in the FACS experiment
+
+seu <- subset(seu.q, idents = c("AIW002_0306","AIW002_0317A", "AIW002_0317B"))
+
+# downsampe to about 2000 cells so that hypergate can run
+# there is an option to down sample per identity class
+
+Idents(seu) <- 'labels'
+seu.down <- subset(x= seu, downsample = 200)
+
+DimPlot(seu.down)
+
+
+
+
+```
+
+```{r}
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'scale.data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$labels)
+
+
+hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = 'Astro1')
+
+
+
+```
+
+
+
+
+
+
+Try checking the results
+
+```{r}
+
+gating_predicted = subset_matrix_hg(hg_output,xm.t)
+
+
+table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels == 
+    'Astro1', "Events of interest", "Others"))
+
+# as we started with 200 astro1 we captured a good amount
+
+
+```
+
+Now we can see if each cell past parameters for the threshold for each AB
+
+```{r}
+
+bm = boolmat(gate = hg_output, xp = xm.t)
+head(bm)
+
+
+
+```
+
+Plots some gates
+
+
+```{r}
+
+plot_gating_strategy(gate = hg_output, xp = xm.t, gate_vector = cluster.labels, 
+    level = 'Astro1', highlight = "firebrick3")
+
+```
+
+Channel contributions
+
+```{r}
+
+contributions = channels_contributions(gate = hg_output, xp = xm.t, gate_vector = cluster.labels, 
+    level = 'Astro1', beta = 1)
+barplot(contributions, horiz = TRUE, 
+    xlab = "F1-score deterioration when the parameter is ignored")
+print(contributions)
+
+```
+
+We could reoptimize using only the top 4 
+But right now I'll leave this
+
+
+```{r}
+hgate_pheno(hg_output)
+
+```
+
+```{r}
+hgate_rule(hg_output)
+```
+
+```{r}
+hgate_info(hg_output)  # make a helpful table 
+```
+
+I need to define the groups I want to gate first and then use this to gate them. 
+
+```{r}
+AB.order <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+
+RidgePlot(seu.down, features = "CD44", log = TRUE )
+RidgePlot(seu.down, features = "CD24", log = TRUE )
+
+
+```
+
+Regroup the similar for gating and remove mix cells that might confuse
+
+```{r}
+
+
+Idents(seu.q) <- 'labels.groups'
+seu <- subset(x= seu.q, idents = c("Neurons-CD24+","Astro-CD44+","RG-CD184+","RG-CD133+","Astro-Glast+","Astro-CD44+","RG-CD184+","Astro-CD44+","Endothelial","Astro-CD44+","Neurons-CD56+","Neurons-CD24+CD56+","Neurons-CD56+","Astro-CD44+","Neurons-CD56+","Neurons-CD24+","RG-CD133+","Oligo","Epithelial","Neurons-CD24+CD56+")) 
+
+DimPlot(seu, label = TRUE, repel = TRUE)
+
+Idents(seu) <- 'Batch'
+seu <- subset(seu.q, idents = c("AIW002_0306","AIW002_0317A", "AIW002_0317B"))
+
+
+# downsampe to about 2000 cells so that hypergate can run
+# there is an option to down sample per identity class
+
+Idents(seu) <- 'labels.groups'
+seu.down <- subset(x= seu, downsample = 400)
+
+DimPlot(seu.down)
+
+table(seu.down$labels.groups)
+
+
+
+
+```
+Hypergate on one group
+
+```{r}
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'scale.data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$labels.groups)
+
+#try all at once
+
+cell.types <- c("Neurons-CD24+", "Astro-CD44+", "RG-CD184+", "RG-CD133+", "Astro-Glast+","Endothelial","Neurons-CD56+","Neurons-CD24+CD56+","Oligo","Epithelial")
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  plot_gating_strategy(gate = hg_output, xp = xm.t, gate_vector = cluster.labels, 
+    level = cell, highlight = "firebrick3")
+  gate.table <- hgate_info(hg_output) 
+  print(gate.table)
+}
+
+
+# this prints the threshold for each gate
+hgate_rule(hg_output)
+
+# clearer output - should try make a summary of the accuray 
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  print(hgate_rule(hg_output))
+}
+
+
+
+
+
+
+```
+
+Check results
+
+```{r}
+gating_predicted = subset_matrix_hg(hg_output,xm.t)
+
+
+table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels == 
+    'Astro-CD44+', "Events of interest", "Others"))
+
+#not great accuracy
+
+bm = boolmat(gate = hg_output, xp = xm.t)
+head(bm)
+
+plot_gating_strategy(gate = hg_output, xp = xm.t, gate_vector = cluster.labels, 
+    level = 'Astro-CD44+', highlight = "firebrick3")
+
+contributions = channels_contributions(gate = hg_output, xp = xm.t, gate_vector = cluster.labels, 
+    level = 'Astro-CD44+', beta = 1)
+barplot(contributions, horiz = TRUE, 
+    xlab = "F1-score deterioration when the parameter is ignored")
+print(contributions)
+
+hgate_pheno(hg_output)
+
+hgate_rule(hg_output)
+
+gate.table <- hgate_info(hg_output)  # make a helpful table 
+
+
+```
+
+
+
+Try with the input data
+```{r}
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$labels.groups)
+
+#try all at once
+
+cell.types <- c("Neurons-CD24+", "Astro-CD44+", "RG-CD184+", "RG-CD133+", "Astro-Glast+","Endothelial","Neurons-CD56+","Neurons-CD24+CD56+","Oligo","Epithelial")
+
+
+# clearer output - should try make a summary of the accuray 
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  print(hgate_rule(hg_output))
+  # save files with the plots 
+}
+
+
+
+```
+
+```{r}
+
+# visualize
+DimPlot(seu.q)
+
+```
+Try keeping the mix population
+
+```{r}
+
+
+Idents(seu.q) <- 'Batch'
+seu <- subset(seu.q, idents = c("AIW002_0306","AIW002_0317A", "AIW002_0317B"))
+
+
+# downsampe to about 2000 cells so that hypergate can run
+# there is an option to down sample per identity class
+
+Idents(seu) <- 'labels.groups'
+seu.down <- subset(x= seu, downsample = 400)
+
+DimPlot(seu.down)
+
+table(seu.down$labels.groups)
+
+
+```
+
+
+```{r}
+# keeping mix in 
+
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$labels.groups)
+
+#try all at once
+
+cell.types <- c("Neurons-CD24+", "Astro-CD44+", "RG-CD184+", "RG-CD133+", "Astro-Glast+","Endothelial","Neurons-CD56+","Neurons-CD24+CD56+","Oligo","Epithelial","Mix")
+
+
+# clearer output - should try make a summary of the accuray 
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  print(hgate_rule(hg_output))
+}
+
+
+# having the mix cells in make no difference
+
+
+```
+
+
+Try with main groups Neurons1, Neurons2, Astro, RG
+
+```{r}
+
+Idents(seu.q) <- 'Batch'
+seu <- subset(seu.q, idents = c("AIW002_0306","AIW002_0317A", "AIW002_0317B"))
+
+
+# downsampe to about 2000 cells so that hypergate can run
+# there is an option to down sample per identity class
+
+# not enough oligo in only AIW
+
+Idents(seu.q) <- 'labels.main.groups'
+seu.down <- subset(x= seu.q, downsample = 500)
+
+DimPlot(seu.down)
+
+table(seu.down$labels.main.groups)
+
+
+
+
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$labels.main.groups)
+
+#try all at once
+
+cell.types <- c("Neurons1","Neurons2","Astro","RG","Endothelial","Oligo","Epithelial")
+
+
+
+# clearer output - should try make a summary of the accuray 
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  print(hgate_rule(hg_output))
+}
+
+
+# having the mix cells in makes no difference
+
+
+
+
+```
+
+
+Repeat with more populations
+
+```{r}
+
+# define more groups
+#cluster.ids <- c("Mix","Neurons1","Astro1","RG1","RG2","Mix","Astro3","Astro1","RG1","Mix","Astro3","Endothelial","Astro3","Neurons2","Neurons3","Neurons2","Astro3","Neurons2","Neurons1","RG2","Oligo","Epithelial","Neurons3")
+
+DimPlot(seu.q, label= TRUE)
+
+Idents(seu.q) <- 'cell.types'
+seu.down <- subset(x= seu.q, downsample = 800)
+
+DimPlot(seu.down)
+
+table(seu.down$cell.types)
+
+
+
+
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$cell.types)
+
+#try all at once
+
+cell.types <- c("Neurons1","Neurons2","Neurons3","Astro1","Astro2","Astro3","RG1","RG2","Endothelial","Oligo","Epithelial","Mix")
+# 11 possible populations
+
+
+
+# clearer output - should try make a summary of the accuray 
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  print(hgate_rule(hg_output))
+}
+
+
+
+
+
+```
+
+Load in libraries
+```{r}
+require("reshape2") #visualization
+require("flowStats") #Alignment functions
+require("scales") #scale colour intensity for visualization
+require("dplyr")
+library("hypergate")
+library("Seurat")
+
+```
+
+Read in the data for gating
+
+```{r}
+seu.r <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/AllcellLablesMarch25.Rds")
+
+
+```
+
+
+
+
+I"m going to run the hypergates again - maybe multiple times to see how consitatant to output will be
+
+```{r}
+
+
+Idents(seu.r) <- 'cell.types'
+i = 300
+set.seed(i)
+seu.down <- subset(x= seu.r, downsample = 200)
+
+
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$cell.types)
+
+#try all at once
+
+cell.types <- c("Neurons1","Neurons2","Neurons3","Astro1","Astro2","Astro3","RG1","RG2","Endothelial","Oligo","Epithelial","Mix")
+# 11 possible populations
+
+
+
+# clearer output - should try make a summary of the accuray 
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  print(hgate_rule(hg_output))
+}
+
+
+
+
+```
+
+
+
+Try using the smaller labeled object - will still need to subset
+Also make groupings of cells
+
+```{r}
+
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
+
+saveRDS(seu,"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
+
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+#DimPlot(seu)
+#DoHeatmap(seu, features = AB)
+
+
+
+
+```
+
+
+Run with different cutoff of cells in down sampling
+
+
+```{r}
+
+unique(seu$labels6)
+
+# get the cell type labels
+
+
+```
+
+Relabel cell type groups
+
+```{r}
+Idents(seu) <- "labels6"
+cluster.ids <- c("Mix","RG1","Mix","Neurons1","Neurons2","Astro1","Astro2","RG2","Neuron3","RG3","Endothelial","Oligo","POC","Epithelial")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$gating.all <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'gating.all', repel = TRUE)
+
+
+# now fewer groups
+Idents(seu) <- "labels6"
+cluster.ids <- c("Mix","RG1","Mix","Neurons1","Neurons2","Astro1","Astro2","RG2","Neurons3","RG1","Endothelial","Oligo","OPC","Epithelial")
+# merge cells that won't be used for gating
+cluster.ids <- c("other","RG1","other","Neurons1","Neurons2","Astro1","Astro2","RG2","Neurons3","RG1","other","other","other","other")
+# adjust based on hypergate results
+cluster.ids <- c("other","glia","other","Neurons1","Neurons2","glia","Astro","RG2","Neurons3","glia","other","other","other","other")
+
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$gating.main <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'gating.main', repel = TRUE)
+
+# now fewer groups
+Idents(seu) <- "labels6"
+cluster.ids <- c("other","RG","other","Neurons1","Neurons2","Astro","Astro","RG","Neurons1","RG","other","other","other","other")
+
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$gating.4 <- Idents(seu)
+
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'gating.4', repel = TRUE)
+
+
+
+
+
+```
+
+
+
+
+
+```{r}
+Idents(seu) <- 'gating.main'
+i = 300
+set.seed(i)
+seu.down <- subset(x= seu, downsample = 500)
+
+
+# try hypergate again on one group 
+input.xm = as.matrix(GetAssayData(seu.down, slot = 'data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu.down$gating.main)
+
+#try all at once
+gating.main.celltypes <- c("RG1","RG2","Neurons1","Neurons2","Neurons3","Astro1","Astro2","Endothelial","Oligo","OPC","Epithelial")
+
+# for gating.4
+cell.types <- c("RG","Neurons1","Neurons2","Astro")
+# gating more cell populations to try and get better accuracy.  
+
+cell.types <- c("glia","RG2","Neurons1","Neurons2","Neurons3","Astro")
+# note that RG1 and astro1 overlap and RG2 and astro 2 overlap a little bit
+# RG1 and astro 1 are highy overlapping - merge together
+
+# clearer output - should try make a summary of the accuray 
+
+for (cell in cell.types) {
+  hg_output <- hypergate(xp = xm.t, gate_vector = cluster.labels, level = cell)
+  gating_predicted = subset_matrix_hg(hg_output,xm.t)
+  conf.table <- table(ifelse(gating_predicted, "Gated-in", "Gated-out"), ifelse(cluster.labels ==  cell, cell, "Others"))
+  print(cell)
+  print(conf.table)
+  print(hgate_rule(hg_output))
+  # visualize the predicted cells 
+  predicted.cell.type = paste(cell,"gated",sep=".")
+  seu.down <- AddMetaData(object=seu.down, metadata=gating_predicted, col.name = predicted.cell.type )
+  print(DimPlot(seu.down, group.by = predicted.cell.type, split.by = 'gating.main'))
+  
+  
+  
+}
+
+
+# hypergate( xp = matrix, gate_vector = labels, level = thing to gate)
+
+
+
+
+```
+
+The glia is only 50/50 and no good
+The other cell type accuracy is high
+
+
+
+
+
+Try plotting the results to see where the labelled cells end up
+
+```{r}
+# how to see that gated populations???
+# gating predicted is a logical if it is in or not
+length(gating_predicted)
+dim(seu.down)
+
+# add the logical as a meta data 
+seu.down <- AddMetaData(object=seu.down, metadata=gating_predicted, col.name = 'gate_predicted')
+
+
+
+DimPlot(seu.down, group.by = 'gate_predicted', split.by = 'gating.main')
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+Instead of subsampling in advance I can sample using hgate_sample to also sample negative events. This just gives you an idea of how many cells you need to sample
+
+```{r}
+# this is just to check the frequency of events
+
+input.xm = as.matrix(GetAssayData(seu, slot = 'data'))
+xm.t <- t(input.xm)
+cluster.labels <- as.vector(seu$gating.main)
+
+# hypergate( xp = matrix, gate_vector = labels, level = thing to gate)
+sample = hgate_sample(gate_vector = cluster.labels, level = "Astro1", size=1000)
+
+
+tab = table(ifelse(sample, "In", "Out"), ifelse(cluster.labels == "Astro1", "Positive pop.", "Negative pop."))
+tab[1, ]/colSums(tab)  ## Fraction of subsampled events for positive and negative populations
+
+```
+
+
+
+

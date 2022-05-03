@@ -289,4 +289,32 @@ rf_predictions(rf.old, df.2, outpath,filename)
 
 
 
+##### first round of predicting the old dataset
+
+
+# add some data
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/Allcellsretros_LouvainSeuratObject200.Rds")
+df <- transpose(as.data.frame(GetAssayData(seu,slot = 'scale.data')))
+
+dim(df)
+
+
+# I need to know the names of the columns now
+# from the input df
+col.names <- c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71")
+
+colnames(df) <- col.names
+print(col.names)
+# add in the cell lables
+
+
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/"
+filename <- "prediction_march15rf_allcells.csv"
+
+rf_predictions(rf.old, df, outpath,filename)
+
+filename <- "prediction_march25rf_allcells.csv"
+
+rf_predictions(rf, df, outpath,filename)
+
 

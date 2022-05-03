@@ -29,7 +29,11 @@ library(reshape2)
 Read in a seurat object with labels
 
 ```{r}
-seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/AllcellLablesMarch25.Rds"))
+seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/AllcellLablesMarch25.Rds")
+
+seu.check <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
+
+
 
 ```
 
@@ -80,7 +84,44 @@ ggplot(data = df.exp.pct, aes(x = features.plot, y = id, color = expression, siz
   geom_point() +
   scale_color_gradient(low = "grey", high = "blue") + ylab("Cell Phenotypes") + xlab("Antibodies") + RotatedAxis()
 
+# reorder 
+unique(df.exp.pct$id)
+
+new.order <- c("Astro1","Astro2","Astro3","Astro4","Astro5", "RG1","RG2","RG3","Endothelial", "Epithelial","EarlyNeurons", "Neurons1", "Neurons2", "Neurons3","Neurons4","NPC", "NPC-Neuro","Oligo","N-E-NPC-Astro", "N-OPC-Mix","Mix")
+
+AB.order <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+
+data <- df.exp.pct %>% mutate(Cell.type = factor(id, levels = new.order))
+data <- data %>% mutate(Marker = factor(features.plot, levels = AB.order))
+
+ggplot(data = data, aes(x = Marker, y = Cell.type, color = expression, size = pct.exp)) +
+  geom_point() +
+  scale_color_gradient(low = "grey", high = "blue") + ylab("Cell Phenotypes") + xlab("Antibodies") + RotatedAxis()
+
+
 ```
+
+
+Heat map
+
+```{r}
+
+
+ggplot(data, aes(x = Cell.type, y = Marker)) + 
+  geom_raster(aes(fill=expression)) + 
+  scale_fill_gradient(low="blue", high="pink", na.value = "grey") +
+  labs(x="Cell types", y="Antibodies") +
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=12),
+                     plot.title=element_text(size=12))
+
+
+
+```
+
+
+
 
 
 Compare cells/ proportion of cells in groups between batches
@@ -165,6 +206,26 @@ ggplot(long.prp, aes(y = value, x = Genotype, fill = variable)) + geom_bar(posit
 
 
 ```
+
+
+```{r}
+
+DimPlot(seu.q, split.by = 'Batch')
+
+```
+
+Can find markers work???
+
+```{r}
+
+Markers <- FindAllMarkers(seu.q, logfc.threshold = 0)
+# this can run put finds noting useless because there are no oveall changes.  Not really enough features for this to work.
+# 
+
+```
+
+
+
 
 
 
