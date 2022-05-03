@@ -18,6 +18,8 @@ library(clustree)
 ############################## functions ###########################
 
 
+
+
 #stats plotting function
 stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
   #silhouette score:
@@ -74,7 +76,7 @@ stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
          x = "Number of Clusters", y = "Davies–Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
-  print(dbplot2)
+  print(dbplot1)
   print(dbplot2)
   
   dev.off()
@@ -100,6 +102,7 @@ flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,
   # the order of the DF is set by the order the colunms are written above
   # create a matrix for later
   print(colnames(df2))
+  col.names <- colnames(df2)
   m <- as.matrix(df2) 
   
   # create the flowframe
@@ -270,15 +273,16 @@ flowsom_clustering <- function(krange = c(5,10,15,20,25,30,35,40,45,50,55,60,65,
   
   # save the stats list
   saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
-
+  write.csv(stats_ls, paste(output_path, "stats.csv",sep=""), row.names = FALSE)
+  
 }
 
 
 ############# input ############################
 
 # define the input pathway
-# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsflowset.csv"
-input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsflowset.csv"
+# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
 
 
 # output pathway
