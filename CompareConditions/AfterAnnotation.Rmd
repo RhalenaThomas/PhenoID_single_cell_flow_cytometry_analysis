@@ -1,0 +1,407 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Look at annotated data
+Visualize expression by cell type
+
+
+
+```{r}
+# load libraries
+# load libraries
+library(clusterSim) 
+library(FlowSOM)
+library(flowCore)
+library(cluster)
+library(fpc)
+library(clv)
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(clustree)
+library(reshape2)
+
+```
+
+
+Read in a seurat object with labels
+
+```{r}
+seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/AllcellLablesMarch25.Rds")
+
+seu.check <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
+
+# antibodies to use as features
+
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+
+```
+
+dotplot of mean expression per group
+
+```{r}
+express.by.cluster <- as.data.frame(AverageExpression(seu.q, features = AB, group.by = 'labels', slot = 'scale.data'))
+express.by.cluster <- as.data.frame(scale(express.by.cluster))
+
+col.names.RNA <- colnames(express.by.cluster)
+
+# have to find a better renaming methods - if I just get levels the order is not the same
+ 
+re.col.name <-  c("Mix","NPC","Astro1","RG1","RG2","N-E-NPC-Astro","Astro2","Astro3","RG3","N-OPC-Mix","Astro4","Endothelial","Neurons1","EarlyNeurons","Neurons2","Astro5","Neurons3","NPC-Neuro","Oligo","Epithelial","Neurons4")
+
+
+names(express.by.cluster) <- re.col.name
+AB2 <- row.names(express.by.cluster)
+ex.data <- cbind(AB2,express.by.cluster)
+
+# reformat
+longData<- melt(ex.data)
+
+# heatmap
+
+ggplot(longData, aes(x = variable, y = AB2)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient(low="blue", high="pink", na.value = "grey") +
+  labs(x="Cell types", y="Antibodies") +
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=12),
+                     plot.title=element_text(size=12))
+
+
+# can I get the proportion of cells expressing a marker?
+a <- DotPlot(seu.q, features = AB, group.by = 'labels')
+a$data
+pct.exp <- as.data.frame(a$data) %>% select(features.plot, id, pct.exp)
+
+# add the mean expression and the percent cells expressing together
+# rename the AB and cell labels 
+colnames(longData) <- c("features.plot","id","expression")
+
+df.exp.pct <- merge(longData, pct.exp, by = c("features.plot", "id"))
+
+
+ggplot(data = df.exp.pct, aes(x = features.plot, y = id, color = expression, size = pct.exp)) +
+  geom_point() +
+  scale_color_gradient(low = "grey", high = "blue") + ylab("Cell Phenotypes") + xlab("Antibodies") + RotatedAxis()
+
+# reorder 
+unique(df.exp.pct$id)
+
+new.order <- c("Astro1","Astro2","Astro3","Astro4","Astro5", "RG1","RG2","RG3","Endothelial", "Epithelial","EarlyNeurons", "Neurons1", "Neurons2", "Neurons3","Neurons4","NPC", "NPC-Neuro","Oligo","N-E-NPC-Astro", "N-OPC-Mix","Mix")
+
+AB.order <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+
+data <- df.exp.pct %>% mutate(Cell.type = factor(id, levels = new.order))
+data <- data %>% mutate(Marker = factor(features.plot, levels = AB.order))
+
+ggplot(data = data, aes(x = Marker, y = Cell.type, color = expression, size = pct.exp)) +
+  geom_point() +
+  scale_color_gradient(low = "grey", high = "blue") + ylab("Cell Phenotypes") + xlab("Antibodies") + RotatedAxis()
+
+
+```
+
+
+Heat map
+
+```{r}
+
+
+ggplot(data, aes(x = Cell.type, y = Marker)) + 
+  geom_raster(aes(fill=expression)) + 
+  scale_fill_gradient(low="blue", high="pink", na.value = "grey") +
+  labs(x="Cell types", y="Antibodies") +
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=12),
+                     plot.title=element_text(size=12))
+
+
+
+```
+
+
+
+
+
+Compare cells/ proportion of cells in groups between batches
+
+```{r}
+sample.lables <- as.data.frame(table(seu.q$Batch, seu.q$labels))
+
+sample.lables$Freq <- as.double(sample.lables$Freq)
+# try to make a heatmap
+
+
+# try bar chart
+ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Cell count') + RotatedAxis()
+
+
+
+
+
+# bar chart of with percent 
+ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity") + scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Percent of Cell type') + RotatedAxis()
+
+
+
+```
+
+
+Calculations on proportions
+
+```{r}
+# I want to compare proportions across groups - like a 2 way anova
+# need to setup the data
+
+ # sample.lables this is the cell counts per cluster from above
+
+
+wide.data <- reshape(data= sample.lables,idvar = "Var1", timevar = "Var2", direction = "wide" )
+head(wide.data)
+
+# make the samples rowname
+rownames(wide.data) <- wide.data$Var1
+# remove the sample names/ Var1 column
+wide.data <- wide.data %>% select(-Var1)
+# get names of all the cell groups
+new.colnames <-unique(sample.lables$Var2) 
+# rename the columns
+
+colnames(wide.data) <- new.colnames
+#now change the values to proportion of cells out of the total
+
+# make a matrix
+mat <- as.matrix(wide.data)
+vec <- rowSums(wide.data) # cell totals per row
+
+# now try to divide the matrix by the vector
+
+mix.prp <- sweep(mat, 1, vec, `/`)
+
+rowSums(mix.prp)
+
+# maybe the different groups need to be made first.
+
+
+# name I need to make this a dataframe and add the different groups
+# Genotype, Data, Batch
+
+df.prp <- as.data.frame(mix.prp)
+# add genotpye row
+df.prp$Genotype <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001C","AJG001C","AJG001C")
+df.prp$ExDate <- c("0306","0317","0317","0306","0317","0317","0306","0317","0317")
+df.prp$Batch <- c("B","B","A","B","B","A","B","B","A")
+df.prp$Age <- c("273","284","263","273","284","263","273","284","263")
+
+# plot the data with the different groupings
+
+long.prp <- melt(df.prp)
+# genotype
+ggplot(long.prp, aes(y = value, x = Genotype, fill = variable)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Proportion of cell phenotypes') + RotatedAxis()
+# Batch
+ggplot(long.prp, aes(y = value, x = Batch, fill = variable)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Proportion of cell phenotypes') + RotatedAxis()
+# Ex date
+ggplot(long.prp, aes(y = value, x = ExDate, fill = variable)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Proportion of cell phenotypes') + RotatedAxis()
+# age
+ggplot(long.prp, aes(y = value, x = Age, fill = variable)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Proportion of cell phenotypes') + RotatedAxis()
+
+
+```
+
+
+```{r}
+
+DimPlot(seu.q, split.by = 'Batch')
+
+```
+
+
+To get expression data grouped in different ways I might be able to use table and interaction features.
+
+To do the proportion tests I can make labels :
+1. Genotype
+2. EX data
+3. Batch number
+4. Age
+
+
+```{r}
+# make a df for each grouping by making annotation in the seu
+
+# Genotype
+Idents(seu.q) <- 'Batch'
+cluster.ids <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001C","AJG001C","AJG001C")
+# vector with the new names - you need this vector from me
+
+names(cluster.ids) <- levels(seu.q)    # get the levels
+seu.q <- RenameIdents(seu.q, cluster.ids) # rename  
+seu.q$Genotype <- Idents(seu.q)   # add a new dataslot
+
+DimPlot(seu.q, reduction = "umap", label = FALSE, group.by = 'cell.types', split.by = 'Genotype')
+
+
+sample.lables <- as.data.frame(table(seu.q$Genotype, seu.q$cell.types))
+
+sample.lables$Freq <- as.double(sample.lables$Freq)
+
+
+
+# bar chart of with percent 
+ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity") + scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Percent of Cell type') + RotatedAxis()
+
+# bar chart
+ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Cell count') + RotatedAxis()
+
+
+
+```
+
+Batch 
+
+```{r}
+Genotype <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001C","AJG001C","AJG001C")
+ExDate <- c("0306","0317","0317","0306","0317","0317","0306","0317","0317")
+Batch <- c("B","B","A","B","B","A","B","B","A")
+Age <- c("273","284","263","273","284","263","273","284","263")
+
+
+
+# Batch
+Idents(seu.q) <- 'Batch'
+cluster.ids <- Batch
+# vector with the new names - you need this vector from me
+
+names(cluster.ids) <- levels(seu.q)    # get the levels
+seu.q <- RenameIdents(seu.q, cluster.ids) # rename  
+seu.q$Batch.n <- Idents(seu.q)   # add a new dataslot
+
+DimPlot(seu.q, reduction = "umap", label = FALSE, group.by = 'Batch.n', split.by = 'Genotype')
+DimPlot(seu.q, reduction = "umap", label = FALSE, group.by = 'cell.types', split.by = 'Batch.n')
+
+
+sample.lables <- as.data.frame(table(seu.q$Batch.n, seu.q$cell.types))
+
+sample.lables$Freq <- as.double(sample.lables$Freq)
+
+
+
+# bar chart of with percent 
+ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity") + scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Percent of Cell type') + RotatedAxis()
+
+# bar chart
+ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Cell count') + RotatedAxis()
+
+
+
+```
+
+Experiment day
+
+```{r}
+
+Genotype <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001C","AJG001C","AJG001C")
+ExDate <- c("0306","0317","0317","0306","0317","0317","0306","0317","0317")
+Batch <- c("B","B","A","B","B","A","B","B","A")
+Age <- c("273","284","263","273","284","263","273","284","263")
+
+
+
+# Batch
+Idents(seu.q) <- 'Batch'
+cluster.ids <- ExDate
+# vector with the new names - you need this vector from me
+
+names(cluster.ids) <- levels(seu.q)    # get the levels
+seu.q <- RenameIdents(seu.q, cluster.ids) # rename  
+seu.q$ExDate <- Idents(seu.q)   # add a new dataslot
+
+DimPlot(seu.q, reduction = "umap", label = FALSE, group.by = 'ExDate', split.by = 'Genotype')
+DimPlot(seu.q, reduction = "umap", label = FALSE, group.by = 'cell.types', split.by = 'ExDate')
+
+
+sample.lables <- as.data.frame(table(seu.q$ExDate, seu.q$cell.types))
+
+sample.lables$Freq <- as.double(sample.lables$Freq)
+
+
+
+# bar chart of with percent 
+ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity") + scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Percent of Cell type') + RotatedAxis()
+
+# bar chart
+ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Cell count') + RotatedAxis()
+
+
+
+```
+
+Age
+
+```{r}
+Genotype <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001C","AJG001C","AJG001C")
+ExDate <- c("0306","0317","0317","0306","0317","0317","0306","0317","0317")
+Batch <- c("B","B","A","B","B","A","B","B","A")
+Age <- c("273","284","263","273","284","263","273","284","263")
+
+
+
+# Batch
+Idents(seu.q) <- 'Batch'
+cluster.ids <- Age
+# vector with the new names - you need this vector from me
+
+names(cluster.ids) <- levels(seu.q)    # get the levels
+seu.q <- RenameIdents(seu.q, cluster.ids) # rename  
+seu.q$Age <- Idents(seu.q)   # add a new dataslot
+
+DimPlot(seu.q, reduction = "umap", label = FALSE, group.by = 'Age', split.by = 'Genotype')
+DimPlot(seu.q, reduction = "umap", label = FALSE, group.by = 'cell.types', split.by = 'Age')
+
+
+sample.lables <- as.data.frame(table(seu.q$Age, seu.q$cell.types))
+
+sample.lables$Freq <- as.double(sample.lables$Freq)
+
+
+
+# bar chart of with percent 
+ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity") + scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Percent of Cell type') + RotatedAxis()
+
+# bar chart
+ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Cell count') + RotatedAxis()
+
+
+
+
+
+```
+
+Compare expression within each cell type between different groups
+
+
+```{r}
+seu.q <- NormalizeData(seu.q)
+
+#ave.1 <- as.data.frame(AverageExpression(seu.q,return.seurat = FALSE, group.by = 'Genotype'))
+
+
+```
+
