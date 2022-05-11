@@ -107,12 +107,14 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
   # save best and second best correlation and cell types as csv
   write.csv(df, paste(output_path, "corr_celltypes.csv",sep=""), row.names = FALSE)
   
+  # df <- read.csv('/Users/shumingli/Desktop/correlation_output/corr_celltypes.csv')
   # filter to get frequency table and save as csv
   df.f <- df %>% select(cell.label)
   
   freq.table <- as.data.frame(table(df.f))
   write.csv(freq.table, paste(output_path, "Frequencytabletypes.csv",sep=""), row.names = FALSE)
-  # 
+  
+  
   # # plot the frequencies and save as pdf
   # #plotting after filtering for cell types with more than 100 cells
   # # filter
@@ -120,7 +122,8 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
   # # plot
   pdf(paste(output_path,"FreqCellTypes.pdf",sep=""),width =12, height = 6)
   plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
-    theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')
+    theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')+ 
+    labs(fill='Cell Types')
   print(plot1)
   dev.off()
   # 
@@ -188,6 +191,10 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
   
 }
 
+# output_path <- "/Users/shumingli/Desktop"
+# stats_ls <- read.csv("/Users/shumingli/Desktop/flowsom_output/stats.csv")
+# # clust_method <-  "flowSOM"
+# # geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2)
 
 #helper function: stats plotting function
 flowsom_stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
@@ -196,12 +203,14 @@ flowsom_stats_plot <- function(stats_ls, output_path, input_name, clust_method) 
   pdf(paste(output_path,input_name,clust_method,'statssilhouette.pdf',sep=""),width =4, height = 4)
   siplot1 <- ggplot(stats_ls) + 
     geom_point(aes(x=krange, y=si)) +
+    geom_line(aes(x=krange, y=si), size=0.1) +
     labs(title = "Silhouette Scores",
          x = "krange", y = "Average Silhouette Scores") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
   siplot2 <- ggplot(stats_ls) + 
     geom_point(aes(x=nc, y=si)) +
+    geom_line(aes(x=nc, y=si), size=0.1) +
     labs(title = "Silhouette Scores",
          x = "Number of Clusters", y = "Average Silhouette Scores") +
     theme(plot.title = element_text(hjust = 0.5)) 
@@ -215,6 +224,7 @@ flowsom_stats_plot <- function(stats_ls, output_path, input_name, clust_method) 
   pdf(paste(output_path,input_name,clust_method,'statsCalinskiHara.pdf',sep=""),width =4, height = 4)
   chplot1 <- ggplot(stats_ls) + 
     geom_point(aes(x=krange, y=ch)) +
+    geom_line(aes(x=krange, y=ch), size=0.1) +
     labs(title = "Calinski-Harabasz Index",
          x = "krange", y = "Calinski-Harabasz Index") +
     theme(plot.title = element_text(hjust = 0.5)) 
@@ -222,6 +232,7 @@ flowsom_stats_plot <- function(stats_ls, output_path, input_name, clust_method) 
   
   chplot2 <- ggplot(stats_ls) + 
     geom_point(aes(x=nc, y=ch)) +
+    geom_line(aes(x=nc, y=ch), size=0.1) +
     labs(title = "Calinski-Harabasz Index",
          x = "Number of Clusters", y = "Calinski-Harabasz Index") +
     theme(plot.title = element_text(hjust = 0.5)) 
@@ -235,12 +246,14 @@ flowsom_stats_plot <- function(stats_ls, output_path, input_name, clust_method) 
   pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
   dbplot1 <- ggplot(stats_ls) + 
     geom_point(aes(x=krange, y=db)) +
+    geom_line(aes(x=krange, y=db), size=0.1) +
     labs(title = "Davies-Bouldin index",
          x = "krange", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
   dbplot2 <- ggplot(stats_ls) + 
     geom_point(aes(x=nc, y=db)) +
+    geom_line(aes(x=nc, y=db), size=0.1) +
     labs(title = "Davies-Bouldin index",
          x = "Number of Clusters", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
@@ -251,6 +264,12 @@ flowsom_stats_plot <- function(stats_ls, output_path, input_name, clust_method) 
   dev.off()
 }
 
+# # output_path <- "/Users/shumingli/Desktop"
+# stats_ls <- read.csv("/Users/shumingli/Desktop/phenograph_output/stats.csv")
+# # # clust_method <-  "flowSOM"
+# # # geom_line(aes(colour = factor(resolution), size=0.2)
+
+
 
 #helper function: stats plotting function
 phenograph_stats_plot <- function(stats_ls, output_path, input_name, clust_method) {
@@ -259,12 +278,14 @@ phenograph_stats_plot <- function(stats_ls, output_path, input_name, clust_metho
   pdf(paste(output_path,input_name,clust_method,'statssilhouette.pdf',sep=""),width =4, height = 4)
   siplot1 <- ggplot(stats_ls) + 
     geom_point(aes(x=kn, y=si)) +
+    geom_line(aes(x=kn, y=si), size=0.1) +
     labs(title = "Silhouette Scores",
          x = "kn", y = "Average Silhouette Scores") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
   siplot2 <- ggplot(stats_ls) + 
     geom_point(aes(x=nc, y=si)) +
+    geom_line(aes(x=nc, y=si), size=0.1) +
     labs(title = "Silhouette Scores",
          x = "Number of Clusters", y = "Average Silhouette Scores") +
     theme(plot.title = element_text(hjust = 0.5)) 
@@ -278,6 +299,7 @@ phenograph_stats_plot <- function(stats_ls, output_path, input_name, clust_metho
   pdf(paste(output_path,input_name,clust_method,'statsCalinskiHara.pdf',sep=""),width =4, height = 4)
   chplot1 <- ggplot(stats_ls) + 
     geom_point(aes(x=kn, y=ch)) +
+    geom_line(aes(x=kn, y=ch), size=0.1) +
     labs(title = "Calinski-Harabasz Index",
          x = "kn", y = "Calinski-Harabasz Index") +
     theme(plot.title = element_text(hjust = 0.5)) 
@@ -285,6 +307,7 @@ phenograph_stats_plot <- function(stats_ls, output_path, input_name, clust_metho
   
   chplot2 <- ggplot(stats_ls) + 
     geom_point(aes(x=nc, y=ch)) +
+    geom_line(aes(x=nc, y=ch), size=0.1) +
     labs(title = "Calinski-Harabasz Index",
          x = "Number of Clusters", y = "Calinski-Harabasz Index") +
     theme(plot.title = element_text(hjust = 0.5)) 
@@ -298,14 +321,16 @@ phenograph_stats_plot <- function(stats_ls, output_path, input_name, clust_metho
   pdf(paste(output_path,input_name,clust_method,'statsDavies.pdf',sep=""),width =4, height = 4)
   dbplot1 <- ggplot(stats_ls) + 
     geom_point(aes(x=kn, y=db)) +
-    labs(title = "Davies–Bouldin index",
-         x = "kn", y = "Davies–Bouldin index") +
+    geom_line(aes(x=kn, y=db), size=0.1) +
+    labs(title = "Davies-Bouldin index",
+         x = "kn", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
   dbplot2 <- ggplot(stats_ls) + 
     geom_point(aes(x=nc, y=db)) +
-    labs(title = "Davies–Bouldin index",
-         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    geom_line(aes(x=nc, y=db), size=0.1) +
+    labs(title = "Davies-Bouldin index",
+         x = "Number of Clusters", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   
   print(dbplot1)
@@ -315,6 +340,7 @@ phenograph_stats_plot <- function(stats_ls, output_path, input_name, clust_metho
 }
 
 
+# stats_ls <- read.csv("/Users/shumingli/Desktop/louvain_output/stats.csv")
 
 #helper function: louvain stats plot
 louvain_stats_plotting <- function(stats_ls, output_path, input_name, clust_method) {
@@ -337,9 +363,9 @@ louvain_stats_plotting <- function(stats_ls, output_path, input_name, clust_meth
   
   #x axis = kn
   siplot2 <- ggplot(stats_ls, aes(kn, si)) + 
-    geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
-    geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
-    labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores") +
+    geom_point(aes(colour = factor(resolution), group=(resolution))) + 
+    geom_line(aes(colour = factor(resolution), group=(resolution)), size=0.2) +
+    labs(title = "Silhouette Scores", x = "kn", y = "Average Silhouette Scores", colour = 'Resolution') +
     theme(plot.title = element_text(hjust = 0.5))
   print(siplot2)
   
@@ -364,7 +390,7 @@ louvain_stats_plotting <- function(stats_ls, output_path, input_name, clust_meth
   chplot2 <- ggplot(stats_ls, aes(kn, ch)) + 
     geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
     geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
-    labs(title = "Calinski-Harabasz Index", x = "kn", y = "Calinski-Harabasz Index") +
+    labs(title = "Calinski-Harabasz Index", x = "kn", y = "Calinski-Harabasz Index",colour = 'Resolution') +
     theme(plot.title = element_text(hjust = 0.5))
   print(chplot2)
   
@@ -380,8 +406,8 @@ louvain_stats_plotting <- function(stats_ls, output_path, input_name, clust_meth
     geom_line(aes(group=kn,color=factor(kn)), size=0.15) +
     geom_text(aes(label=resolution, colour=factor(kn)), 
               check_overlap = TRUE, position=position_jitter(width=0.2), size=3) +
-    labs(color = "kn", title = "Davies–Bouldin index", 
-         x = "Number of Clusters", y = "Davies–Bouldin index") +
+    labs(color = "kn", title = "Davies-Bouldin index", 
+         x = "Number of Clusters", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5)) 
   print(dbplot1)
   
@@ -389,7 +415,7 @@ louvain_stats_plotting <- function(stats_ls, output_path, input_name, clust_meth
   dbplot2 <- ggplot(stats_ls, aes(kn, db)) + 
     geom_point(aes(colour = factor(resolution), group=factor(resolution))) + 
     geom_line(aes(colour = factor(resolution), group=factor(resolution)), size=0.2) +
-    labs(title = "Davies–Bouldin index", x = "kn", y = "Davies–Bouldin index") +
+    labs(title = "Davies-Bouldin index", x = "kn", y = "Davies-Bouldin index", colour = 'Resolution') +
     theme(plot.title = element_text(hjust = 0.5))
   print(dbplot2)
   dev.off()
@@ -403,7 +429,6 @@ louvain_clustering <- function(input_path,
                                clust_method, 
                                kn,
                                resolutions = c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,1.0,1.8)) {
-  
   # ========================= 1. processing input data =========================
   df <- read.csv(input_path)
   
@@ -459,6 +484,7 @@ louvain_clustering <- function(input_path,
   # save a data object for each kn - will only keep temporarily
   # the clusters will write over with each new kn
   for (i in kn){
+    
     seu <- FindNeighbors(seu, dims = 1:12, k.param = i)
     seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
     
@@ -475,6 +501,7 @@ louvain_clustering <- function(input_path,
     dev.off()
     
     for (j in resolutions) {
+      
       seu <- FindClusters(seu, resolution = j)
       louvainCluster <- seu@meta.data$seurat_clusters
       numb.clusters = unique(seu@meta.data$seurat_clusters)
@@ -515,7 +542,7 @@ louvain_clustering <- function(input_path,
       heatmap_name = paste("Heatmapclusters_kn",i,"_res_",j,".pdf",sep="")
       print(UMAP_name) #testing
       pdf(paste(output_path,input_name,clust_method,heatmap_name,sep=""),width =15, height = 10)
-      print(DoHeatmap(seu, features = AB))
+      print(DoHeatmap(seu, features = AB, size=10)+theme(text = element_text(size = 30))) 
       dev.off()
     }
     
@@ -547,7 +574,6 @@ louvain_clustering <- function(input_path,
 #= c(5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90)
 flowsom_clustering <- function(krange,
                                input_path, output_path, input_name, clust_method) {
-  
   
   # read in the dataframe
   df <- read.csv(input_path)
@@ -643,19 +669,21 @@ flowsom_clustering <- function(krange,
     # K max number of clusters not the kn input
     ## run flowSOM clustering
     ## easy flowsom method : scales data nClus is the k we are forcing
-    fs <- FlowSOM(
-      frame,
-      nClus = i,
-      seed = 42
-    )
+    # fs <- FlowSOM(
+    #   frame,
+    #   nClus = i,
+    #   seed = 42
+    # )
     # get the clusters from FlowSom
-    flowSOMcluster <- GetMetaclusters(fs, meta=metaClustering_consensus(fs$map$codes,k = i,seed=42))
+    flowSOMcluster <- metaClustering_consensus(fs$map$codes,k = i,seed=42)
+    
     
     # name the clustering
     clust_name = paste('FlowSom.k.',i,sep="")
     # add the cluster ID into seurat object to visualize
     seu <- AddMetaData(object=seu, metadata= flowSOMcluster[fs$map$mapping[,1]], col.name = clust_name)
     number.clusters <- length(unique(flowSOMcluster[fs$map$mapping[,1]]))
+    
     
     ### make umap
     #UMAP_name = paste("UMAPclusters_k",i,".pdf",sep="")
@@ -683,7 +711,7 @@ flowsom_clustering <- function(krange,
     heatmap_name = paste("Heatmapclusters_k",i,".png",sep="")
     #testing
     png(paste(output_path,input_name,clust_method,heatmap_name,sep=""), width = 600, height = 500)
-    print(DoHeatmap(seu, features = AB,group.by = clust_name, size = 10) +theme(text = element_text(size = 30)))
+    print(DoHeatmap(seu, features = AB,group.by = clust_name))
     dev.off()
     
     #### add stats
@@ -699,16 +727,16 @@ flowsom_clustering <- function(krange,
     stats_ls[count, "nc"] <- number.clusters # calculated above
     
     #silhouette score:
-    stats_ls[count, "si"] <- mean(silhouette(flowSOMcluster[row_n],dis)[, 3])
+    stats_ls[count, "si"] <- mean(silhouette(flowSOMcluster[fs$map$mapping[,1]][row_n],dis)[, 3])
     
     #Calinski-Harabasz index: 
-    stats_ls[count, "ch"] <- calinhara(m,flowSOMcluster,cn=i)
+    stats_ls[count, "ch"] <- calinhara(m,flowSOMcluster[fs$map$mapping[,1]],cn=i)
     
     # Davies–Bouldin index:
-    stats_ls[count, "db"] <- index.DB(df2, as.numeric(flowSOMcluster))$DB
+    stats_ls[count, "db"] <- index.DB(df2, as.numeric(flowSOMcluster[fs$map$mapping[,1]]))$DB
     
   }
-
+  saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
   flowsom_stats_plot(stats_ls, output_path, input_name, clust_method)
   
   
@@ -731,8 +759,8 @@ flowsom_clustering <- function(krange,
   saveRDS(seu,paste(output_path,input_name,clust_method,'SeuratObject.Rds',sep=""))
   
   # save the stats list
-  saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
   write.csv(stats_ls, paste(output_path, "stats.csv",sep=""), row.names = FALSE)
+  
   
 }
 
@@ -792,7 +820,7 @@ phenograph_clustering <- function(kn,
   print("test6")
   # save feature plots of this UMAP
   # just for testing print
-
+  
   # we also only need to plot the features once
   # file name
   UMAP_name = paste("UMAPfeatures_kn",kn_umap,".pdf",sep="")
@@ -823,7 +851,7 @@ phenograph_clustering <- function(kn,
   set.seed(25)
   row_n <- sample(1:nrow(m), 1000)
   dis <- dist(m[row_n,])
-
+  
   print("test9")
   
   ############################# loop to explore parameters ########################################
@@ -833,8 +861,8 @@ phenograph_clustering <- function(kn,
   #kn = c(50,500)
   # save a data object for each kn - will only keep temporarily
   # the clusters will write over with each new kn
-
-
+  
+  
   for (i in kn){
     
     ### run phenograph clustering
@@ -863,8 +891,8 @@ phenograph_clustering <- function(kn,
     print("test13")
     #### add stats
     
-  
-  
+    
+    
     # "kn", "nc","si", "ch", "db"
     count <- 1+count
     
@@ -887,8 +915,8 @@ phenograph_clustering <- function(kn,
     stats_ls[count, "db"] <- index.DB(df2, as.numeric(phenocluster))$DB
     print("test15")
   }
-
-
+  
+  
   # make clustree plot
   pdf(paste(output_path,input_name,clust_method,'Clustree.pdf',sep=""),width =15, height = 10)
   print(clustree(seu, prefix ='Pheno.kn.'))
@@ -899,7 +927,7 @@ phenograph_clustering <- function(kn,
   
   
   # save the stats list
-
+  
   saveRDS(stats_ls,paste(output_path,input_name,clust_method,'statslist.Rds',sep=""))
   
   phenograph_stats_plot(stats_ls, output_path, input_name, clust_method)
@@ -928,7 +956,7 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   colnames(flowsom)[colnames(flowsom) == "krange"] <- "kn"
   flowsom['resolution'] <- NA
   phenograph['resolution'] <- NA
- 
+  
   #add a column for clustering methodd to each df
   flowsom <- cbind(method="flowsom",flowsom)
   phenograph <- cbind(method="phenograph",phenograph)
@@ -936,30 +964,31 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   
   #rename the clustering method for louvain with kn  
   for (i in row(louvain)) {
-    louvain[i, 'method'] <- paste("louvain ",louvain[i,'kn'],sep="")
+    louvain[i, 'method'] <- paste("louvain kn=",louvain[i,'kn'],sep="")
   } 
   
-
+  
   #merge 3 df in one file (louvain method + kn)
   stats_ls <-rbind(flowsom, phenograph, louvain)
   
   #rename the clustering method for louvain with resolution
   for (i in row(louvain)) {
-    louvain[i, 'method'] <- paste("louvain ",louvain[i,'resolution'],sep="")
+    louvain[i, 'method'] <- paste("louvain res=",louvain[i,'resolution'],sep="")
   } 
   
   #create a df that contains louvain method + resolution
-  stats_ls2 <-rbind(flowsom, phenograph, louvain)
+  stats_ls2 <-rbind(phenograph, louvain)
   
   #reorder the method so that the legend is displayed in order
   stats_ls$method <- factor(stats_ls$method,
                             levels = unique(stats_ls$method))
   
   stats_ls2$method <- factor(stats_ls2$method,
-                            levels = unique(stats_ls2$method))
-
+                             levels = unique(stats_ls2$method))
+  
   #color palette, can add more color to it later
   palette <- c("#d62828", "#fd9e02", "#a9d6e5", "#89c2d9", "#61a5c2", "#468faf", "#2c7da0", "#2a6f97", "#014f86","#01497c", "#013a63", "#012a4a")
+  palette2 <- c("#fd9e02", "#a9d6e5", "#89c2d9", "#61a5c2", "#468faf", "#2c7da0", "#2a6f97", "#014f86","#01497c", "#013a63", "#012a4a")
   
   #plot comparison for silhouette score
   pdf(paste(output_path,input_name,"Silhouette_plot_comparison.pdf",sep=""))
@@ -976,12 +1005,12 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   siplot2 <- ggplot(stats_ls2, aes(x=kn, y=si, label=method)) +
     geom_point(aes(group=method,color=method), size=1) +
     geom_line(aes(group=method,color=method), size=0.1) +
-    scale_colour_manual(values=palette) +
+    scale_colour_manual(values=palette2) +
     labs(color = "method", title = "Silhouette Scores",
          x = "kn", y = "Average Silhouette Scores") +
     theme(plot.title = element_text(hjust = 0.5))
   print(siplot2)
-
+  
   dev.off()
   
   
@@ -1001,7 +1030,7 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   chplot2 <- ggplot(stats_ls2, aes(x=kn, y=ch, label=method)) +
     geom_point(aes(group=method,color=method), size=1) +
     geom_line(aes(group=method,color=method), size=0.1) +
-    scale_colour_manual(values=palette) +
+    scale_colour_manual(values=palette2) +
     labs(color = "method", title = "Calinski-Harabasz index",
          x = "kn", y = "Calinski-Harabasz index") +
     theme(plot.title = element_text(hjust = 0.5))
@@ -1025,7 +1054,7 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
   dbplot2 <- ggplot(stats_ls2, aes(x=kn, y=db, label=method)) +
     geom_point(aes(group=method,color=method), size=1) +
     geom_line(aes(group=method,color=method), size=0.1) +
-    scale_colour_manual(values=palette) +
+    scale_colour_manual(values=palette2) +
     labs(color = "method", title = "Davies-Bouldin index",
          x = "kn", y = "Davies-Bouldin index") +
     theme(plot.title = element_text(hjust = 0.5))
@@ -1039,8 +1068,8 @@ plot_comparison <- function(input_name, output_path, louvain, flowsom, phenograp
 
 #shuming's input path
 louvain <- read.csv("/Users/shumingli/Desktop/louvain_output/stats.csv")
-flowsom <- readRDS("/Users/shumingli/Desktop/flowsom_output/FlowsetFlowSOMstatslist.Rds")
-phenograph <- readRDS("/Users/shumingli/Desktop/phenograph_output/FlowAlignTransPhenostatslist.Rds")
+flowsom <- read.csv("/Users/shumingli/Desktop/flowsom_output/stats.csv")
+phenograph <- read.csv("/Users/shumingli/Desktop/phenograph_output/stats.csv")
 
 input_name <- "AlignTrans"
 output_path <- "/Users/shumingli/Desktop/"
@@ -1077,14 +1106,14 @@ plot_comparison(input_name=input_name, output_path=output_path, louvain=louvain,
 # 
 # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
 # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Louvain/"
-# # input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
-# # output_path <- "/Users/shumingli/Desktop/"
-# 
-# 
-# input_name <- "Flowset"  # processing type for file name
-# clust_method <- "Louvain" # cluster type for file name
-# 
-# louvain_clustering(input_path, output_path, input_name, clust_method)
+input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsretrotransformed_flowset.csv"
+output_path <- "/Users/shumingli/Desktop/"
+
+
+input_name <- "Flowset"  # processing type for file name
+clust_method <- "Louvain" # cluster type for file name
+kn = c(25,50,100,125,150,200,250,300)
+louvain_clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
 # 
 # 
 # 
@@ -1093,23 +1122,23 @@ plot_comparison(input_name=input_name, output_path=output_path, louvain=louvain,
 # 
 # ############# testing for flowsom  ############################
 # 
-# define the input pathway
+#define the input pathway
 # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
-# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
-# 
-# # output pathway
-# # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/FlowSom-cat/"
-# output_path <- "/Users/shumingli/Desktop/"
-# 
-# 
-# 
-# # add input description to output files
-# input_name <- "Flowset"  # this will be the different processing types
-# 
-# # cluster type for file name
-# clust_method <- "FlowSOM"
-# 
-# flowsom_clustering(input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
+input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsretrotransformed_flowset.csv"
+
+# output pathway
+# output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/FlowSom-cat/"
+output_path <- "/Users/shumingli/Desktop/"
+
+
+
+# add input description to output files
+input_name <- "FlowsetRetroTransform"  # this will be the different processing types
+
+# cluster type for file name
+clust_method <- "FlowSOM"
+krange <- c(3:30)
+flowsom_clustering(krange=krange, input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
 # 
 # 
 # 
@@ -1117,25 +1146,29 @@ plot_comparison(input_name=input_name, output_path=output_path, louvain=louvain,
 # 
 # ############# set up the data object for phenograph clustering ############################
 
-# # info to change for each comparison
-# # define the input pathway
-# # input pathway
-# # input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
+# info to change for each comparison
+# define the input pathway
+# input pathway
+# input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsaligned_transformed_flowset.csv"
 # input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
-# 
-# # output pathway
-# # output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
+
+# output pathway
+# output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/Pheno/"
 # output_path <- "/Users/shumingli/Desktop/"
-# 
-# # add input description to output files
-# input_name <- "FlowAlignTrans"  # this will be the different processing types
-# 
-# # cluster type for file name
-# clust_method <- "Pheno"
-# 
-# kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
-# 
-# phenograph_clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
+
+input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsretrotransformed_flowset.csv"
+output_path <- "/Users/shumingli/Desktop/"
+
+
+# add input description to output files
+input_name <- "FlowRetroTrans"  # this will be the different processing types
+
+# cluster type for file name
+clust_method <- "Pheno"
+
+kn = c(25,50,75,100,125,150,175,200,225,250,300,350,400,450,500)
+
+phenograph_clustering(kn=kn, input_path=input_path, output_path=output_path, input_name=input_name, clust_method=clust_method)
 
 
 # stats_ls <- readRDS("/Users/shumingli/Desktop/FlowAlignTransPhenostatslist.Rds")
