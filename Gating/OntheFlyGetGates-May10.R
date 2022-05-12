@@ -57,6 +57,8 @@ flowset <- read.flowSet(path=input_path,transformation = FALSE ,emptyValue = FAL
 flowsetold <- read.flowSet(path="/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/9MBO",transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore")
 
 flowset <- fsApply(flowset,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
+flowsetold <- fsApply(flowset,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
+
 
 sampleNames(flowset)
 sampleNames(flowset) <- c("S2-B","S2-A","S1-B","S1-A")
