@@ -231,22 +231,32 @@ longdata.2 <- melt(ex.data.c.2)
 new.order <- c("Neurons1 AIW002", "Neurons1 AJG001C",
                "Neurons1 3450","Neurons2 AIW002",         
                "Neurons2 AJG001C", "Neurons2 3450","NeuralPrecursors AIW002",  "NeuralPrecursors AJG001C",
-               "Neural Precursors 3450","Astrocytes1 AIW002","Astrocytes1 AJG001C",    
+               "NeuralPrecursors 3450","Astrocytes1 AIW002","Astrocytes1 AJG001C",    
                "Astrocytes1 3450","Astrocytes2 AIW002","Astrocytes2 AJG001C",
                "Astrocytes2 3450","Glia AIW002", "Glia AJG001C",              
                "Glia_3450","RadialGlia1 AIW002", "RadialGlia1 AJG001C",    
                "RadialGlia1 3450", "RadialGlia2 AIW002", "RadialGlia2 AJG001C",    
                "RadialGlia2 3450")
-new.order <- rev(new.order)
+#new.order <- rev(new.order)
 AB.order <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+AB.order <- rev(AB.order)
 
 data.2 <- longdata.2 %>% mutate(Cell.Type = factor(variable, levels = new.order))
 data.2 <- data.2 %>% mutate(Marker = factor(Marker, levels = AB.order))
 
+pdf(paste(outpath,"Heatmap.cell.genotype.pdf"),width = 6, height = 3.5)
 ggplot(data.2, aes(x = Cell.Type, y = Marker)) + 
   geom_raster(aes(fill=value)) + 
   scale_fill_gradient(low="blue", high="pink", na.value = "grey") +
   labs(x="Cell types", y="Antibodies") +
-  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
-                     axis.text.y=element_text(size=12),
-                     plot.title=element_text(size=12))
+  theme_bw() + theme(axis.text.x=element_text(size=8, angle=90, hjust=1),
+                     axis.text.y=element_text(size=8),
+                     plot.title=element_text(size=8))
+dev.off()
+
+
+
+###### to make a screen shot of heatmap #####
+DoHeatmap(seu, group.by = 'seurat_clusters', features = AB)
+
+
