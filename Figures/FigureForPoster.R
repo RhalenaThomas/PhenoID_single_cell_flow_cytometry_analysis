@@ -162,13 +162,14 @@ sample.lables <- sample.lables %>% mutate(Cell.Types = factor(Var2, levels = new
 
 # save bar chart with proportions
 
-png(paste(outpath,"BarChartGenotypePrpCells.png"), width = 550, height = 400)
+pdf(paste(outpath,"BarChartGenotypePrpCells.pdf"), width = 10, height = 8)
 ggplot(sample.lables, aes(x = Var1, y=Freq, fill = Cell.Types)) + 
   geom_bar(position= "fill", stat = "identity") + 
-  scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(legend.text = element_text(size=18),
-                      text = element_text(size=21, colour = "black"),
+  scale_y_continuous(labels = scales::percent_format()) + theme_classic() + 
+  theme(legend.text = element_text(size=20),
+                      text = element_text(size=18, colour = "black"),
                       axis.text.x = element_text(angle=90, hjust=1, colour = "black", size = 18), 
-                      axis.text.y = element_text(colour = "black", size= 16))+ 
+                      axis.text.y = element_text(colour = "black", size= 18))+ 
                       xlab('Genotype') + 
                       ylab('Percent of Cell type') +
                       scale_fill_manual(values= colours, name = " ")

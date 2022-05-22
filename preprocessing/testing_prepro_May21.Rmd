@@ -1,0 +1,349 @@
+Run Alexes notebook for 9 MO full surface AB panel to create dataframe of expression values
+a
+
+```{r,include=FALSE}
+# setup the enviroment
+# multiple packages may need to be installed
+
+require("flowCore") #Used for reading the data
+require("ggplot2")
+require("ggridges") #visualization
+require("stringr") #set of functions to manipulate strings type in order to have nice titles
+require("rlist") #set of functions that allows to easily manipulate lists
+require("reshape2") #visualization
+require("flowStats") #Alignment functions
+require("scales") #scale colour intensity for visualization
+require("dplyr")
+
+#libraries
+library("flowCore")
+
+# installations
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("flowCore")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("flowStats")
+
+
+
+```
+
+
+Functions to be called later - run code chunk to have the function 'callable' in your working enviromnent
+
+```{r}
+# functions Alex wrote
+# will need to make these into a separate function with documentation
+
+# function plotdensity_flow set
+
+plotdensity_flowset <- function(flowset){ ggplot(melt(lapply(as.list(flowset@frames),function(x){x=as.data.frame(x@exprs)})), aes(x=value,y=L1,fill=L1)) + geom_density_ridges(alpha=.4,verbose=FALSE) +facet_wrap(~variable)+theme_light()} 
+
+#defines a function for visualizing flowset with densityplots
+
+# function renmame markers
+# fcs files will have the marker names input during acquistion using flowjo
+
+rename_markers<-function(flowset){#Defines a function to use marker names 
+  copy_flowset=flowset[seq(along=flowset)]
+  for (i in 1:length(copy_flowset)){
+    marker.names=copy_flowset[[i]]@parameters@data$desc
+    marker.names=lapply(marker.names,function(x){str_replace_all(x,"-","_")})
+    colnames(copy_flowset[[i]]@exprs)<-unlist(lapply(marker.names, function(x){sapply(str_split(x,"_"),head,1)})) 
+  }
+  return(copy_flowset)
+}
+
+
+
+```
+
+
+
+```{r}
+
+input_path2 <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/9MBO"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/May10_gating/"
+
+output_path2 <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs2/"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/Output/"
+
+write_fcs_files <- TRUE #Set to true to write fcs files at each step (subsampled, transformed, aligned and scaled) - recommanded 
+
+#Create output folder if it's not already created
+if(dir.exists(output_path)==FALSE){ #check
+  dir.create(output_path) #create directory
+}
+
+
+```
+
+
+#Read in the data - This chunck reads in the data and selects the area values that are used for analysis. It creates a flowSet object (containing multiple flowFrames, corresponding to fcs files)
+
+```{r}
+
+
+# all the files in the input folder will be added to this data object flowset
+flowset.new <- read.flowSet(path=input_path,transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore") #Create a flowset object
+flowset <- flowset.new
+
+# flowset1 is the new data
+flowset1 <- fsApply(flowset,
+                   function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
+
+# check the 9000MBO data
+flowset <- read.flowSet(path=input_path2,transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore") #Create a flowset object
+
+flowset2 <- fsApply(flowset,
+                   function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
+
+
+### @Shuming I can see in the old fsc files (9000 cells from 9 MBO we used before) the FSC information is present in the two data slots.  In the new data it is onlyin one spot
+
+flowset@frames$`2020-03-06- export_bioinfo_3450c_live cells.fcs`@parameters@data$name
+# here under 'name' we see the FSC-A in the old data
+
+
+```
+
+We see the FSC-A etc in the desc slot in the old data
+
+```{r}
+flowset@frames$`2020-03-06- export_bioinfo_3450c_live cells.fcs`@parameters@data$desc
+```
+
+In the new data we see the FSC labels only under 'name' not under 'desc' (which I think is description).
+
+```{r}
+flowset.new@frames$export_MBO_AIW_2_AUG_2021_PBS_livecells.fcs@parameters@data$name
+```
+```{r}
+flowset.new@frames$export_MBO_AIW_2_AUG_2021_PBS_livecells.fcs@parameters@data$desc
+```
+
+
+
+```{r}
+# see number of cells per sample
+print(fsApply(flowset1,function(x){dim(x@exprs)})[,1])
+
+
+sampleNames(flowset1) #Prints the name of each flowframe inside the flowset. User can modify it in the following chunck
+#write.flowSet(flowset,outdir=paste0(output_path,"input_flowset"))#Writes the input flowset
+#flowset=read.flowSet(path=paste0(output_path,"input_flowset"),phenoData = "annotation.txt")#Read the written flowset
+```
+
+
+#This chunck can be used for renaming the fcs files inside the flowset
+```{r}
+# create a vector with the new file names and assign them
+# this must be a flowCore function
+# note there are two ages - I'll look up the date and calulate ages later for old I'll write A and young B 0306 and 0317 are march 6 and march 17 the experiment dates of dissociation and acquistion
+
+#sampleNames(flowset) <- c("3450_0306","AIW002_0306","AJG001C_0306","3450_0317A","AIW002_0317A","AJG001C_0317A","3450_0317B","AIW002_0317B","AJG001C_0317B") #directly modify the names inside the flowset
+
+sampleNames(flowset1) <- c("S2-B","S2-A","S1-B","S1-A")
+sampleNames(flowset1)
+# now the sample or file names are changed under the 'frame' data slot
+
+
+# this appears to be again reading in the data an getting the expression values
+# I'll make this a function for the package
+
+
+
+```
+
+
+#Subsets - Allows to subset each fcs with a desired number of cells selected randomly (set the seed), go directly to transformation step for not subsetting
+
+To determine if I want to subset cells or how many to subset I need to know the number of cells in each sample. This can be seen in the table above
+
+For this analysis I'll take 9000 events for each sample except the final sample I'll take all 1578
+
+
+Set an arbitrary number of cells for subsetting samples (if a fcs files has less cells it will be completely selected)
+```{r,include=FALSE}
+desired_size <- 12500
+# I've run this chunk setting the cell number to 9000
+```
+Set the number to the smallest fcs files (containing the smallest amount of cells)
+```{r,include=FALSE}
+desired_size <- min(fsApply(flowset,function(x){nrow(x@exprs)}))
+# not run
+```
+Subsets the data
+```{r,echo=FALSE}
+set.seed(42) #Set a seed for reproducibility 
+sf <- sampleFilter(filterId = "SizeFilter", size =desired_size) #Creates a "filter" object to subset
+flowset.sub <- fsApply(flowset1,function(x){Subset(x,sf,truncate_max_range = FALSE)}) #apply the filter on every flowframe
+
+```
+
+
+#Writing csv files with informations
+
+```{r}
+# watchout -I'm renaming all the columns to match the first dataframe in the list to avoid the R bind error
+# they were all the same by visual instruction but it's possible I'm renaming with the wrong AB which will be a huge problem
+
+# saving function
+flowset_to_csv=function(flowset){  
+  list_of_flowframes=fsApply(rename_markers(flowset),function(x){as.data.frame(x@exprs)})#Makes a list of dataframes
+  list_names=names(list_of_flowframes)#extract names for not calling names() function at each loop
+  for (index in seq_along(list_of_flowframes)){ #Iterates along the index for adding sample names
+    list_of_flowframes[[index]]=list_of_flowframes[[index]] %>% #Using tidyverse package for adding features (name of batch)
+      mutate(Sample=list_names[index])#Using tidyverse package for adding features (name of batch)
+  #rename the columns to fix the rbind error 
+      colnames(list_of_flowframes[[index]]) = colnames(list_of_flowframes[[1]])  
+  }
+  # this is wehre the error occurs but all the df have the same column names???
+  ds=list.rbind(list_of_flowframes)#binds every fcs file in a single dataframe
+  ds$cell=as.factor(unlist(lapply(as.list(c(1:length(flowset))),function(x){c(1:nrow(flowset[[x]]@exprs))})))#add cell IDs - cell count per sample 
+  write.csv(ds,file=paste0(output_path,deparse(substitute(flowset)),".csv"))#save the R data for further usage
+}
+
+# there is an error in the appove function or the below application
+# this should make a csv with the antibody names - I haven't renamed the antibodies and I don't see that code chunk 
+
+
+
+flowset_to_csv(flowset1)#new files - error
+flowset_to_csv(flowset2)#old files 
+
+
+
+
+
+```
+
+
+Try debugging - why can't we save the new files?  Is it because the descriptions are wrong?
+
+```{r}
+# saving function
+flowset = flowset1
+
+  list_of_flowframes=fsApply(rename_markers(flowset),function(x){as.data.frame(x@exprs)})#Makes a list of dataframes
+  # fine
+# check what it is
+  list_of_flowframes$`S2-B`
+  
+  
+  list_names=names(list_of_flowframes)#extract names for not calling names() function at each loop
+  # fine
+
+  for (index in seq_along(list_of_flowframes)){ #Iterates along the index for adding sample names
+    list_of_flowframes[[index]]$Sample = list_names[index] # add the sample name column
+     
+     # colnames(list_of_flowframes[[index]]) = colnames(list_of_flowframes[[1]])  
+  }
+  # error 
+  
+  
+  # this is wehre the error occurs but all the df have the same column names???
+  ds=list.rbind(list_of_flowframes)#binds every fcs file in a single dataframe
+  ds$cell=as.factor(unlist(lapply(as.list(c(1:length(flowset))),function(x){c(1:nrow(flowset[[x]]@exprs))})))#add cell IDs - cell count per sample 
+  write.csv(ds,file=paste0(output_path,deparse(substitute(flowset)),".csv"))#save the R data for further usage
+
+
+  
+  # whats inside the flowframe list
+  
+  list_of_flowframes
+  
+  colnames(list_of_flowframes$export_MBO_AIW_2_AUG_2021_PBS_livecells.fcs)
+  
+  #maybe we can add a conditions - if column name is NA rename 'NA.1", "NA.2"... and so on
+  # first check for missing names for duplicates output
+  # then rename in all the dataframes
+  
+  
+colnames(list_of_flowframes$export_MBO_AIW_2_AUG_2021_PBS_livecells.fcs)[1] <- "Rename1"
+colnames(list_of_flowframes$export_MBO_AIW_2_AUG_2021_PBS_livecells.fcs)[2] <- "Rename2"
+  
+colnames(list_of_flowframes$export_MBO_AIW_2_AUG_2021_PBS_livecells.fcs)
+
+# yes we can rename
+
+# add use rename in all
+
+for(df in list_of_flowframes){
+   colnames(df[1])="rename1"
+   colnames(df[1])="rename2"
+ }
+
+
+
+  
+```
+
+```{r}
+# break apart the for loop
+
+index = 1
+  
+    list_of_flowframes[[index]]$Sample = list_names[index]
+  # this fixes the adding the sample column problem.   
+    
+    #Using tidyverse package for adding features (name of sample/file name)
+  #rename the columns to fix the rbind error 
+      colnames(list_of_flowframes[[index]]) = colnames(list_of_flowframes[[1]])  
+  
+  # error 
+
+
+```
+
+
+```{r}
+# saveing function updated
+# saving function
+flowset_to_csv=function(flowset){  
+  list_of_flowframes=fsApply(rename_markers(flowset),function(x){as.data.frame(x@exprs)})#Makes a list of dataframes
+  list_names=names(list_of_flowframes)#extract names for not calling names() function at each loop
+  for (index in seq_along(list_of_flowframes)){ #Iterates along the index for adding sample names
+    list_of_flowframes[[index]]$Sample = list_names[index]
+  }
+  ds=list.rbind(list_of_flowframes)#binds every fcs file in a single dataframe
+  ds$cell=as.factor(unlist(lapply(as.list(c(1:length(flowset))),function(x){c(1:nrow(flowset[[x]]@exprs))})))#add cell IDs - cell count per sample 
+  write.csv(ds,file=paste0(output_path,deparse(substitute(flowset)),".csv"))#save the R data for further usage
+}
+
+flowset_to_csv(flowset1)
+
+# no error
+
+
+```
+
+
+
+
+
+
+
+With the old files
+
+```{r}
+
+# saving function
+flowset = flowset2
+
+  list_of_flowframes2=fsApply(rename_markers(flowset),function(x){as.data.frame(x@exprs)})#Makes a list of dataframes
+list_of_flowframes2$`2020-03-06- export_bioinfo_3450c_live cells.fcs`
+
+
+
+
+  
+```
+
+
+
