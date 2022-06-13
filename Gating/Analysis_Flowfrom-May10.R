@@ -14,26 +14,6 @@
 # libraries
 # load libraries
 
-require("flowCore") #Used for reading the data
-require("ggplot2")
-require("ggridges") #visualization
-require("stringr") #set of functions to manipulate strings type in order to have nice titles
-require("rlist") #set of functions that allows to easely manipulate lists
-require("reshape2") #visualization
-require("flowStats") #Alignment functions
-require("scales") #scale colour intensity for visualization
-require("dplyr")
-library("flowCore")
-
-
-# input path to the new data - need to write in the pathway
-
-input_path = "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/May10_gating/"
-
-
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/Output/"
-
-
 ######## Clustering and visualization ##########################
 
 library(Seurat)
@@ -41,9 +21,12 @@ library(ggplot2)
 library(clustree)
 library(reshape2) #for plotting multiple lines (resolutions) on the same graph
 library(dplyr)
+library(kit) # for finding max and second max (function topn)
+library(tidyr) #for the last plot in the function
 
-# now the saves csv file from the fsc
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/Output/flowset.csv"
+
+# I prepared the csv 
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/Output/flowset1.csv"
 
 input_name <- "May10_read1"
 clust_method <- "Louvain" # cluster type for file name
@@ -60,24 +43,25 @@ seu <- CreateSeuratObject(tm)
 # for later to see features we define the vector here
 AB <- colnames(df2)
 # add the sample names into the seurat object 
-seu <- AddMetaData(object=seu, metadata=df$Sample, col.name = 'Batch')
+seu <- AddMetaData(object=seu, metadata=df$Sample, col.name = 'Sample')
 #downsample to no have too many cells
 # check the cell numbers first
 table(seu$Sample)
 
-# down sample to have about 50 000 cells total - 12500 from each sample
+#  S1-A  S1-B  S2-A  S2-B 
+# 24359 22660 22074 20312 
+# I have about twice as many cells as expected
+# I'll try without downsampling first
 
 # prepare the object for clustering
 seu <- ScaleData(seu)
 # assume we acquire 50,000 cells 
 seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
-seu <- FindNeighbors(seu, dims = 1:12, k.param =223)
-seu <- RunUMAP(seu, dims = 1:12, n.neighbors = 223, spread = 2, a=0.54,b=0.84, min.dist = 0.5)
+seu <- FindNeighbors(seu, dims = 1:12, k.param =60)
+seu <- RunUMAP(seu, dims = 1:12, n.neighbors = 60, spread = 2, a=0.54,b=0.84, min.dist = 0.5)
 # note to me - test these resolutions and pick one here 
-seu <- FindClusters(seu, resolution = c(0.8,1.2,1.5,2))
-
-
-DimPlot(seu)
+seu <- FindClusters(seu, resolution = c(0.8,1.2,1.5))
+DimPlot(seu, group.by = 'RNA_snn_res.1.2')
 
 ########## label the clusters   ######################################
 # use the 9000 labels used to create these groupings
@@ -105,6 +89,22 @@ top.labs <- t.lables  %>% group_by(Var1)  %>% top_n(5, Freq)
 top.labs
 top.lab <- t.lables  %>% group_by(Var1)  %>% top_n(1, Freq)
 top.lab
+
+
+# see the different samples and expression
+DimPlot(seu, split.by = 'Sample', group.by = 'predicted.id')
+FeaturePlot(seu, split.by = 'Sample', features = "CD24", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "CD56", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "CD15", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "CD29", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "CD184", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "CD133", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "O4", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "GLAST", slot = "scale.data", min.cutoff = 0.25)
+FeaturePlot(seu, split.by = 'Sample', features = "AQP4", slot = "scale.data", min.cutoff = 0.25)
+
+
+DotPlot(seu, features = AB)
 
 
 # now add the labels from the clusters and also relabel with only the gating groups
@@ -140,6 +140,19 @@ top.labs <- t.lables  %>% group_by(Var1)  %>% top_n(5, Freq)
 top.labs
 top.lab <- t.lables  %>% group_by(Var1)  %>% top_n(1, Freq)
 top.lab
+
+
+##### correlation labels
+
+
+
+
+
+
+
+
+
+
 
 # add the main group labels
 Idents(seu) <- "seurat_clusters"
