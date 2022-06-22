@@ -143,31 +143,57 @@ top.lab
 
 
 ##### correlation labels
+# run the function or load library 
+# input path above
+reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/Output/"
+
+find_correlation(input_path, reference_path, output_path)
+cor <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/GatingPlanExperiment/Output/correlationscorr_celltypes.csv")
 
 
 
-
-
-
-
-
+sue <- AddMetaData(object=seu.q, metadata=cor$cell.label, col.name = 'cor.labels')
+unique(seu.q$cor.labels)
 
 
 
 # add the main group labels
 Idents(seu) <- "seurat_clusters"
-cluster.ids <- c("glia","other","Neurons1","Astro","Neurons2","other","other","Astro","glia","RG","Neurons3",
-                 "glia","Neurons1","glia","glia")
+cluster.ids <- c("Neurons-CD56","RG-CD184","Neurons-mix1",
+                 "RG-CD184","Neurons-mix2","RG-CD184",
+                 "RG-CD184","Neurons-CD56","Neurons-mix1",
+                 "Mix","RG-CD184","RG-CD184",
+                 "RG-CD184","RG-CD184","RG",
+                 "Neurons-CD56","RG-CD184","Mix",
+                 "Neurons-CD56","Mix","Mix",
+                 "Mix","RG-CD184","RG-CD184",
+                  "RG-CD184","Neurons-CD24","Mix",
+                 "oligo","RG-CD184")
 names(cluster.ids) <- levels(seu)
 seu <- RenameIdents(seu, cluster.ids)
 seu$gating.groups <- Idents(seu)
 DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'gating.groups', repel = TRUE)
 
-
+Idents(seu) <- "seurat_clusters"
+cluster.ids <- c("Neurons-CD56","RG-CD184-a","Neurons-mix1",
+                 "RG-CD184-a","Neurons-CD24","RG-CD1843",
+                 "RG-CD184-a","Neurons-CD56","Neurons-mix1",
+                 "Mix","RG-CD184-N","RG-CD184-N",
+                 "RG-CD1847","RG-CD1848","RG",
+                 "Neurons-CD56","RG-CD184","Mix",
+                 "Neurons-CD56","Mix","Mix",
+                 "Mix","RG-CD1849","RG-CD18410",
+                 "RG","Neurons-CD24","Mix",
+                 "oligo","RG-CD18412")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$gating.groups2 <- Idents(seu)
+DimPlot(seu, reduction = "umap", label = TRUE, group.by = 'gating.groups2', repel = TRUE)
 
 
 #### save the labelled object ######
-saveRDS(seu,paste(output_path,"Test_May_seuLabels.Rds"))
+saveRDS(seu,paste(output_path,"Test_May_10_seuLabels.Rds"))
 
 
 
@@ -187,7 +213,7 @@ cluster.labels <- as.vector(seu.down$gating.groups)
 
 #cell types to gate
 
-cell.types <- c("Neurons1", "Neurons2","Neurons3","glia", "Astro","RG")
+cell.types <- c("Neurons-CD56", "Neurons-CD24","Neurons-mix1","Neurons-mix2","RG-CD184","Mix")
 
 
 for (cell in cell.types) {
