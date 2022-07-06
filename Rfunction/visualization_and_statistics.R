@@ -38,7 +38,7 @@ df.2[which(grepl("0317A", df.2$Batch)), "age"] <- "263" # age 263
 #df.2 now has 4 extra columns: batch, age...
 
 
-#  ========================= ANOVA starts =========================
+#  ========================= I. ANOVA starts =========================
 
 #1. preprocessing for 2 way anova starts (can be used for any anova)
 #this preprocessing stacks 13 columns of antibody expression into 1 column 
@@ -137,9 +137,77 @@ test <- twanova(df, A, B, dv)
 
 
 
-#  ========================= Chi square starts =========================
+#  ================= II. Chi square & proportion test starts ===================
 
+proptest <- function(test=c("prop1", "prop2", "chisq1"),
+                     df,
+                     c, #c = matrix column, ex: cell types, the name of the column in og df
+                     r){ #r = matrix row, ex: genotype, the name of the column in og df
+  
+  #preprocessing:
+  testl <- vector() #a list of cell counts 
+  for (i in unique(df.2[, c])) { 
+    for (j in unique(df.2[, r])) {
+      testl <- c(testl, length(which((df.2[, c] == i) & (df.2[, r] == j))))
+    }
+  }
+  #create a matrix: col = cell type, r = batch in this case
+  testm <- matrix(testl,ncol = length(unique(df.2[, r])), byrow = TRUE)
 
+  #1. proportion test #1, compare 1 batch x 1 cell type at a time
+  #if input contains prop1, this test will run
+  if ("prop1" %in% test) { 
+    pl1 <- vector()
+    for (i in 1:nrow(testm)) {  
+      for (j in 1:ncol(testm)) {
+        prop <- prop.test(x = testm[i, j], # x=the cell count tested
+                          n = sum(testm[i, ]), # n=sum of the row
+                          correct = FALSE, #false bc there are more than 2 groups
+                          p = 1/ncol(testm)) #p=probability in each group (genotype) 
+        pl1 <- c(pl1, prop$p.value) #p value list
+      }
+    }
+    pd1 <- data.frame(c = rep(unique(df.2[,c]), length(unique(df.2[,r]))),
+                      r = rep(unique(df.2[,r]), length(unique(df.2[,c]))),
+                      pval = pl1)
+  } else {pd1 <- NULL}
+  
+  #2. proportion test #2, compare 3 batchs x 1 cell type at a time
+  if ("prop2" %in% test) {
+    
+    hp2 <- function(x) { #helper function
+      #x=each row in the matrix, n=sum of the row 
+      prop <- prop.test(x, rep(sum(x), length(x)), correct=FALSE, p=rep(1/length(x),length(x)))
+      return(prop$p.value)
+    }
+    pd2 <- data.frame(c = unique(df.2[,c]),
+                      pval = apply(testm,1,hp2)) 
+  } else {pd2 <- NULL}
+  
+  #3. chi square test, compare 3 bacths x 1 cell type at a time
+  if ("chisq1" %in% test) {
+    hp3 <- function(x) {
+      prop <- chisq.test(x, correct=FALSE, p=rep(1/length(x),length(x)))
+      return(prop$p.value)
+    } 
+    
+    pd3 <- data.frame(c = unique(df.2[, c]),
+                      pval = apply(testm, 1, hp3))
+  } else {pd3 <- NULL}
+  
+  return(list(pd1 = pd1, pd2 = pd2, pd3 = pd3))
+}
 
-#  ========================= Chi square ends =========================
+# input
+test = c("prop2", "chisq1") #run which tests? options: c("prop1", "prop2", "chisq1")
+df = df.2 #see preprocessing at the very beginning of this R script
+c = "label" #cell type
+r = "genotype" #we want to test the difference among batches
+
+# test
+dfl <- proptest(test, df, c, r)
+dfl$pd1
+
+# ====================== chi square & proportion test ends =====================
+
 
