@@ -139,6 +139,7 @@ test <- twanova(df, A, B, dv)
 
 #  ================= II. Chi square & proportion test starts ===================
 
+#1. function
 proptest <- function(test=c("prop1", "prop2", "chisq1"),
                      df,
                      c, #c = matrix column, ex: cell types, the name of the column in og df
@@ -154,7 +155,7 @@ proptest <- function(test=c("prop1", "prop2", "chisq1"),
   #create a matrix: col = cell type, r = batch in this case
   testm <- matrix(testl,ncol = length(unique(df.2[, r])), byrow = TRUE)
 
-  #1. proportion test #1, compare 1 batch x 1 cell type at a time
+  #proportion test #1, compare 1 batch x 1 cell type at a time
   #if input contains prop1, this test will run
   if ("prop1" %in% test) { 
     pl1 <- vector()
@@ -172,7 +173,7 @@ proptest <- function(test=c("prop1", "prop2", "chisq1"),
                       pval = pl1)
   } else {pd1 <- NULL}
   
-  #2. proportion test #2, compare 3 batchs x 1 cell type at a time
+  #proportion test #2, compare 3 batchs x 1 cell type at a time
   if ("prop2" %in% test) {
     
     hp2 <- function(x) { #helper function
@@ -184,7 +185,7 @@ proptest <- function(test=c("prop1", "prop2", "chisq1"),
                       pval = apply(testm,1,hp2)) 
   } else {pd2 <- NULL}
   
-  #3. chi square test, compare 3 bacths x 1 cell type at a time
+  #chi square test, compare 3 bacths x 1 cell type at a time
   if ("chisq1" %in% test) {
     hp3 <- function(x) {
       prop <- chisq.test(x, correct=FALSE, p=rep(1/length(x),length(x)))
@@ -198,13 +199,13 @@ proptest <- function(test=c("prop1", "prop2", "chisq1"),
   return(list(pd1 = pd1, pd2 = pd2, pd3 = pd3))
 }
 
-# input
+# 2. input
 test = c("prop2", "chisq1") #run which tests? options: c("prop1", "prop2", "chisq1")
 df = df.2 #see preprocessing at the very beginning of this R script
 c = "label" #cell type
 r = "genotype" #we want to test the difference among batches
 
-# test
+# 3. test
 dfl <- proptest(test, df, c, r)
 dfl$pd1
 
