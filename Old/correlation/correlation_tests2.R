@@ -7,13 +7,14 @@ library(kit) # for finding max and second max (function topn)
 library(ggplot2)  # for plotting
 library(reshape2) # for plotting (function melt)
 library(tidyr) #for the last plot in the function
+library(magrittr)
 library(dplyr) # for df formating (function select)
 
 #function: find_correlation
 #compare pre-processed expression matrix with the expected value for each cell 
 #type, return the best and second best correlated cell types for each sample in 
 #the expression matrix1
-find_correlation <- function(test_path, reference_path, output_path, min_corr=0.1, min_diff=0.05) {
+find_correlation <- function(test_path, reference_path, output_path, min_corr=0.45, min_diff=0.05) {
   #input type: test_path and reference_path as strings, min_corr and min_diff as numbers
   test <- read.csv(test_path)
   reference <- read.csv(reference_path)
@@ -172,17 +173,22 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
 #test_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
 #reference_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv"
 #output_path <- "/Users/shumingli/Desktop/"
-test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsretrotransformed_flowset.csv"
-reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv"
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/retro/9celltypes/"
+#test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsretrotransformed_flowset.csv"
+#reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv"
+#output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/correlation/retro/9celltypes/"
 
-find_correlation(test_path, reference_path, output_path)
+#find_correlation(test_path, reference_path, output_path)
 
 # run for full 9MBO set
 
-reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv"
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/correlations/"
-test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv"
+#reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/correlation/ReferenceMatrix9celltypesOrdered.csv"
+#output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/correlations/"
+#test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv"
 
-find_correlation(test_path, reference_path, output_path)
+#find_correlation(test_path, reference_path, output_path)
+
+# NOTE - It would be good if this function sent the two output csv as df to the global enviroment
+# return corr_celltypes
+# Frequencytabletypes
+
 

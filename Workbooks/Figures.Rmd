@@ -1,0 +1,124 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+PhenoID Figures
+
+```{r}
+# set up the environment
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+```
+
+
+
+
+Figure 2 
+
+```{r}
+
+# Figure 2 B 
+# heatmap
+
+
+# figure 2 B - heatmap of 5 cell lines with colours adjusted
+seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/2Dcells_surface/Figure2/FigureStuff/Flowset_SelectSeuratlabels.Rds")
+
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+# read in the data
+
+# see the heatmap
+DoHeatmap(seu, group.by = "Batch", features = AB, size= 6,slot = "scale.data", group.colors = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4"), disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 15))
+
+# save the heatmap
+outpath = "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/"
+
+pdf(paste(outpath,"HM_2Dcell_F2B.pdf",sep=""),width =6, height = 4)
+print(DoHeatmap(seu, group.by = "Batch", features = AB, size= 6,slot = "scale.data", group.colors = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4"), disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 12)))
+dev.off()
+
+
+
+#Figure 2C
+# UMAP with labels
+
+
+
+```
+
+
+Figure 3
+
+```{r}
+# Figure 3A 
+# Plot the reference matrix for correlaiton
+
+#Figure 3B 
+# run correlation function
+# run function in correlation_tests2.R - will be a real function soon
+
+# the function takes the preprocessed output csv (test_path)
+# a path to the reference correlation matrix csv (refrence_path)
+# a path to save the output csv and plots
+
+
+reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/old/correlation/ReferenceMatrix9celltypesOrdered.csv"
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr/"
+
+
+test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/prepro_outsretrotransformed_flowset.csv"
+find_correlation(test_path, reference_path, output_path)
+# threshold for assigning unknown is R < 0.45
+# threshold for double label is R1-R2 < 0.1
+
+# this produces a csv with the Frequencies of each cell type and a csv with the best and second best correlation coefficients
+# read in those csv
+corr_cell.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr/corr_celltypes.csv")
+freq.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr/Frequencytabletypes.csv")
+
+
+# plot the main groups - but the correlation co-efficient for the assigned group
+df <- corr_cell.df %>% filter(!grepl('-',cell.label))
+
+
+  pdf(paste(output_path,"vlnPlotbestcells.pdf",sep=""))
+  plot2 <- ggplot(df, aes(x=cell.label, y=cor.1 ))+ geom_violin()+ ylim(-0.1,1)+theme_classic()+
+   theme(axis.text.x=element_text(angle=90)) + ylab("correlation coefficient") + xlab("Cell type with max correlation coefficient")
+  print(plot2)
+  dev.off()
+
+ggplot(df, aes(x=cell.label, y=cor.1 ))+ geom_violin()+ ylim(-0.1,1)+theme_classic()+
+   theme(axis.text.x=element_text(angle=90)) + ylab("correlation coefficient") + xlab("Cell type with max correlation coefficient")
+
+thresh1 <- 0.45
+
+ggplot(df, aes(x=best.cell.type, y=cor.1, fill = best.cell.type))+ geom_violin(trim = FALSE)+ ylim(0,1)+theme_classic()+
+   theme(text = element_text(size = 18), axis.text.x=element_text(angle=90, size = 15)) + ylab("correlation coefficient") + xlab("Cell type with max correlation coefficient") +
+  geom_hline(yintercept = thresh1) +
+  guides(fill = guide_legend(title = "Cell Phenotype"))
+
+#save this plot for figure 3B
+pdf(paste(output_path,"Vln.max.cor.main.cells.pdf"))
+ggplot(df, aes(x=best.cell.type, y=cor.1, fill = best.cell.type))+ geom_violin(trim = FALSE)+ ylim(0,1)+theme_classic()+
+   theme(text = element_text(size = 18), axis.text.x=element_text(angle=90, size = 15)) + ylab("correlation coefficient") + xlab("Cell type with max correlation coefficient") +
+  geom_hline(yintercept = thresh1) +
+  guides(fill = guide_legend(title = "Cell Phenotype"))
+dev.off()
+
+
+```
+
+
+
+
+
+
+
+
+
