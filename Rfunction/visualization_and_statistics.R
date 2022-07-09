@@ -1,4 +1,7 @@
-library(dplyr) #used to rename melted df
+# library(dplyr) #for
+library(data.table) #for transpose()
+library(reshape2)#used to rename melted df
+
 
 # === preprocessing for all functions in this file starts ===
 
@@ -10,8 +13,8 @@ library(dplyr) #used to rename melted df
 input_path <- "/Users/shumingli/Downloads/AllcellLablesMarch25.Rds"
 input <- readRDS(input_path)
 df <- transpose(as.data.frame(GetAssayData(input,slot = 'scale.data')))
-col.names <- c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71")
-colnames(df) <- col.names 
+AB <- c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71")
+colnames(df) <- AB 
 df.2 <- cbind(df, label = input@meta.data$cluster.ids, Batch = input$Batch)
 
 #add new columns batch, genotype, experiment day and age based on Batch (the old column)
@@ -57,46 +60,43 @@ for (i in unique(df.2$Batch)) {
   for (j in AB) {df.3[count, j] <- mean(df.2[which(df.2$Batch == i), j])}
   df.3[count, 'Batch'] <- i
   for (j in iv){df.3[count, j] <- unique(df.2[which(df.2$Batch == i), j])}
-} #shuming notes: maybe replace with apply later
+}
 
-melt_df.3 <- melt(df.3) # variable = AB name, value = AB mean expression/sample
-melt_df.3 <- rename(melt_df.3, antibody = variable)
+
+
+
+melt_df.3 <- melt(df.3, measure.vars = AB, variable.name = 'antibody', value.name = 'AB.mean.expression') # variable = AB name, value = AB mean expression/sample
+
 
 #preprocessing for 2 way anova ends
 
 
 #2. 2 way anova function starts
 twanova <- function(df, A, B, dv) { #B is a list
-  
   #result dfs: anova df and post-hoc df
-  aov_table <- data.frame(matrix(ncol = 5))
+  aov_table <- data.frame(matrix(ncol = 5, nrow = 0))
   colnames(aov_table) <- c("A", "B", "pval.A", "pval.B", "pval.interaction")
-  count <- 0 #row number, update every iteration in the for loop
-  ph_table <- data.frame(matrix(ncol = 3))
+  ph_table <- data.frame(matrix(ncol = 3, nrow = 0))
   colnames(ph_table) <- c("type", "comparison", "pval")
-  ctkl <- ls()
   
-  #shuming note: will replace for loop with apply later
   for (i in B) {
     aov_result <- aov(df[,dv] ~
                         df[,i] + df[,A] + df[,i]:df[,A])
+    aov_result <-  summary(aov_result)[[1]][["Pr(>F)"]] 
   #anova test: dv (AB mean expression level) ~ iv B (Antibody) +
     #iv A (one of the age, batch...) + iv B: iv A (interaction effect)
-
-    count <- count + 1
-    aov_table[count, "A"] <- 'antibody'
-    aov_table[count, "B"] <- i
-    aov_table[count, "pval.A"] <- summary(aov_result)[[1]][["Pr(>F)"]][1]
-    aov_table[count, "pval.B"] <- summary(aov_result)[[1]][["Pr(>F)"]][2]
-    aov_table[count, "pval.interaction"] <- summary(aov_result)[[1]][["Pr(>F)"]][3]
     
+    aov_table <-rbind(aov_table, list(
+      A = A, B = i, pval.A = aov_result[1], 
+      pval.B = aov_result[1], pval.interaction = aov_result[3]))
+  
     #post hoc for A or B if significant: interaction effect is excluded from ph
-    if ((summary(aov_result)[[1]][["Pr(>F)"]][1] < 0.05) & 
-        (summary(aov_result)[[1]][["Pr(>F)"]][2] < 0.05)) {
+    if ((aov_result[1] < 0.05) & 
+        (aov_result[2] < 0.05)) {
       tkwhich <- c('df[, A]','df[, i]') #if A & B are significant
-    } else if (summary(aov_result)[[1]][["Pr(>F)"]][1] < 0.05) {
+    } else if (aov_result[1] < 0.05) {
       tkwhich <- 'df[, A]' #if only A is significant
-    } else if (summary(aov_result)[[1]][["Pr(>F)"]][2] < 0.05) {
+    } else if (aov_result[2] < 0.05) {
       tkwhich <- 'df[, i]' #if only B is significant
     } else { next }
 
@@ -113,24 +113,24 @@ twanova <- function(df, A, B, dv) { #B is a list
       #shuming note: probably not good to use rbind in a for loop, change later
     }
   }
-  #remove a row if the whole row is NAs
-  ph_table <- filter(ph_table, rowSums(is.na(ph_table)) != ncol(ph_table)) 
-  
   return(list(aov = aov_table, ph = ph_table))
 }
-#2 way anova function ends
 
 #3. input for the function
 df <- melt_df.3
 A <- 'antibody'
 B <- c('batch', 'genotype', 'exdate', 'age')
-dv <- 'value'
+dv <- 'AB.mean.expression'
+
 
 #4. test the function
-test <- twanova(df, A, B, dv)
+aov <- twanova(df, A, B, dv)
 
-# output_path <- "/Users/shumingli/Desktop/output_jun19/"
-# write.csv(aov_table, paste(output_path, "aov_table.csv",sep=""), row.names = FALSE)
+
+output_path <- "/Users/shumingli/Desktop/output_jul6/"
+write.csv(test$aov, paste(output_path, "aov_test.csv",sep=""), row.names = FALSE)
+saveRDS(aov, paste(output_path, "aov_and_ph.Rds",sep=""))
+
 # write.csv(ph_table, paste(output_path, "ph_table.csv",sep=""), row.names = FALSE)
 
 #  ========================= ANOVA ends =========================
@@ -147,14 +147,15 @@ proptest <- function(test=c("prop1", "prop2", "chisq1"),
   
   #preprocessing:
   testl <- vector() #a list of cell counts 
-  for (i in unique(df.2[, c])) { 
-    for (j in unique(df.2[, r])) {
-      testl <- c(testl, length(which((df.2[, c] == i) & (df.2[, r] == j))))
+  for (i in unique(df[, c])) { 
+    for (j in unique(df[, r])) {
+      testl <- c(testl, length(which((df[, c] == i) & (df[, r] == j))))
     }
   }
-  #create a matrix: col = cell type, r = batch in this case
-  testm <- matrix(testl,ncol = length(unique(df.2[, r])), byrow = TRUE)
 
+  #create a matrix: col = cell type, r = batch in this case
+  testm <- matrix(testl,ncol = length(unique(df[, r])), byrow = TRUE)
+ 
   #proportion test #1, compare 1 batch x 1 cell type at a time
   #if input contains prop1, this test will run
   if ("prop1" %in% test) { 
@@ -162,53 +163,54 @@ proptest <- function(test=c("prop1", "prop2", "chisq1"),
     for (i in 1:nrow(testm)) {  
       for (j in 1:ncol(testm)) {
         prop <- prop.test(x = testm[i, j], # x=the cell count tested
-                          n = sum(testm[i, ]), # n=sum of the row
-                          correct = FALSE, #false bc there are more than 2 groups
+                          n = sum(testm[i,]), # n=sum of the row
                           p = 1/ncol(testm)) #p=probability in each group (genotype) 
         pl1 <- c(pl1, prop$p.value) #p value list
       }
     }
-    pd1 <- data.frame(c = rep(unique(df.2[,c]), length(unique(df.2[,r]))),
-                      r = rep(unique(df.2[,r]), length(unique(df.2[,c]))),
+    pd1 <- data.frame(c = rep(unique(df[,c]), length(unique(df[,r]))),
+                      r = rep(unique(df[,r]), length(unique(df[,c]))),
                       pval = pl1)
   } else {pd1 <- NULL}
-  
+
   #proportion test #2, compare 3 batchs x 1 cell type at a time
   if ("prop2" %in% test) {
-    
     hp2 <- function(x) { #helper function
       #x=each row in the matrix, n=sum of the row 
-      prop <- prop.test(x, rep(sum(x), length(x)), correct=FALSE, p=rep(1/length(x),length(x)))
+      prop <- prop.test(x, rep(sum(x), length(x)), p=rep(1/length(x),length(x)))
       return(prop$p.value)
     }
-    pd2 <- data.frame(c = unique(df.2[,c]),
-                      pval = apply(testm,1,hp2)) 
+    pd2 <- data.frame(c = unique(df[,c]), pval = apply(testm,1,hp2)) 
   } else {pd2 <- NULL}
   
   #chi square test, compare 3 bacths x 1 cell type at a time
   if ("chisq1" %in% test) {
     hp3 <- function(x) {
-      prop <- chisq.test(x, correct=FALSE, p=rep(1/length(x),length(x)))
+      prop <- chisq.test(x)
       return(prop$p.value)
     } 
-    
-    pd3 <- data.frame(c = unique(df.2[, c]),
-                      pval = apply(testm, 1, hp3))
+    pd3 <- data.frame(c = unique(df[, c]), pval = apply(testm, 1, hp3))
   } else {pd3 <- NULL}
-  
-  return(list(pd1 = pd1, pd2 = pd2, pd3 = pd3))
+  return(list(prop1 = pd1, prop2 = pd2, chisq1 = pd3))
 }
 
 # 2. input
-test = c("prop2", "chisq1") #run which tests? options: c("prop1", "prop2", "chisq1")
+test = c("prop1", "prop2", "chisq1") #run which tests? options: c("prop1", "prop2", "chisq1")
 df = df.2 #see preprocessing at the very beginning of this R script
 c = "label" #cell type
 r = "genotype" #we want to test the difference among batches
 
 # 3. test
+
 dfl <- proptest(test, df, c, r)
-dfl$pd1
+
+output_path <- "/Users/shumingli/Desktop/output_jul6/"
+saveRDS(dfl, paste(output_path, "prop_and_chisq.Rds",sep=""))
 
 # ====================== chi square & proportion test ends =====================
+
+saveRDS(melt_df.3, paste(output_path, "aov_input_data.Rds",sep=""))
+saveRDS(df2, paste(output_path, "prop_input_data.Rds",sep=""))
+
 
 

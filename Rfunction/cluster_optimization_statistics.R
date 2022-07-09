@@ -1,5 +1,5 @@
 library(Seurat)
-library(dplyr)
+library(dplyr) #for preprocessing and for plot
 # install.packages('flexclust') 
 library(flexclust)#for adjusted rand index
 library(ggplot2) #for the plot function
@@ -102,113 +102,73 @@ library(ggplot2) #for the plot function
   n <- 3
   output_path <- "/Users/shumingli/Desktop/output_jul6/"
   
-  
   #4. test 
-
   randindex(df, resolutions, kn, n)
 #======================= Rand index ends =============================
   
-#draft for plot:
+#======================= Rand index plot starts =============================
 
-
-rdf <- read.csv('/Users/shumingli/Desktop/output_jun19/randIndex0.05.csv')
-
-
-#paper figures:
-library(tidyverse) #do i need
-rdf %>% 
-  ggplot(aes(x = resolution)) +
-  geom_line(aes(y = meanri), color = "blue") +
-  geom_point(aes(y = meanri), color = "blue")+ 
-  geom_errorbar(aes(ymin=meanri-sdri, ymax=meanri+sdri), color = 'blue', width=.01,
-                position=position_dodge(.9))+
-  geom_line(aes(y = meannc/22.62000*0.3+0.7), color = "red") +
-  geom_point(data = rdf, mapping = aes(x = resolution, y = meannc/22.62000*0.3+0.7), color = "red")+ 
-  geom_errorbar(rdf, mapping = aes(x=resolution, ymin=((meannc-sdnc)/22.62000*0.3+0.7), ymax=((meannc+sdnc)/22.62000*0.3+0.7)), width=.01,
-                position=position_dodge(.9), color = 'red')+
-  scale_y_continuous(limits= c(0.7, 1.05), name="mean rand index",
-                     sec.axis = sec_axis(~ . /0.3*22.62000 - 0.7/0.3*22.62000, 
-                                         name = "mean number of clusters"))+
-  theme(axis.text.y  = element_text(color = 'blue'),
-                       axis.title.y = element_text(color='blue'),
-                       axis.text.y.right =  element_text(color = 'red'),
-                       axis.title.y.right = element_text(color='red'),
-                       plot.title = element_text(hjust = 0.5, size=10))+
-  ggtitle("Plot of mean rand index and \n mean number of clusters")
-
-
-
+#1. function
 plot.randindex <- function (
+    rdf,
+    cp = c("orange", "violet"),
+    view = c(0, 1) #zoom in x axis, this does not changes scales, just the viewable sections
 ) {
   
+  s <- (view[2]-view[1])/max(rdf$meannc+rdf$sdnc)
+  
+  p <- rdf %>% 
+    ggplot(aes(x = resolution)) +
+    geom_line(aes(y = meanri), color = cp[1]) +
+    geom_point(aes(y = meanri), color = cp[1], size=1)+ 
+    geom_errorbar(aes(ymin=meanri-sdri, ymax=meanri+sdri), color = cp[1], width=.01,
+                  position=position_dodge(.9))+
+    geom_line(aes(y = meannc*s+view[1]), color = cp[2]) +
+    geom_point(data = rdf, mapping = aes(x = resolution, y = meannc*s+view[1]), color = cp[2])+ 
+    geom_errorbar(rdf, mapping = aes(x=resolution, ymin=((meannc-sdnc)*s+view[1]), ymax=((meannc+sdnc)*s+view[1])), width=.01,
+                  position=position_dodge(.9), color = cp[2])+
+    scale_y_continuous(limits= view, name="Mean Rand Index",
+                       sec.axis = sec_axis(~ . /s - view[1]/s, 
+                                           name = "Mean Number of Clusters"))+
+    theme(axis.text.y  = element_text(color = cp[1]),
+          axis.title.y = element_text(color=cp[1]),
+          axis.text.y.right =  element_text(color = cp[2]),
+          axis.title.y.right = element_text(color=cp[2]),
+          plot.title = element_text(hjust = 0.5, size=10))+
+    ggtitle("Plot of Mean Rand Index and \n Mean Number of Clusters")
+  
+  return(p)
 }
 
+# 2. input
+rdf <- read.csv('/Users/shumingli/Desktop/output_jun19/randIndex0.05.csv')
 
-
-
-
-
-
-s <- max(rdf$ncmean)
-s2 < -0.7/0.3
-
-
-ggplot() +
-  geom_line(data = rdf, mapping = aes(x = resolution, y = mean))+ 
-  geom_point(data = rdf, mapping = aes(x = resolution, y = mean))+ 
-  geom_line(data = rdf, mapping = aes(x = resolution, y = ncmean/s))+ 
-  geom_point(data = rdf, mapping = aes(x = resolution, y = ncmean/s))+ 
-  scale_x_continuous(breaks=rdf$resolution)+
-  scale_y_continuous(name="mean rand index", sec.axis = 
-                       sec_axis(~ . *s , name = "mean number of clusters"), 
-                     breaks=seq(0, 1, by = 0.05))+
-  geom_errorbar(rdf, mapping = aes(x=resolution, ymin=mean-sd, ymax=mean+sd), width=.02,
-                  position=position_dodge(.9))+
-    geom_errorbar(rdf, mapping = aes(x=resolution, ymin=(ncmean-ncsd)/s, ymax=(ncmean+ncsd)/s), width=.02,
-                  position=position_dodge(.9))
-
-    # geom_text(data = rdf, mapping = aes(x = resolution, y = mean), label=mean)+ 
-    # geom_text(data = rdf, mapping = aes(x = resolution, y = ncmean/s), label=ncmean)+ 
-    
-    # geom_errorbar(x=rdf$resolution, ymin=rdf$mean-rdf$sd-0.2, 
-    #               ymax=rdf$mean+rdf$sd-0.2, width=1, 
-    #             position=position_dodge(0.05))
-
-s <- max(rdf$ncmean)
-ggplot() +
-  geom_line(data = rdf, mapping = aes(x = resolution, y = mean))+ 
-  geom_point(data = rdf, mapping = aes(x = resolution, y = mean))+ 
-  scale_x_continuous(breaks=rdf$resolution)+
-  scale_y_continuous(name="mean rand index", 
-                     breaks=seq(0, 1, by = 0.005))+
-  geom_errorbar(rdf, mapping = aes(x=resolution, ymin=mean-sd, ymax=mean+sd), width=.02,
-                position=position_dodge(.9))
-
-
-
-rdf$mean
-breaks=rdf$resolution
-rdf$resolution
-
-
-
-p
-  p + scale_y_continuous(sec.axis = sec_axis(~ . *s , name = "Views"))
+#3. test 
+fig <- plot.randindex(rdf, c('pink','violet'), c(0.7,1))
 
   
-  ggplot() + 
-  geom_line(data = x2, mapping = aes(x = Week, y = Views/15000 * 20))+
-  geom_bar(data = x1, mapping = aes(x = Week), stat = 'count')+
-  scale_x_continuous(breaks = seq(from = 0, to = 21, by = 1))+
-  scale_y_continuous( name = expression("Count"), 
-                      ylim.prim <- c(0, 20),
-                      ylim.sec <- c(0, 15000),
-                      sec.axis = sec_axis(~ . * 15000 / 20, name = "Views"))
+
+# paper figures:
+# rdf %>% 
+#   ggplot(aes(x = resolution)) +
+#   geom_line(aes(y = meanri), color = "blue") +
+#   geom_point(aes(y = meanri), color = "blue")+ 
+#   geom_errorbar(aes(ymin=meanri-sdri, ymax=meanri+sdri), color = 'blue', width=.01,
+#                 position=position_dodge(.9))+
+#   geom_line(aes(y = meannc/22.62000*0.3+0.7), color = "red") +
+#   geom_point(data = rdf, mapping = aes(x = resolution, y = meannc/22.62000*0.3+0.7), color = "red")+ 
+#   geom_errorbar(rdf, mapping = aes(x=resolution, ymin=((meannc-sdnc)/22.62000*0.3+0.7), ymax=((meannc+sdnc)/22.62000*0.3+0.7)), width=.01,
+#                 position=position_dodge(.9), color = 'red')+
+#   scale_y_continuous(limits= c(0.7, 1.05), name="mean rand index",
+#                      sec.axis = sec_axis(~ . /0.3*22.62000 - 0.7/0.3*22.62000, 
+#                                          name = "mean number of clusters"))+
+#   theme(axis.text.y  = element_text(color = 'blue'),
+#                        axis.title.y = element_text(color='blue'),
+#                        axis.text.y.right =  element_text(color = 'red'),
+#                        axis.title.y.right = element_text(color='red'),
+#                        plot.title = element_text(hjust = 0.5, size=10))+
+#   ggtitle("Plot of mean rand index and \n mean number of clusters")
 
 
-#draft plot ends
-
-  
-  
-  
+#======================= Rand index plot ends =============================
   

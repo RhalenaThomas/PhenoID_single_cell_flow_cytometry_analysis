@@ -128,17 +128,17 @@ n <- 100
   
   for (i in kn){
     # i <- 60 #test
-    print(paste("i:", i))
+    # print(paste("i:", i))
     seu <- FindNeighbors(seu, dims = 1:12, k.param = i)
     seu <- RunUMAP(seu, dims = 1:12, n.neighbors = i)
     for (j in resolutions) {
       # j <- 0.05 #test
-      print(paste("i:", i, "j:", j))
+      # print(paste("i:", i, "j:", j))
       rand_ls <- vector() #list of ri of all 100 repeats
       nc_ls <- vector()
       for (k in 1:n) {
         # k <- 5
-        print(paste("i:", i, "j:", j, "k:", k))
+        # print(paste("i:", i, "j:", j, "k:", k))
         seu <- FindClusters(seu, random.seed = rn_ls[k], resolution = j)
         # louvainCluster <- seu@meta.data$seurat_clusters
         if (length(unique(seu@meta.data$seurat_clusters))==1) next #skip the ones with only 1 cluster
@@ -149,7 +149,7 @@ n <- 100
         for (z in 1:(k-1)) { #z is a number between 1 to k-1, for which k is one of the iterations
           # z <- 4
           # print(z)
-          print(paste("i:", i, "j:", j, "k:", k, "z:", z))
+          # print(paste("i:", i, "j:", j, "k:", k, "z:", z))
           ri <- rand.index(as.numeric(seu@meta.data[row_n, paste("repeat_", z, sep = "")]), as.numeric(seu@meta.data[row_n, paste("repeat_", k, sep = "")]))
           
           # as.numeric(seu@meta.data[row_n, paste("repeat_", z, sep = "")])
@@ -406,13 +406,4 @@ ggplot(data=new_df, aes(x=resolution)) +
 new_df$mean[1:9]
 
 
-#-----------this is for indra 
-
-down <- readRDS('/Users/shumingli/Downloads/Mg_DEG_down.Rds')
-
-summary(down)
-
-
-
-Mg_DEG_down.Rds
 Mg_DEG_up.Rds
