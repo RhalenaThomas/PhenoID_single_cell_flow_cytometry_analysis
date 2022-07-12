@@ -4,9 +4,11 @@ output: html_notebook
 ---
 
 Annotate the full 9MBO dataset
-1. Use Seurat label transfer
-2. Use Random Forest Trained model add labels 
-3. Correlation assignment
+1. Use Random Forest Model (RFM) - train model from Annotated hMO subset
+2. Correlation assignment model (CAM)  - run correlation 
+3. Use Seurat label transfer        - transfer labels from annotated hMO subset
+
+For each prediction method visualize on UMAP and get frequency of cell type predictions per cluster (bar chart and df)
 
 
 ```{r}
@@ -27,29 +29,42 @@ library(reshape2)
 
 
 ```{r}
-# keep feature order the same as in other figures
 
-AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+# output path for data objects
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/"
+# output path for figures
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/"
+# read in files needed:
+# data object with clustering done ready to label
+seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/Allcellsretros_LouvainSeuratObject200.Rds")
+# reference hMO subset annotated
+seu.r<- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/Seu9000annot.08072021.RDS")
 
-outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/correlation/correlationscorr_celltypes.csv"
 
 ```
+
+
+Random Forest Classifier
+
+
+```{r}
+
+# A function will be made for training the model and running it.
+# For now I'm going to run the training and run the predictions with the new model
+
+
+
+```
+
 
 
 Seurat label transfer
 
 ```{r}
-# read in the seurat object with clusters to annotate
-# single cell reference mapping
-# uses the function TransferData
 
-# annotate res 0.5
 
 seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/Allcellsretros_LouvainSeuratObject200.Rds")
 
-# the current labelled seurat object will be the reference  
-#saveRDS(seu,"/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/Louvkn60DifferentCellLabels220220318.Rds")
-  
 #reference 
 seu.r<- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/Seu9000annot.08072021.RDS")
 
@@ -104,9 +119,24 @@ Correlation assignment
 
 ```{r}
 
-cor <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/correlation/correlationscorr_celltypes.csv")
+# run the correlation prediction function on the full dataset
+reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/old/correlation/ReferenceMatrix9celltypesOrdered.csv"
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/"
 
-seu.q <- AddMetaData(object=seu.q, metadata=cor$cell.label, col.name = 'cor.labels')
+# full dataset
+test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv"
+
+
+#run the correlation function
+find_correlation(test_path, reference_path, output_path)
+
+# this produces a csv with the Frequencies of each cell type and a csv with the best and second best correlation coefficients
+# read in those csv
+corr_cell.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/corr_celltypes.csv")
+freq.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/Frequencytabletypes.csv")
+
+
+seu.q <- AddMetaData(object=seu.q, metadata=corr_cell.df$cell.label, col.name = 'cor.labels')
 unique(seu.q$cor.labels)
 
 DimPlot(seu.q, group.by = 'cor.labels', label = TRUE, repel = TRUE) + theme(legend.position ="none")

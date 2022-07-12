@@ -38,7 +38,7 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
   colnames(reference) <- select_col
   
   #select 13 markers + X in test
-  test <- test %>% select(colnames(reference))
+  test <- test %>% dplyr::select(colnames(reference))
   
   #a list of markers (without X)
   markers <- unlist(select_col[-1])
@@ -89,7 +89,7 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
   write.csv(df, paste(output_path, "corr_celltypes.csv",sep=""), row.names = FALSE)
 
   # filter to get frequency table and save as csv
-  df.f <- df %>% select(cell.label)
+  df.f <- df %>% dplyr::select(cell.label)
   
   freq.table <- as.data.frame(table(df.f))
   write.csv(freq.table, paste(output_path, "Frequencytabletypes.csv",sep=""), row.names = FALSE)
@@ -168,6 +168,7 @@ find_correlation <- function(test_path, reference_path, output_path, min_corr=0.
    dev.off()
 
 }
+
 
 ## input 
 #test_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsaligned_transformed_flowset.csv"
