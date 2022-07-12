@@ -16,8 +16,9 @@ library(ggplot2) #for the plot function
     ) {
     
     #preprocessing
-    df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29",
-                           "CD56", "O4","CD140a","CD133","GLAST","CD71"))
+    AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71",
+            "CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+    df2 <- df %>% select(AB)
     m <- as.matrix(df2)
     tm <- t(df2)
     rownames(tm) <- colnames(df2)
