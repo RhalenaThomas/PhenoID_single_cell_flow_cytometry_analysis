@@ -24,6 +24,7 @@ library(dplyr)
 library(ggplot2)
 library(clustree)
 library(reshape2)
+library(randomForest)
 
 ```
 
@@ -36,12 +37,16 @@ outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/P
 output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/"
 # read in files needed:
 # data object with clustering done ready to label
-seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/Allcellsretros_LouvainSeuratObject200.Rds")
+seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/Allcellsretros_LouvainSeuratObject60.Rds")
 # reference hMO subset annotated
 seu.r<- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/Seu9000annot.08072021.RDS")
 
+# antibody features in order
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
 
 ```
+
 
 
 Random Forest Classifier
@@ -51,39 +56,90 @@ Random Forest Classifier
 
 # A function will be made for training the model and running it.
 # For now I'm going to run the training and run the predictions with the new model
+# see the file: 'RandomForest.Fig4.July10.R'
+
+# read in the saved model
+rf <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/RFM_trained.11072022.Rds")
+
+# run the model to predict cell types in the unlabelled full hMO dataset
+# need to prepare the full dataset in a way to be read by RFM
+df <- transpose(as.data.frame(GetAssayData(seu.q,slot = 'scale.data')))
+dim(df)
+colnames(df) <- AB
+rfm.pred <- predict(rf,df)
+head(rfm.pred)
+results.df <- as.data.frame(rfm.pred)
+head(results.df)
+
+# save the results
+write.csv(results.df, paste(outpath, "RFMpredictionsAllcells.12072022.csv"))
+
+# add the predictions to the seurat object
+seu.q <- AddMetaData(object=seu.q, metadata= as.factor(results.df$rfm.pred), col.name = 'rf.pred')
+unique(seu.q$rf.pred)
+# save the RFM predictions
+saveRDS(seu.q, paste(outpath,"All9MOannaote.12072022.Rds"))
+
+
+```
+
+
+Correlation test
+
+```{r}
+# run the correlation prediction function on the full dataset
+reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/old/correlation/ReferenceMatrix9celltypesOrdered.csv"
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/"
+
+# full dataset
+test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv"
+
+
+#run the correlation function
+find_correlation(test_path, reference_path, output_path)
+
+# this produces a csv with the Frequencies of each cell type and a csv with the best and second best correlation coefficients
+# read in those csv
+corr_cell.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/corr_celltypes.csv")
+freq.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/Frequencytabletypes.csv")
+
+
+# add the correlation predictions to the meta data
+
+seu.q <- AddMetaData(object=seu.q, metadata=corr_cell.df$cell.label, col.name = 'cor.labels')
+unique(seu.q$cor.labels)
+
+# save the RDS seurat object with correlation labels added
+
+saveRDS(seu.q, paste(outpath,"All9MOannaote.12072022.Rds"))
 
 
 
 ```
 
 
-
 Seurat label transfer
 
 ```{r}
 
+Idents(seu.r) <- 'subgroups'
+seu.r <- subset(seu.r, downsample = 500)
+table(seu.r$subgroups)
 
-seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/Allcellsretros_LouvainSeuratObject200.Rds")
-
-#reference 
-seu.r<- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/Seu9000annot.08072021.RDS")
-
-
-# find the anchors for label transfer
 anchors <- FindTransferAnchors(reference = seu.r, query = seu.q,features = AB ,reference.reduction = "pca", dim= 1:10) 
-# this step is computationally intensive and take a long time
-# refdata = reference$cell_lables_wanted
-predictions <- TransferData(anchorset = anchors, refdata = seu.r$labels6, dims = 1:10)
-
+predictions <- TransferData(anchorset = anchors, refdata = seu.r$subgroups, dims = 1:10)
+write.csv(predictions, paste(outpath,"all.cells.predictions.csv"))
+seu.q <- readRDS( paste(outpath,"All9MOannaote.12072022.Rds"))
 seu.q <- AddMetaData(seu.q, metadata = predictions)
+# save the Seurat predictions
 
+saveRDS(seu.q, paste(outpath,"All9MOannaote.12072022.Rds"))
 
   # label transfer in cluster labels
 
 t.lables <- as.data.frame(table(seu.q$RNA_snn_res.1, seu.q$predicted.id))
 pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.1, seu.q$predicted.id)))
 t.lables$Freq <- as.double(t.lables$Freq)
-# try to make a heatmap
 
 
 # try bar chart
@@ -104,284 +160,345 @@ top.lab
 
 ```
 
-See visualize
 
-```{r}
-
-DimPlot(seu.q, group.by = 'predicted.id', label = TRUE, repel = TRUE)
-DimPlot(seu.q, group.by = 'RNA_snn_res.1', label = TRUE, repel = TRUE)
-
-FeaturePlot(seu.q, features = "CD140a", slot = 'scale.data', min.cutoff = 0, max.cutoff = 8)
-
-```
-
-Correlation assignment
-
-```{r}
-
-# run the correlation prediction function on the full dataset
-reference_path <- "/Users/rhalenathomas/GITHUB/PhenoID_single_cell_flow_cytometry_analysis/old/correlation/ReferenceMatrix9celltypesOrdered.csv"
-output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/"
-
-# full dataset
-test_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv"
-
-
-#run the correlation function
-find_correlation(test_path, reference_path, output_path)
-
-# this produces a csv with the Frequencies of each cell type and a csv with the best and second best correlation coefficients
-# read in those csv
-corr_cell.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/corr_celltypes.csv")
-freq.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/Frequencytabletypes.csv")
-
-
-seu.q <- AddMetaData(object=seu.q, metadata=corr_cell.df$cell.label, col.name = 'cor.labels')
-unique(seu.q$cor.labels)
-
-DimPlot(seu.q, group.by = 'cor.labels', label = TRUE, repel = TRUE) + theme(legend.position ="none")
-DimPlot(seu.q, group.by = 'RNA_snn_res.0.5', label = TRUE, repel = TRUE) + theme(legend.position ="none")
-DimPlot(seu.q, group.by = 'RNA_snn_res.1', label = TRUE, repel = TRUE) + theme(legend.position ="none")
-DimPlot(seu.q, group.by = 'RNA_snn_res.1.5', label = TRUE, repel = TRUE) + theme(legend.position ="none")
-
-
-# have a look at the correlations
-
-df.filter <- cor %>% group_by(cell.label) %>% dplyr::filter(n()> 1000)
-
-plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
-   theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')
-  print(plot1)
-
-  # # plot
-  pdf(paste(outpath,"FreqCellTypes_filt1000.pdf",sep=""),width =12, height = 6)
-  plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
-   theme(axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('number of cell')
-  print(plot1)
-  dev.off()
-
-#plot the proportion of different cell types
-  
-  # cor labels per cluster label??
-
-cor.lables <- as.data.frame(table(seu.q$RNA_snn_res.1, seu.q$cor.labels))
-pr.cor.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.1, seu.q$cor.labels)))
-cor.lables$Freq <- as.double(cor.lables$Freq)
-# try to make a heatmap
-
-
-# try bar chart
-ggplot(cor.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")
-
-# find the top 2 in cell in the group
-
-top.cells <- cor.lables  %>% group_by(Var1)  %>% top_n(3, Freq)
-top.cells
-
-top.cell <- cor.lables  %>% group_by(Var1)  %>% top_n(1, Freq)
-top.cell
-
-
-
-
-
-```
-
-
-Random Forest labels
-Model already trained and saved.
-
-```{r}
-
-rf.pred <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/ prediction_march15rf_allcells.csv")
-
-seu.q <- AddMetaData(object=seu.q, metadata= as.factor(rf.pred$x), col.name = 'rf.pred')
-unique(seu.q$rf.pred)
-
-DimPlot(seu.q, group.by = 'rf.pred', label = TRUE)
-
-
-
-rf.lables <- as.data.frame(table(seu.q$RNA_snn_res.1, seu.q$rf.pred))
-rf.lables$Freq <- as.double(rf.lables$Freq) 
-# try to make a heatmap
-
-
-# try bar chart
-ggplot(rf.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + theme(axis.text.x = element_text(angle = 90))
-
-# find the top 2 in cell in the group
-
-rf.cells <- rf.lables  %>% group_by(Var1)  %>% top_n(3, Freq)
-rf.cells
-
-rf.cell <- rf.lables  %>% group_by(Var1)  %>% top_n(1, Freq)
-rf.cell
-
-
-
-
-```
-With the March 25 labels
-
-```{r}
-rf.pred2 <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/ prediction_march25rf_allcells.csv")
-
-seu.q <- AddMetaData(object=seu.q, metadata= as.factor(rf.pred2$x), col.name = 'rf.pred2')
-unique(seu.q$rf.pred2)
-
-DimPlot(seu.q, group.by = 'rf.pred2', label = TRUE)
-
-
-rf.lables <- as.data.frame(table(seu.q$RNA_snn_res.1, seu.q$rf.pred2))
-rf.lables$Freq <- as.double(rf.lables$Freq) 
-# try to make a heatmap
-
-
-# try bar chart
-ggplot(rf.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + theme(axis.text.x = element_text(angle = 90))
-
-# find the top 2 in cell in the group
-
-rf.cells <- rf.lables  %>% group_by(Var1)  %>% top_n(3, Freq)
-rf.cells
-
-rf.cell <- rf.lables  %>% group_by(Var1)  %>% top_n(1, Freq)
-rf.cell
-
-
-
-```
-
-
-Add some labels and see how they look
-
-kn200 res 1	Labels March25
-0	Mix
-1	NPC
-2	Astroctye
-3	RadialGlia-1
-4	RadialGlia-2
-5	Neuron/Epithelial/NPC/Astro
-6	Astroctye
-7	Astroctye
-8	RadialGlia-3
-9	Neuron/OPC/mix
-10	Astrocytes
-11	Endothelial
-12	Astrocytes
-13	Neurons1
-14	Early neurons
-15	Neurons2
-16	Astrocytes
-17	Neurons3 
-18	NPC/Neurons
-19	RadialGlia-2
-20	oligodendrocyte
-21	Epithelial
-22	Neurons
+Add some labels 1 to the Seurat object
+
+Label 1
+glia-lineage
+neural-lineage
+RG1-a
+Epi-RG
+Neurons-1-a
+RG3
+Glia
+Astro-1
+NPC
+RG1-2
+Astro-m
+RG1-b
+Endo
+Stem
+Neurons-1-b
+Astro-2-a
+NPC-epi-RG1
+Neurons1-2-a
+Neurons1-2-b
+Astro-2-3
+Neur-Stem-OPC
+Astro-2-b
+Epi-a
+Astro-3-2m-RG
+Epi-b
+NPC-RG2
+Neurons-3-Astro-3
+Neurons-3-1
+Oligo
+Epi-stem
+Neuron-1-RG3
+RG1-Neur1-NPC
+Astro-m
+Endo
+Oligo-RG-OPC
+astrocyte
 	
 
 ```{r}
 
+seu.q <- readRDS(paste(outpath,"All9MOannaote.12072022.Rds"))
 
-Idents(seu.q) <- "RNA_snn_res.1"
-cluster.ids <- c("Mix","NPC","Astro1","RG1","RG2","N-E-NPC-Astro","Astro2","Astro3","RG3","N-OPC-Mix","Astro4","Endothelial","Astro4","Neurons1","EarlyNeurons","Neurons2","Astro5","Neurons3","NPC-Neuro","RG2","Oligo","Epithelial","Neurons4")
+Idents(seu.q) <- "seurat_clusters"
+cluster.ids <- c("glia-lin","neu-lin","RG1-a","Epi-RG","Neur1-a",
+                 "RG3","Glia","Astro-1","NPC","RG1-2a",
+                 "Astro-m","RG1-2b","Endo-a","Stem","Neur1-b",
+                 "Astro-2a","NPC-eip-rg","Neur1-2a","Neur1-2b","Astro2-3",
+                 "Neur-stem-opc","Astro2b","Epi-a","Astro2-3-m-RG","Epi-b",
+                 "NPC-RG","Neur3-astro3","Neur3-1","Oligo","Epi-stem",
+                 "neur1-RG3","RG1-neu-npc","astro-m","Endo-b","Oligo-RG-OPC",
+                 "Astro")
 
 names(cluster.ids) <- levels(seu.q)
 seu.q <- RenameIdents(seu.q, cluster.ids)
-seu.q$labels <- Idents(seu.q)
+seu.q$labels1 <- Idents(seu.q)
 
-DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels', repel = TRUE)
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels1', repel = TRUE)
 
-# group the save cells together
+### change names to be able to group same cell types together
 
-Idents(seu.q) <- "RNA_snn_res.1"
-cluster.ids <- c("Mix","NPC","Astro1","RG2","RG1","Epithelial","Astro2","Astro1","RG2","Neuron-OPC-Mix","Astro3","Endothelial","Astro4","Neurons","EarlyNeurons","Neurons","Astro5","Neurons","NPC2","RG3","Oligo","Epithelial","Neurons")
 
+Idents(seu.q) <- "seurat_clusters"
+cluster.ids <- c("GL","NL","RG-1a","Epi-1","Neur1-a",
+                 "RG-3","Glia","Astro-1","NPC-1","RG-1b",
+                 "Astro-m1","RG-1c","Endo-a","Stem","Neur1-b",
+                 "Astro-2a","NPC-2","Neur1-2a","Neur1-2b","Astro-3",
+                 "Neur-3a","Astro-2b","Epi-2","Astro-4","Epi-3",
+                 "NPC-3","Neur-3b","Neur-3c","Oligo","Epi-4",
+                 "Neur1-c","RG-1b","Astro-m1","Endo-b","OPC",
+                 "Astro-5")
 
 names(cluster.ids) <- levels(seu.q)
 seu.q <- RenameIdents(seu.q, cluster.ids)
 seu.q$labels2 <- Idents(seu.q)
 
-DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels2', repel = TRUE)
+png(paste(output_path,"UMAP.all.cell.labels2.png"), width = 1000, height = 400)
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels2', repel = TRUE, label.size = 6)
+dev.off()
 
-Idents(seu.q) <- "RNA_snn_res.1"
-cluster.ids <- c("Neuro-Astro-Mix","NPC","Astro1","RG2","RG1","Epithelial","Astro1","Astro1","RG2","Neuron-OPC-Mix","Astro3","Endothelial","Astro2","Neurons","EarlyNeurons","Neurons","Astro3","Neurons","NPC","RG1","Oligo","Epithelial","Neurons")
 
+# merge together clusters that are overlapping or adjacent
+
+Idents(seu.q) <- "seurat_clusters"
+cluster.ids <- c("GL","NL","RG1a","Epi","Neur1a",
+                 "RG3a","RG3b","Astro1a","Neur1b","RG2a",
+                 "Astro-m1","RG1b","Endo","Stem-1","Neur1b",
+                 "Astro2","Neur3","Neur2a","Neur2b","Astro3a",
+                 "Neur2c","Astro3","Epi","Astro3b","Epi",
+                 "RG2b","Neur3a","Neur2d","Oligo","Stem-2",
+                 "Neur3b","RG3-3","Astro-m2","Endo","OPC",
+                 "Astro1b")
 
 names(cluster.ids) <- levels(seu.q)
 seu.q <- RenameIdents(seu.q, cluster.ids)
 seu.q$labels3 <- Idents(seu.q)
 
-DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels3', repel = TRUE)
+# larger groups
 
-# look at the heat map
+png(paste(output_path,"UMAP.all.cell.labels3.png"), width = 1000, height = 400)
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels3', repel = TRUE, label.size = 6)
+dev.off()
 
-# heat map takes super long to run with so much data
-DoHeatmap(seu.q, group.by = 'labels3', features = AB)
+Idents(seu.q) <- "seurat_clusters"
+cluster.ids <- c("GL","NL","RG1a","Epi","Neurons1",
+                 "RG3a","RG3b","Astro1","Neurons1","RG2",
+                 "Astro-m","RG1b","Endo","Stem","Neurons1",
+                 "Astro2","Neurons3","Neurons2","Neurons2","Astro2",
+                 "Neurons2","Astro2","Epi","Astro2","Epi",
+                 "RG2","Neurons3","Neurons2","Oligo","Stem",
+                 "Neurons3","Astro2","Astro-m","Endo","OPC",
+                 "Astro1")
+
+names(cluster.ids) <- levels(seu.q)
+seu.q <- RenameIdents(seu.q, cluster.ids)
+seu.q$labels.main <- Idents(seu.q)
 
 
-# grouping for gating maintaining subgroups
-# for gating I will subset out the mix populations
 
-Idents(seu.q) <- "RNA_snn_res.1"
-cluster.ids <- c("Mix","Neurons-CD24+","Astro-CD44+","RG-CD184+","RG-CD133+","Mix","Astro-Glast+","Astro-CD44+","RG-CD184+","Mix","Astro-CD44+","Endothelial","Astro-CD44+","Neurons-CD56+","Neurons-CD24+CD56+","Neurons-CD56+","Astro-CD44+","Neurons-CD56+","Neurons-CD24+","RG-CD133+","Oligo","Epithelial","Neurons-CD24+CD56+")
+#png(paste(output_path,"UMAP.all.cell.labels.main.png"), width = 1000, height = 400)
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels.main', repel = TRUE, label.size = 6)
+dev.off()
+
+
+
+
+### plot with different colours
+
+clust.colours <- c("chocolate1","chocolate2","chocolate3","orangered",
+                   "lightsalmon", "pink","lightpink3",
+                   "steelblue3","deepskyblue",
+                   "plum","plum3","purple","orchid2","mediumpurple2",
+                   "seagreen3","tomato3","tomato4","burlywood3","grey90","brown")
+# Figure S16 
+#order = cell.type.order
+
+#pdf(paste(output_path,"UMAP.all.groups.pdf"),width = 15, height = 8)
+DimPlot(seu.q, cols = clust.colours, shuffle = TRUE, 
+        raster=FALSE, pt.size = 0.1, label = TRUE, group.by = 'labels.main') +
+  theme(legend.text = element_text(size=24), axis.title.y = element_text(size=24), 
+        axis.title.x = element_text(size=24), axis.text.y = element_text(size =24),
+        axis.text.x = element_text(size =24))
+#dev.off()
+
+
+
+Idents(seu.q) <- "seurat_clusters"
+# some subgroups
+
+cluster.ids <- c("GL","NL","RG1","Epi","Neurons1",
+                 "RG3","Astro1","Astro1","Neurons1","RG2",
+                 "Astro-m","RG1","Endo","Stem-like","Neurons1",
+                 "Astro2","Neurons3","Neurons2","Neurons2","Astro2",
+                 "Neurons2","Astro3","Epi","Astro3","Epi",
+                 "RG2","Astro2","Neurons2","Oligo","Stem-like",
+                 "Neurons3","Neurons3","Astro-m","Endo","OPC",
+                 "Astro1")
+
+names(cluster.ids) <- levels(seu.q)
+seu.q <- RenameIdents(seu.q, cluster.ids)
+seu.q$labels4 <- Idents(seu.q)
+
+cell.type.order <- c("Neurons1","Neurons2","Neurons3",
+                     "RG1","RG2","RG3","Astro1","Astro2","Astro3","Astro-m",
+                     "Epi","Endo","OPC","Oligo","Stem-like","GL","NL")
+cell.type.order <- rev(cell.type.order)
+
+clust.colours <- c("plum4","purple3","orchid3",
+                  "indianred1","pink","lightpink3",
+                   "darkorange","chocolate3","sienna1","orangered",
+                   "steelblue3","deepskyblue","blue","cyan",
+                   "burlywood3","grey90","seashell2")
+
+pdf(paste(output_path,"UMAP.subgroups.few.pdf"),width = 15, height = 8)
+DimPlot(seu.q, cols = clust.colours, shuffle = TRUE, order = cell.type.order,
+        raster=FALSE, pt.size = 0.1, label = TRUE, group.by = 'labels4')
+dev.off()
+
+
+### main groups
+Idents(seu.q) <- "seurat_clusters"
+cluster.ids <- c("Glia Lineage","Neural Lineage","Radial Glia","Epithelial","Neurons 1",
+                 "Radial Glia","Astrocytes","Astrocytes","Neurons 1","Radial Glia",
+                 "Astrocytes","Radial Glia","Endothelial","Stem cell like","Neurons 1",
+                 "Astrocytes","NPC","Neurons 2","Neurons 2","Astrocytes",
+                 "Neurons 2","Astrocytes","Epithelial","Astrocytes","Epithelial",
+                 "Radial Glia","Astrocytes","Neurons 2","Oligodendrocytes","Stem cell like",
+                 "NPC","NPC","Astrocytes","Endothelial","OPC",
+                 "Astrocytes")
+
+names(cluster.ids) <- levels(seu.q)
+seu.q <- RenameIdents(seu.q, cluster.ids)
+seu.q$labels.main <- Idents(seu.q)
+
+cell.type.order <- c("Neurons 1","Neurons 2","NPC",
+                     "Radial Glia","Astrocytes 1", "Astrocytes 2"
+                     "Epithelial","Endothelial","OPC","Oligodendrocytes",
+                     "Stem cell like","Glia Lineage","Neural Lineage")
+cell.type.order <- rev(cell.type.order)
+
+clust.colours <- c("plum3","purple3","orchid3",
+                  "pink","darkorange",
+                   "steelblue3","deepskyblue","blue","cyan",
+                   "burlywood3","grey90","seashell2")
+
+
+
+pdf(paste(output_path,"UMAP.main.groups.pdf"),width = 15, height = 8)
+DimPlot(seu.q, cols = clust.colours, shuffle = TRUE, order = cell.type.order,
+        raster=FALSE, pt.size = 0.1, label = FALSE, group.by = 'labels.main')
+dev.off()
+
+
+#### label with the same amount of levels as in the subset
+#### use the same colour scheme and order as in figure 3
+##### Figure 4 A plot
+
+Idents(seu.q) <- "seurat_clusters"
+cluster.ids <- c("Glia Lineage","Neural Lineage","Radial Glia 1","Epithelial","Neurons 1",
+                 "Radial Glia 2","Astrocytes 1","Astrocytes 1","Neurons 1","Radial Glia 2",
+                 "Astrocytes 2","Radial Glia 1","Endothelial","Stem cell like","Neurons 1",
+                 "Astrocytes 1","NPC","Neurons 2","Neurons 2","Astrocytes 1",
+                 "Neurons 2","Astrocytes 1","Epithelial","Astrocytes 2","Epithelial",
+                 "Radial Glia 2","Astrocytes 1","Neurons 2","Oligodendrocytes","Stem cell like",
+                 "NPC","NPC","Astrocytes 2","Endothelial","OPC",
+                 "Astrocytes 2")
+
 
 
 names(cluster.ids) <- levels(seu.q)
 seu.q <- RenameIdents(seu.q, cluster.ids)
-seu.q$labels.groups <- Idents(seu.q)
-
-DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels.groups', repel = TRUE)
+seu.q$cell.types <- Idents(seu.q)
 
 
-# grouping for gating maintaining subgroups
-# remain for even more basic groups 
-# I'm leaving CD56 neurons as one thing and the CD15/CD24 neurons together
-# joining the two astro together
-# joining the two RG together
+# change the order of the cell types on the legend of the umap
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+cell.type.order <- rev(cell.type.order)
 
-
-Idents(seu.q) <- "RNA_snn_res.1"
-cluster.ids <- c("Mix","Neurons1","Astro","RG","RG","Mix","Astro","Astro","RG","Mix","Astro","Endothelial","Astro","Neurons2","Neurons1","Neurons2","Astro","Neurons2","Neurons1","RG","Oligo","Epithelial","Neurons1")
-
-
-names(cluster.ids) <- levels(seu.q)
-seu.q <- RenameIdents(seu.q, cluster.ids)
-seu.q$labels.main.groups <- Idents(seu.q)
-
-DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'labels.main.groups', repel = TRUE)
-
-
-# now try with more groups than before
-# split astrocytes into more groups 
-# astro1 and 3 together 
-# astro2 alone
-# astro4 and 5 together
-
-cluster.ids <- c("Mix","Neurons-CD24+","Astro-CD44+","RG-CD184+","RG-CD133+","Mix","Astro-Glast+","Astro-CD44+","RG-CD184+","Mix","Astro-CD44+","Endothelial","Astro-CD44+","Neurons-CD56+","Neurons-CD24+CD56+","Neurons-CD56+","Astro-CD44+","Neurons-CD56+","Neurons-CD24+","RG-CD133+","Oligo","Epithelial","Neurons-CD24+CD56+")
-
-cluster.ids <- c("Mix","NPC","Astro1","RG1","RG2","N-E-NPC-Astro","Astro2","Astro3","RG3","N-OPC-Mix","Astro4","Endothelial","Astro4","Neurons1","EarlyNeurons","Neurons2","Astro5","Neurons3","NPC-Neuro","RG2","Oligo","Epithelial","Neurons4")
-
-
-Idents(seu.q) <- "RNA_snn_res.1"  #set to the clusters you want to rename - it's probably 'seurat.clusters' in your oject
-cluster.ids <- c("Mix","Neurons1","Astro1","RG1","RG2","Mix","Astro2","Astro1","RG1","Mix","Astro3","Endothelial","Astro3","Neurons2","Neurons3","Neurons2","Astro3","Neurons2","Neurons1","RG2","Oligo","Epithelial","Neurons3")
-# vector with the new names - you need this vector from me
-
-names(cluster.ids) <- levels(seu.q)    # where seu.q is your seurat object
-seu.q <- RenameIdents(seu.q, cluster.ids) 
-seu.q$cell.types <- Idents(seu.q)   # cell.types is a new slot in metadata you can call this whatever you want
-
-DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'cell.types', repel = TRUE)
+# colour order to match cell type order
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+Idents(seu.q) <- 'cell.types'
+                  
+pdf(paste(output_path,"UMAPlabelled.all.12072022.pdf"),width = 11, height = 5)
+DimPlot(seu.q, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE) +
+  theme(legend.text = element_text(size=24), axis.title.y = element_text(size=24), 
+        axis.title.x = element_text(size=24), axis.text.y = element_text(size =24),
+        axis.text.x = element_text(size =24))
+dev.off()
 
 
 
-saveRDS(seu.q, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/AllcellLablesMarch25.Rds")
-
+# save the annotated dataset 
+saveRDS(seu.q, (paste(outpath,"All9MOannaote.12072022.Rds")))
 
 
 ```
+
+
+Make a dot plot of expression in full dataset
+
+
+```{r}
+# get the data
+
+express.by.cluster <- as.data.frame(AverageExpression(seu.q, features = AB, group.by = 'cell.types', slot = 'scale.data'))
+express.by.cluster <- as.data.frame(scale(express.by.cluster))
+
+col.names.RNA <- colnames(express.by.cluster)
+
+re.col.name <-  c("Glia Lineage","Neural Lineage","Radial Glia 1", "Epithelial",
+                  "Neurons 1","Radial Glia 2","Astrocytes 1","Astrocytes 2",
+                  "Endothelial","Stem cell like","NPC",
+                  "Neurons 2","Oligodendrocytes","OPC")
+
+names(express.by.cluster) <- re.col.name
+AB2 <- row.names(express.by.cluster)
+
+express.by.cluster <- scale(express.by.cluster)
+ex.data <- cbind(AB2,express.by.cluster)
+
+
+# reformat
+longData<- melt(ex.data)
+
+# get the proportion of cells expressing a marker
+a <- DotPlot(seu.q, features = AB, group.by = 'cell.types')
+a$data
+pct.exp <- as.data.frame(a$data) %>% select(features.plot, id, pct.exp)
+
+# add the mean expression and the percent cells expressing together
+# rename the AB and cell labels 
+colnames(longData) <- c("features.plot","id","expression")
+
+df.exp.pct <- merge(longData, pct.exp, by = c("features.plot", "id"))
+
+
+
+# reorder 
+unique(df.exp.pct$id)
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+cell.type.order <- rev(cell.type.order)
+
+data <- df.exp.pct %>% mutate(Cell.type = factor(id, levels = cell.type.order))
+data <- data %>% mutate(Marker = factor(features.plot, levels = AB))
+
+# save the plot
+
+pdf(paste(output_path,"Dotplot.labelled.all.12072022.pdf"),width = 8, height = 5)
+ggplot(data = data, aes(x = Marker, y = Cell.type, color = expression, size = pct.exp)) +
+  geom_point() + theme_classic() +
+  scale_color_gradient2(low = "#154c79", mid = "#eeeee4", high = "#e28743") + ylab("Cell Phenotypes") + xlab("Antibodies") + RotatedAxis() +  theme(legend.text = element_text(size=15), axis.title.y = element_text(size=15), 
+        axis.title.x = element_text(size=15), axis.text.y = element_text(size =15),
+        axis.text.x = element_text(size =15, angle = 90)) 
+dev.off()
+
+# colors = c("#154c79", "#eeeee4", "#e28743")
+
+```
+
+
+
+
+
+
+
+
+
+
+
 
 
 Quick check proportion of cell types across samples
@@ -396,8 +513,6 @@ prp.t <- as.data.frame(prop.table(table(Idents(seu.q))))
 
 
 ```
-
-
 
 
 
@@ -426,63 +541,4 @@ ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "f
 
 
 ```
-
-Calculate if the proportions are different
-
-```{r}
-# https://github.com/rpolicastro/scProportionTest
-
-# now made into a package
-
-#devtools::install_github("rpolicastro/scProportionTest")
-library("scProportionTest")
-
-prop_test <- sc_utils(seu.r)
-
-unique(seu.r$Batch)
-
-prop_test <- permutation_test(
-	prop_test, cluster_identity = "labels6",
-	sample_1 = "3450_0306", sample_2 = "3450_0317A",
-	sample_identity = "Batch"
-)
-
-permutation_plot(prop_test)
-
-```
-
-
-
-```{r}
-
-# I want to compare proportions across groups - like a 2 way anova
-# need to setup the data
-
- # sample.lables this is the cell counts per cluster from above
-
-
-wide.data <- reshape(data= sample.lables,idvar = Var1 )
-
-
-
-
-
-
-```
-
-
-
-
-See ridge plots for grouping clusters together
-
-```{r}
-RidgePlot(seu.q, group.by = 'labels', features = "CD24", log= TRUE)
-RidgePlot(seu.q, group.by = 'labels', features = "CD56", log= TRUE)
-RidgePlot(seu.q, group.by = 'labels', features = "CD29", log= TRUE)
-RidgePlot(seu.q, group.by = 'labels', features = "CD15", log= TRUE)
-
-```
-
-
-
 

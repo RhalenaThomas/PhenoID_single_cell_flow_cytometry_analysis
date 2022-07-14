@@ -89,7 +89,7 @@ max(rf_mtry$results$Accuracy)
 best_mtry <- rf_mtry$bestTune$mtry 
 best_mtry
 
-# search the best maxnodes
+# search the best node size
 store_maxnode <- list()
 tuneGrid <- expand.grid(.mtry = best_mtry)
 for (maxnodes in c(12: 25)) {
@@ -165,49 +165,71 @@ summary(results_tree)
 # node size = 25
 # ntree = 1000
 
-fit_rf <- train(lables~.,
-                train,
-                method = "rf",
-                metric = "Accuracy",
-                tuneGrid = tuneGrid,
-                trControl = trControl,
-                importance = TRUE,
-                nodesize = 25,
-                ntree = 1000,
-                maxnodes = 30)
-# not sure if mtry is being input as a variable or not
+rf <- randomForest(lables~.,
+                   train,
+                   mtry = 6,
+                   nodesize = 25,
+                   ntree = 1000,
+                   maxnodes = 30)
 
-prediction.train <-predict(fit_rf, train)
-prediction.test <-predict(fit_rf, test)
+
+
+
+
+# save outputs
+saveRDS(rf, output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/RFM_trained.11072022.Rds")
+
+
+
+##### main function finishes here ########################
+##### I think we want some kind of print out of the model accuracy
+
+
+# helper functions:  
+# 1. maker confusion matrix
+# 2. print out accuracy in the training text
+
+# function two - predict cell types unlabelled from a given cell type and keep the results.
+
+# check the accuracy of the model 
+
+prediction.train <-predict(rf, train)
+prediction.test <-predict(rf, test)
+
+### check the model accuracy 
+# to do so we need to run the data 
 
 print("predict training data")
 confusionMatrix(prediction.train, train$lables)
 
+# this makes a df of the frequency of predictions that can make the confusion matrix
+output.df <- as.data.frame(table(prediction.train, train$lables))
+
+
 print("predict test data")
 confusionMatrix(prediction.test, test$lables)
 
-# results from test data
-#Accuracy : 0.7632          
-#95% CI : (0.7588, 0.7676)
-#No Information Rate : 0.1859          
+# there are also overall statistics to print out that it would be better to change into a different format
+# maybe we just print to log
+# better to plot the confusion matrix than print it out
+
+
+
+#Overall Statistics
+
+#Accuracy : 0.6613          
+#95% CI : (0.6564, 0.6661)
+#No Information Rate : 0.1369          
 #P-Value [Acc > NIR] : < 2.2e-16       
-#Kappa : 0.7262  
+#Kappa : 0.629    
 
-# varImpPlot(fit_rf) # can't run because the model is not class randomForst but train.formula
 
-# train with RandomForest and save the model
-rf <- randomForest(lables~.,
-                   train,
-                   mtry = 5,
-                   nodesize = 15,
-                   ntree = 600,
-                   maxnodes = 29)
 
 # now the predictions
-p1 <- predict(rf, train)
+p1 <- predict(fit_rf, train)
 confusionMatrix(p1, train$lables)
 
-p2 <- predict(rf, test)
+p2 <- predict(fit_rf, test)
 c2 <- confusionMatrix(p2, test$lables)
 c2.table <- as.data.frame(c2$table)
 
@@ -220,7 +242,89 @@ ggplot(data =  c2.table, mapping = aes(x = Prediction, y = Reference, fill= Freq
   scale_fill_gradient(low = "white", high = "steelblue") + theme(axis.text.x = element_text(angle = 90))
 
 
+
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/"
+pdf(paste(output_path, "RFMconfustion.Test.results"))
+ggplot(data =  c2.table, mapping = aes(x = Prediction, y = Reference, fill= Freq)) +
+  geom_tile(aes(fill = Freq), colour = "white") +
+  geom_text(aes(label = sprintf("%1.0f",Freq)), vjust = 1) +
+  scale_fill_gradient(low = "grey92", high = "mediumpurple4") + theme(axis.text.x = element_text(angle = 90))
+dev.off()
+
 # save the model for later
 
-saveRDS(rf, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/rf_trained_march15.Rds")
-write.csv(c2.table, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/RandomForest/confusionm_values_march15.csv")
+saveRDS(fit_rf, output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/RFM_trained.11072022.Rds")
+write.csv(c2.table, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/RFMtest.results.11072022.csv")
+
+
+##### another blog that might be better for visualizing tuning parameters
+# https://www.r-bloggers.com/2016/07/random-forests-in-r-2/
+  
+########################## function/s to see how the model is performing
+
+# vignette
+# https://cran.rstudio.com/web/packages/randomForestExplainer/vignettes/randomForestExplainer.html
+
+devtools::install_github("MI2DataLab/randomForestExplainer")
+library(randomForestExplainer)
+
+min_depth_frame <- min_depth_distribution(rf)
+head(min_depth_frame, n = 10)
+
+plot_min_depth_distribution(min_depth_frame)
+
+# not sure how to interpret the above
+
+# more importance measures
+importance_frame <- measure_importance(rf)
+
+# plot_multi_way_importance(forest, size_measure = "no_of_nodes") # gives the same result as below but takes longer
+plot_multi_way_importance(importance_frame, size_measure = "no_of_nodes")
+# low mean_min_depth and high times_a_root are the most important factors
+
+plot_multi_way_importance(importance_frame, 
+                          x_measure = "mean_min_depth", 
+                          y_measure = "no_of_nodes",
+                          size_measure = "p_value", no_of_labels = 6)
+
+plot_multi_way_importance(importance_frame, 
+                          x_measure = "mean_min_depth", 
+                          y_measure = "gini_decrease",
+                          size_measure = "p_value", no_of_labels = 13)
+
+
+#### try to plot error rate
+oob.err.data1 <- data.frame(
+  Trees = rep(1:nrow(rf$err.rate), 20), 
+  Type = rep(c("OOB","Unknown","Mixed","Neurons 1","Neurons 2","Neurons 3",
+               "NPC","Neural stem","Radial Glia 1","Radial Glia 2","Radial Glia 3", 
+               "Epithelial","Endothelial","Oligodendrocytes",
+               "Astrocytes 1","Astrocytes 2","Astrocytes 3","Astrocytes mature",
+               "Stem-like 1","Stem-like 2"), each = nrow(rf$err.rate)),
+  Error = c(rf$err.rate[,"OOB"], rf$err.rate[,"Unknown"], rf$err.rate[,"Mixed"], 
+            rf$err.rate[,"Neurons 1"],rf$err.rate[,"Neurons 2"],rf$err.rate[,"Neurons 3"],
+            rf$err.rate[,"NPC"],rf$err.rate[,"Neural stem"],rf$err.rate[,"Radial Glia 1"],
+            rf$err.rate[,"Radial Glia 2"],rf$err.rate[,"Radial Glia 3"],
+            rf$err.rate[,"Epithelial"],rf$err.rate[,"Endothelial"],rf$err.rate[,"Oligodendrocytes"],
+            rf$err.rate[,"Astrocytes 1"],rf$err.rate[,"Astrocytes 2"],rf$err.rate[,"Astrocytes 3"],
+            rf$err.rate[,"Astrocytes mature"],rf$err.rate[,"Stem-like 1"],rf$err.rate[,"Stem-like 2"]
+            ))
+
+# this works but we need a way to not have to type in all the cell type names
+
+ggplot(data = oob.err.data1, aes(x = Trees, y= Error)) + geom_line(aes(color = Type))
+
+
+############################# run the random forest on the unlabelled data ############
+seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/clusters/Louvain/Allcellsretros_LouvainSeuratObject60.Rds")
+
+df <- transpose(as.data.frame(GetAssayData(seu.q,slot = 'scale.data')))
+dim(df)
+colnames(df) <- AB
+rfm.pred <- predict(rf,df)
+head(rfm.pred)
+results.df <- as.data.frame(rfm.pred)
+head(results.df)
+
+# save the results
+write.csv(results.df, paste(outpath, "RFMpredictionsAllcells.12072022.csv"))

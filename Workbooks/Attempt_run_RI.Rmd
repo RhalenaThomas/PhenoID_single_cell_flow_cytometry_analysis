@@ -1,0 +1,73 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+# clustering full dataset
+# input arguments 
+#  df - the output from preprocessing
+#   resolutions - a vector of resolutions to teset
+#   kn - k.param for clustering
+#  n = 100, #number of iterations
+#  output_path = NULL #if null, will not save seul, ril, ncl, rdf
+
+
+# set up the variables
+df <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outs/retrotransformed_flowset.csv")
+resolutions <- c(0.1,0.3,0.6,0.9,1.2,1.5)
+#resolutions <- c(1.2)
+kn = c(60) #just need 60  
+n <- 100
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/fulllData_RI/"
+
+# run the test
+randindex(df, resolutions, kn, n, output_path)
+  
+  
+  
+
+```
+
+This ran for 3 days and didn't save the a csv or results.
+
+It did save a lot of Rds files
+
+```{r}
+seu1.5 <- readRDS(paste(output_path,"seu_lskn60_j0.3.Rds"))
+
+# can't open the files saved in the wrong method?
+
+
+
+```
+
+
+
+
+Make plots
+
+
+```{r}
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/fulllData_RI/"
+
+rdf <- read.csv( "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/fulllData_RI/RAND.csv")
+ plot.randindex(rdf, c('pink','violet'), c(0.1,0.3,0.6,0.9,1.2,1.5))
+
+# a table was printed that I copied
+ 
+ 
+```
+
+
+
+
+
+
+
+
+
+
+
+

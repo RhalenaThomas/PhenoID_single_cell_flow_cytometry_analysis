@@ -498,10 +498,419 @@ DoHeatmap(seu, features = AB, size= 6,slot = "scale.data", group.colors = clust.
 dev.off()
 
 
+
 saveRDS(seu, "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/Seu9000annot.08072021.RDS")
 
 
 ```
+
+Random Forest
+
+```{r}
+# training run by the function - in the Figure 4 workbook
+
+# read in the model
+
+rf <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/RFM_trained.11072022.Rds")
+
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/"
+
+# now the predictions
+p1 <- predict(rf, train)
+confusionMatrix(p1, train$lables)
+
+p2 <- predict(rf, test)
+c2 <- confusionMatrix(p2, test$lables)
+c2.table <- as.data.frame(c2$table)
+
+# try to plot the results
+
+library(ggplot2)
+ggplot(data =  c2.table, mapping = aes(x = Prediction, y = Reference, fill= Freq)) +
+  geom_tile(aes(fill = Freq), colour = "white") +
+  geom_text(aes(label = sprintf("%1.0f",Freq)), vjust = 1) +
+  scale_fill_gradient(low = "white", high = "steelblue") + theme(axis.text.x = element_text(angle = 90))
+
+### figure S17 A
+
+# save the plot
+pdf(paste(output_path, "RFMconfustion.Test.results.pdf",sep=""), width = 8, height = 6)
+ggplot(data =  c2.table, mapping = aes(x = Prediction, y = Reference, fill= Freq)) +
+  geom_tile(aes(fill = Freq), colour = "white") +
+  geom_text(aes(label = sprintf("%1.0f",Freq)), vjust = 0.5, colour = "white", size = 12) +
+  scale_fill_gradient2(low = "purple3", mid = "grey",high = "cyan", midpoint = 2000) +
+  theme(axis.text.x = element_text(angle = 90, hjust =1, size = 15), axis.text.y = element_text(size = 15), axis.title.y = element_text(size=18),axis.title.x = element_text(size=18)) 
+dev.off()
+
+
+## evaluate the importance of each feature
+
+importance(rf) 
+varImpPlot(rf) # higher values are more important
+
+
+pdf(paste(output_path, "RFM.importance.pdf",sep=""), width = 6, height = 5)
+varImpPlot(rf) # higher values are more important
+dev.off()
+
+
+
+library(randomForestExplainer)
+importance_frame <- measure_importance(rf)
+pdf(paste(output_path, "RFM.importanceMDS.pdf",sep=""), width = 6, height = 5)
+plot_multi_way_importance(importance_frame, 
+                          x_measure = "mean_min_depth", 
+                          y_measure = "gini_decrease",
+                          size_measure = "p_value", no_of_labels = 13)
+
+dev.off()
+
+#### plot the error rates over number of trees
+
+oob.err.data1 <- data.frame(
+  Trees = rep(1:nrow(rf$err.rate), 20), 
+  Type = rep(c("OOB","Unknown","Mixed","Neurons 1","Neurons 2","Neurons 3",
+               "NPC","Neural stem","Radial Glia 1","Radial Glia 2","Radial Glia 3", 
+               "Epithelial","Endothelial","Oligodendrocytes",
+               "Astrocytes 1","Astrocytes 2","Astrocytes 3","Astrocytes mature",
+               "Stem-like 1","Stem-like 2"), each = nrow(rf$err.rate)),
+  Error = c(rf$err.rate[,"OOB"], rf$err.rate[,"Unknown"], rf$err.rate[,"Mixed"], 
+            rf$err.rate[,"Neurons 1"],rf$err.rate[,"Neurons 2"],rf$err.rate[,"Neurons 3"],
+            rf$err.rate[,"NPC"],rf$err.rate[,"Neural stem"],rf$err.rate[,"Radial Glia 1"],
+            rf$err.rate[,"Radial Glia 2"],rf$err.rate[,"Radial Glia 3"],
+            rf$err.rate[,"Epithelial"],rf$err.rate[,"Endothelial"],rf$err.rate[,"Oligodendrocytes"],
+            rf$err.rate[,"Astrocytes 1"],rf$err.rate[,"Astrocytes 2"],rf$err.rate[,"Astrocytes 3"],
+            rf$err.rate[,"Astrocytes mature"],rf$err.rate[,"Stem-like 1"],rf$err.rate[,"Stem-like 2"]
+            ))
+
+# this works but we need a way to not have to type in all the cell type names
+pdf(paste(output_path, "RFM.error.pdf",sep=""), width = 8, height = 6)
+ggplot(data = oob.err.data1, aes(x = Trees, y= Error)) + geom_line(aes(color = Type)) +
+  theme_classic() + theme(axis.text.x = element_text(hjust =1, size = 15), axis.text.y = element_text(size = 15), axis.title.y = element_text(size=18),axis.title.x = element_text(size=18),legend.text=element_text(size=15)) 
+dev.off()
+
+
+
+
+```
+
+
+Annotate full dataset - visualize RFM, CAM and seurat label transfer on UMAP
+
+```{r}
+
+# read in data object with predictions RFM, CAM and seurat label transfer
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/"
+seu <- readRDS(paste(outpath,"All9MOannaote.12072022.Rds"))
+
+# improve visualization with UMAP
+seu <- RunUMAP(seu,spread = 3, min.dist = 0.005, dims = 1:12)
+DimPlot(seu)
+#make the UMAPs of the predictions
+
+
+### Figure S18 UMAPs with predictions ####
+
+# random forest
+png(paste(output_path,"UMAP.rfm.pred.png"), width = 600, height = 300)
+Idents(seu) <- 'rf.pred'
+DimPlot(seu, label = TRUE)
+dev.off()
+
+# correlation
+png(paste(output_path,"UMAP.cor.pred.png"), width = 900, height = 350)
+Idents(seu) <- 'cor.labels'
+DimPlot(seu, label = FALSE)
+dev.off()
+
+# seurat transfer labels
+png(paste(output_path,"UMAP.seurat.pred.png"), width = 600, height = 350)
+Idents(seu) <- 'predicted.id'
+DimPlot(seu, label = TRUE)
+dev.off()
+
+# resolution 1.5
+png(paste(output_path,"UMAP.clusters.res1.5.png"), width = 500, height = 300)
+Idents(seu) <- 'seurat_clusters'
+DimPlot(seu, label = TRUE)
+dev.off()
+
+#### cluster number selected by using RAND Index
+
+# calculate the proportion of each cell label in 
+
+# feature plots
+# feature plots
+# Figure S14
+png(paste(output_path,"FtUMAPall.cells.neuron.png"), width = 1100, height = 200)
+FeaturePlot(seu, features = c("CD24","CD56","CD29","CD15","CD71"), slot = 'scale.data',min.cutoff = 'q3', max.cutoff ='q97', ncol = 5)
+dev.off()
+
+png(paste(output_path,"FtUMAPall.cells.astro.png"), width = 1100, height = 200)
+FeaturePlot(seu, features = c("CD44","GLAST","AQP4","HepaCAM","CD133"), slot = 'scale.data',min.cutoff = 'q3', max.cutoff ='q97', ncol = 5)
+dev.off()
+
+png(paste(output_path,"FtUMAPall.cells.olig.png"), width = 900, height = 200)
+FeaturePlot(seu, features = c("O4","CD140a","CD184"), slot = 'scale.data',min.cutoff = 'q3', max.cutoff ='q97', ncol = 5)
+dev.off()
+
+
+#### heatmap by clusters ####
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+# Figure S15
+
+#pdf(paste(output_path,"HM.all.cluster1.5.pdf"),width = 10, height = 6)
+Idents(seu) <- 'RNA_snn_res.1.5'
+png(paste(output_path,"HM.all.cells.png"), width = 900, height = 800)
+DoHeatmap(seu, features = AB, size= 6,slot = "scale.data", disp.max = 2, disp.min = -1.5, angle = 0) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+
+seu.sub <- subset(seu, downsample(n- 200))
+DoHeatmap(seu.sub)
+
+
+
+```
+
+Explore numbers of cells from RFM
+
+```{r}
+
+# get the counts of each cell type
+frq.df <- as.data.frame(table(results.df['rfm.pred']))
+
+head(frq.df)
+
+# plot directly from the prediction df
+
+
+
+ggplot(results.df, aes(x = factor(rfm.pred), fill = factor(rfm.pred))) + geom_bar()+theme_classic()+
+   theme(text = element_text(size = 15), axis.text.x=element_text(angle=90))+ xlab('RFM predicted') + ylab('Number of cells') 
+
+
+### get the number of cells predicted by RFM in each cluster
+
+# make a df
+t.lables <- as.data.frame(table(seu$seurat_clusters, seu$rf.pred))
+pr.t.lables <- as.data.frame(prop.table(table(seu$seurat_clusters, seu$rf.pred)))
+
+# try bar chart
+pdf(paste(output_path,"Bar.rf.pred.count.all.cells.pdf"), width = 10, height = 4)
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + 
+  theme_classic() + theme(text = element_text(size = 15), axis.text.x=element_text(hjust = 1)) + 
+  xlab('Cluster Number') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "RFM Predicted Cell Type")) 
+dev.off()
+# find the top 3 in cell types predicted in each cluster 
+
+top.labs <- t.lables  %>% group_by(Var1)  %>% top_n(3, Freq)
+top.labs
+
+# find the top cell in each cluster
+top.lab <- t.lables  %>% group_by(Var1)  %>% top_n(1, Freq)
+top.lab
+
+
+
+
+
+```
+
+
+
+
+
+
+Explore the correlation assignment output for the full 9 hMO dataset
+
+```{r}
+
+corr_cell.df <- read.csv("/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/Corr_all/corr_celltypes.csv")
+df <- corr_cell.df
+
+# remove different elements --- must have at least 100 cells
+df.filter <- df %>% group_by(cell.label) %>% dplyr::filter(n()> 100)
+  # # plot
+ # pdf(paste(output_path,"FreqCellTypes2.pdf",sep=""),width =12, height = 6)
+  plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
+   theme(text = element_text(size = 15), axis.text.x=element_text(angle=90))+ xlab('Assigned cell type') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Cell Phenotype")) 
+  print(plot1)#  dev.off()
+
+## remove the unknown cell types
+df.filter <- df %>% dplyr::filter(!grepl('unknown',cell.label))
+
+#pdf(paste(output_path,"BarFreq.allknown.pdf",sep=""),width =12, height = 6)
+  plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
+   theme(text = element_text(size = 15), axis.text.x=element_text(angle=90, hjust = 1))+ xlab('Assigned cell type') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Cell Phenotype")) 
+  print(plot1)
+#dev.off()
+
+
+## plot the frequency 
+df.filter <- df %>% dplyr::filter(!grepl('unknown',cell.label))
+# filter for only frequent double cell types
+df.filter <- df.filter %>% group_by(cell.label) %>% dplyr::filter(n()< 500)
+
+#pdf(paste(output_path,"BarFreq.lowfreq.pdf",sep=""),width =12, height = 6)
+  plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
+   theme(text = element_text(size = 15), axis.text.x=element_text(angle=90, hjust = 1))+ xlab('Assigned cell type') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Cell Phenotype")) 
+  print(plot1)
+#dev.off()
+
+# visualize no unknown and top cells so readable
+df.filter <- df %>% dplyr::filter(!grepl('unknown',cell.label))
+# filter for only frequent double cell types
+df.filter <- df.filter %>% group_by(cell.label) %>% dplyr::filter(n() > 500)
+  plot1 <- ggplot(df.filter, aes(x=reorder(cell.label,cell.label,function(x)-length(x)), fill = cell.label))+ geom_bar()+theme_classic() +
+   theme(text = element_text(size = 15), axis.text.x=element_text(angle=90, hjust = 1))+ xlab('Assigned cell type') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Cell Phenotype")) 
+  print(plot1)
+  
+  
+  
+  # make a df with frequency per cluster
+t.lables <- as.data.frame(table(seu$seurat_clusters, seu$cor.labels))
+pr.t.lables <- as.data.frame(prop.table(table(seu$seurat_clusters, seu$cor.labels)))
+
+# plot bar chart
+
+pdf(paste(output_path,"Bar.cor.pred.count.all.cells.pdf"), width = 10, height = 4)
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + 
+  theme_classic() + theme(text = element_text(size = 15), axis.text.x=element_text(hjust = 1)) + 
+  xlab('Cluster Number') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Correlation Predicted Cell Type")) 
+dev.off()
+
+
+
+# remove unknown for plotting and top label
+t.l.filt <- t.lables %>% dplyr::filter(!grepl('unknown',Var2))
+
+# get ride of low frequency cells too
+t.l.filt <- t.l.filt %>% dplyr::filter(Freq > 100)
+# make bar chart
+pdf(paste(output_path,"Bar.cor.pred.count.all.cells.filt.pdf"), width = 14, height = 4)
+ggplot(t.l.filt, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + 
+  theme_classic() + theme(text = element_text(size = 15), axis.text.x=element_text(hjust = 1)) + 
+  xlab('Cluster Number') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Correlation Predicted Cell Type")) 
+dev.off()
+
+### figure S18
+
+# keep uknown and remove the low freq cells for plotting and top label
+
+
+# get ride of low frequency cells too
+t.l.filt <- t.lables %>% dplyr::filter(Freq > 100)
+# make bar chart
+pdf(paste(output_path,"Bar.cor.pred.count.all.cells.filt2.pdf"), width = 11, height = 4)
+ggplot(t.l.filt, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + 
+  theme_classic() + theme(text = element_text(size = 15)) + 
+  xlab('Cluster Number') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Correlation Predicted Cell Type")) 
+dev.off()
+
+
+# find the top 3 in cell types predicted in each cluster 
+
+top.labs <- t.lables  %>% group_by(Var1)  %>% top_n(4, Freq)
+top.labs
+
+# find the top cell in each cluster
+top.lab <- t.l.filt  %>% group_by(Var1)  %>% top_n(1, Freq)
+top.lab
+
+
+# try bar chart proportion
+
+  
+
+```
+
+
+Explore the Seurat transfer labels
+
+```{r}
+
+# make a df
+t.lables <- as.data.frame(table(seu$seurat_clusters, seu$predicted.id))
+pr.t.lables <- as.data.frame(prop.table(table(seu$seurat_clusters, seu$predicted.id)))
+
+# try bar chart
+pdf(paste(output_path,"Bar.seu.pred.count.all.cells.pdf"), width = 10, height = 4)
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + 
+  theme_classic() + theme(text = element_text(size = 15), axis.text.x=element_text(hjust = 1)) + 
+  xlab('Cluster Number') + ylab('Number of cells') +
+    guides(fill = guide_legend(title = "Label Transfer Predicted Cell Type")) 
+dev.off()
+# find the top 3 in cell types predicted in each cluster 
+
+top.labs <- t.lables  %>% group_by(Var1)  %>% top_n(3, Freq)
+top.labs
+
+# find the top cell in each cluster
+top.lab <- t.lables  %>% group_by(Var1)  %>% top_n(1, Freq)
+top.lab
+
+
+
+
+```
+
+
+Figure 4 related sub
+
+
+```{r}
+# heat map matching annotation same groups as in figure 4A
+
+### Figure 20A
+
+# reorder the bars to match the UMAP
+levels(seu.q) <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+
+
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+
+
+#pdf(paste(output_path,"HMall.14072022.pdf"),width = 8, height = 5)
+DoHeatmap(seu.q, features = AB, size= 6,slot = "scale.data", group.colors = clust.colours, disp.max = 2, disp.min = -1.5,
+          angle = 90) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 15))
+dev.off()
+
+
+
+```
+
+Figure 4 related subgroups
+
+```{r}
+
+# Figure S20
+
+# UMAPS with smaller subgroup annotations
+
+
+
+
+```
+
+
+
+
 
 
 

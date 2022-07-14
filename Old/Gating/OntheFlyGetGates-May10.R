@@ -140,9 +140,10 @@ DimPlot(seu.r, group.by = 'gating.all')
 Idents(seu.r) <- 'ref.cells'
 seu.r <- subset(x= seu.r, downsample = 500)
 
+
 # create anchors
-anchors <- FindTransferAnchors(reference = seu.r, query = seu,features = AB ,reference.reduction = "pca", dim= 1:10) 
-predictions <- TransferData(anchorset = anchors, refdata = seu.r$ref.cells, dims = 1:10)
+anchors <- FindTransferAnchors(reference = seu.r, query = seu.q,features = AB ,reference.reduction = "pca", dim= 1:10) 
+predictions <- TransferData(anchorset = anchors, refdata = seu.r$subgroups, dims = 1:10)
 # add the predicitons to the seurat object
 seu <- AddMetaData(seu, metadata = predictions)
 # get tables to see and plots 
