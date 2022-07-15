@@ -13,9 +13,10 @@ library(reshape2)#used to rename melted df
 input_path <- "/Users/shumingli/Downloads/AllcellLablesMarch25.Rds"
 input <- readRDS(input_path)
 df <- transpose(as.data.frame(GetAssayData(input,slot = 'scale.data')))
-AB <- c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71")
+
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
 colnames(df) <- AB 
-df.2 <- cbind(df, label = input@meta.data$cluster.ids, Batch = input$Batch)
+df.2 <- cbind(df, label = input@meta.data$cluster.ids, Sample = input$Batch)
 
 #add new columns batch, genotype, experiment day and age based on Batch (the old column)
 

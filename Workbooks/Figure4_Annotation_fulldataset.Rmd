@@ -13,18 +13,13 @@ For each prediction method visualize on UMAP and get frequency of cell type pred
 
 ```{r}
 # load libraries
-library(clusterSim) 
-library(FlowSOM)
-library(flowCore)
-library(cluster)
-library(fpc)
-library(clv)
+
 library(Seurat)
 library(dplyr)
 library(ggplot2)
-library(clustree)
 library(reshape2)
 library(randomForest)
+library(scProportionTest)
 
 ```
 
@@ -44,6 +39,8 @@ seu.r<- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analy
 # antibody features in order
 AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
 
+
+seu <- readRDS(paste(outpath,"seuAllcells.15072022.Rds"))
 
 ```
 
@@ -358,7 +355,7 @@ seu.q <- RenameIdents(seu.q, cluster.ids)
 seu.q$labels.main <- Idents(seu.q)
 
 cell.type.order <- c("Neurons 1","Neurons 2","NPC",
-                     "Radial Glia","Astrocytes 1", "Astrocytes 2"
+                     "Radial Glia","Astrocytes 1", "Astrocytes 2",
                      "Epithelial","Endothelial","OPC","Oligodendrocytes",
                      "Stem cell like","Glia Lineage","Neural Lineage")
 cell.type.order <- rev(cell.type.order)
@@ -430,6 +427,8 @@ Make a dot plot of expression in full dataset
 
 
 ```{r}
+# Figure 4B
+
 # get the data
 
 express.by.cluster <- as.data.frame(AverageExpression(seu.q, features = AB, group.by = 'cell.types', slot = 'scale.data'))
@@ -490,13 +489,198 @@ dev.off()
 ```
 
 
+Add groups to the seurat object
+
+```{r}
+
+seu <- readRDS(paste(outpath,"All9MOannaote.12072022.Rds"))
+
+unique(seu$Batch)
+
+# add genotype 
+Idents(seu) <- "Batch"
+cluster.ids <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001","AJG001","AJG001")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$Genotype <- Idents(seu)
+
+# add experiment date
+Idents(seu) <- "Batch"
+cluster.ids <- c("0306","0317","0317","0306","0317","0317","0306","0317","0317")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$Ex.date <- Idents(seu)
+
+# add batch information
+Idents(seu) <- "Batch"
+cluster.ids <- c("B","A","B","B","A","B","B","A","B")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$mo.batch <- Idents(seu)
+
+# add organoid age
+Idents(seu) <- "Batch"
+cluster.ids <- c("273","263","284","273","263","284","273","263","284")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$age <- Idents(seu)
+
+
+DimPlot(seu)
+
+
+```
 
 
 
 
 
 
+Run split UMAP
 
+```{r}
+
+
+# change the order of the cell types on the legend of the umap
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+cell.type.order <- rev(cell.type.order)
+
+# colour order to match cell type order
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+Idents(seu) <- 'cell.types'
+      
+DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE, split.by = 'Genotype')
+
+seu$Genotype <- factor(x = seu$Genotype, levels = c("AIW002","AJG001","3450"))
+           
+# genotype 
+pdf(paste(output_path,"UMAP.split.genotype.12072022.pdf"),width = 15, height = 3.5)
+DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE,split.by = 'Genotype', label.size = 6) +
+  theme(legend.text = element_text(size=16), axis.title.y = element_text(size=16), 
+        axis.title.x = element_text(size=16), axis.text.y = element_text(size =16),
+        axis.text.x = element_text(size =16))
+dev.off()
+
+# age
+            
+pdf(paste(output_path,"UMAP.split.age.12072022.pdf"),width = 15, height = 4)
+DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE,split.by = 'age', label.size = 6) +
+  theme(legend.text = element_text(size=18), axis.title.y = element_text(size=18), 
+        axis.title.x = element_text(size=18), axis.text.y = element_text(size =18),
+        axis.text.x = element_text(size =18))
+dev.off()
+# no visable differences
+
+# batch 
+pdf(paste(output_path,"UMAP.split.batch.12072022.pdf"),width = 15, height = 4)
+DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE,split.by = 'mo.batch', label.size = 6) +
+  theme(legend.text = element_text(size=18), axis.title.y = element_text(size=18), 
+        axis.title.x = element_text(size=18), axis.text.y = element_text(size =18),
+        axis.text.x = element_text(size =18))
+dev.off()
+
+# no visible differences
+
+# ex date
+
+pdf(paste(output_path,"UMAP.split.exdate.12072022.pdf"),width = 15, height = 4)
+DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE,split.by = 'Ex.date', label.size = 6) +
+  theme(legend.text = element_text(size=18), axis.title.y = element_text(size=18), 
+        axis.title.x = element_text(size=18), axis.text.y = element_text(size =18),
+        axis.text.x = element_text(size =18))
+dev.off()
+
+# ex date
+
+
+```
+
+
+
+
+
+```{r}
+# test how clusters look with a different kn 
+
+seu <- seu.q
+
+#seu <- FindNeighbors(seu, dim = 1:12, k.param = 200)
+seu <- FindClusters(seu, resolution = 1.5)
+
+DimPlot(seu, group.by = 'cell.types')
+
+
+# change the order of the cell types on the legend of the umap
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+cell.type.order <- rev(cell.type.order)
+
+# colour order to match cell type order
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+Idents(seu) <- 'cell.types'
+                  
+pdf(paste(output_path,"UMAPlabelled.all.k200.12072022.pdf"), width = 11, height = 5)
+DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE) +
+  theme(legend.text = element_text(size=24), axis.title.y = element_text(size=24), 
+        axis.title.x = element_text(size=24), axis.text.y = element_text(size =24),
+        axis.text.x = element_text(size =24))
+dev.off()
+
+# the plot looks the same 
+
+saveRDS(seu, (paste(outpath,"All9MOannaote.k200.12072022.Rds")))
+
+
+```
+
+
+Add different group data to compare
+
+```{r}
+unique(seu$Batch)
+
+# add genotype 
+Idents(seu) <- "Batch"
+cluster.ids <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001","AJG001","AJG001")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$Genotype <- Idents(seu)
+
+# add experiment date
+Idents(seu) <- "Batch"
+cluster.ids <- c("0306","0317","0317","0306","0317","0317","0306","0317","0317")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$Ex.date <- Idents(seu)
+
+# add batch information
+Idents(seu) <- "Batch"
+cluster.ids <- c("B","A","B","B","A","B","B","A","B")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$mo.batch <- Idents(seu)
+
+# add organoid age
+Idents(seu) <- "Batch"
+cluster.ids <- c("273","263","284","273","263","284","273","263","284")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$age <- Idents(seu)
+
+
+DimPlot(seu)
+
+
+```
 
 
 
@@ -505,10 +689,12 @@ Quick check proportion of cell types across samples
 
 ```{r}
 
-table(Idents(seu.q), seu.q$Batch)
+table(Idents(seu), seu$Batch)
 
 # proportion across channels
-prp.t <- as.data.frame(prop.table(table(Idents(seu.q))))
+prp.t <- as.data.frame(prop.table(table(Idents(seu))))
+
+
 
 
 
@@ -520,25 +706,249 @@ prp.t <- as.data.frame(prop.table(table(Idents(seu.q))))
 Proportions of cell types
 
 ```{r}
-sample.lables <- as.data.frame(table(seu.q$Batch, seu.q$labels))
+
+# genotype
+sample.lables <- as.data.frame(table(seu$Genotype, seu$cell.types))
 
 sample.lables$Freq <- as.double(sample.lables$Freq)
-# try to make a heatmap
-
-
-# try bar chart
-ggplot(sample.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")+ theme_classic() + theme(text = element_text(size=15),
-        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Cell count') + RotatedAxis()
-
-
-
-
 
 # bar chart of with percent 
 ggplot(sample.lables, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity") + scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
-        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Sample') + ylab('Percent of Cell type') + RotatedAxis()
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Genotype') + ylab('Percent of Cell type') + RotatedAxis()
+
+
+
+# change the order of the cell types on the legend of the umap
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+
+
+# colour order to match cell type order
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+
+### change cell type order
+
+
+Genotype.order <- c("AIW002","AJG001","3450")
+
+
+df <- sample.lables %>% mutate(Var2 = factor(Var2, levels = cell.type.order))
+df <- df %>% mutate(Var1 = factor(Var1, levels = Genotype.order))
+
+
+
+pdf(paste(output_path,"bar.pr.genotype.pdf"), width = 5, height = 3)
+ggplot(df, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity")  +
+  RotatedAxis() +
+  scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Genotype') + ylab('Percent of Cell type')  + scale_fill_manual(values = clust.colours)
+dev.off()
+
 
 
 
 ```
+
+Bar charts 
+
+
+```{r}
+
+# age
+
+
+
+```
+
+
+```{r}
+
+# batch
+
+```
+
+
+```{r}
+
+# ex date
+
+```
+
+
+Proportion tests
+
+```{r}
+
+library(scProportionTest)
+# create a propotion test object
+prop_test <- sc_utils(seu)
+
+# set up the comparison
+
+# need to compare separately
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "cell.types",
+	sample_1 = "AIW002", sample_2 = "AJG001",
+	sample_identity = "Genotype"
+)
+
+# make the plot
+permutation_plot(prop_test)
+
+# save the plot 
+png(paste(output_path,"prp.test.AIWvAJG.png"))
+permutation_plot(prop_test)
+dev.off()
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "cell.types",
+	sample_1 = "AIW002", sample_2 = "3450",
+	sample_identity = "Genotype"
+)
+
+# make the plot
+permutation_plot(prop_test)
+
+# save the plot 
+png(paste(output_path,"prp.test.AIWv3450.png"))
+permutation_plot(prop_test)
+dev.off()
+
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "cell.types",
+	sample_1 = "3450", sample_2 = "AJG001",
+	sample_identity = "Genotype"
+)
+
+# make the plot
+permutation_plot(prop_test)
+
+# save the plot 
+png(paste(output_path,"prp.test.3450vAJG.png"))
+permutation_plot(prop_test)
+dev.off()
+
+
+# make a group of AIW vs other
+Idents(seu) <- "Batch"
+cluster.ids <- c("AJG-3450","AJG-3450","AJG-3450","AIW002","AIW002","AIW002",
+                 "AJG-3450","AJG-3450","AJG-3450")
+names(cluster.ids) <- levels(seu)
+seu <- RenameIdents(seu, cluster.ids)
+seu$ipsc <- Idents(seu)
+
+
+DimPlot(seu, group.by = 'ipsc')
+
+# join together AJG and 3450
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "cell.types",
+	sample_1 = "AIW002", sample_2 = "AJG-3450",
+	sample_identity = "ipsc")
+
+# make the plot
+permutation_plot(prop_test)
+
+# save the plot 
+pdf(paste(output_path,"prp.test.AIWvs3450-AJG.pdf"),width = 9, height = 4)
+permutation_plot(prop_test) + theme_bw() + 
+  theme(axis.text.x=element_text(size=15),
+                     axis.text.y=element_text(size=15))
+dev.off()
+
+
+seu
+
+
+
+```
+
+
+Heat map grouped by genotype
+
+```{r}
+
+#### now I need some why to compare expression between groups 
+##### get the expression values 
+
+exp.by.cell.geneotype <- as.data.frame(AverageExpression(seu, features = AB, group.by = c('cell.types','Genotype'), slot = 'scale.data'))
+exp.by.cell.geneotype <- as.data.frame(scale(exp.by.cell.geneotype))
+# add the rownames as a column
+
+AB2 <- row.names(exp.by.cell.geneotype)
+ex.data.c <- cbind(AB2,exp.by.cell.geneotype)
+
+
+# reformat
+
+longData<- melt(ex.data.c)
+
+unique(longData$variable)
+
+RNA.Glia.Lineage_AIW002     RNA.Glia.Lineage_AJG001     RNA.Glia.Lineage_3450      
+ [4] RNA.Neural.Lineage_AIW002   RNA.Neural.Lineage_AJG001   RNA.Neural.Lineage_3450    
+ [7] RNA.Radial.Glia.1_AIW002    RNA.Radial.Glia.1_AJG001    RNA.Radial.Glia.1_3450     
+[10] RNA.Epithelial_AIW002       RNA.Epithelial_AJG001       RNA.Epithelial_3450        
+[13] RNA.Neurons.1_AIW002        RNA.Neurons.1_AJG001        RNA.Neurons.1_3450         
+[16] RNA.Radial.Glia.2_AIW002    RNA.Radial.Glia.2_AJG001    RNA.Radial.Glia.2_3450     
+[19] RNA.Astrocytes.1_AIW002     RNA.Astrocytes.1_AJG001     RNA.Astrocytes.1_3450      
+[22] RNA.Astrocytes.2_AIW002     RNA.Astrocytes.2_AJG001     RNA.Astrocytes.2_3450      
+[25] RNA.Endothelial_AIW002      RNA.Endothelial_AJG001      RNA.Endothelial_3450       
+[28] RNA.Stem.cell.like_AIW002   RNA.Stem.cell.like_AJG001   RNA.Stem.cell.like_3450    
+[31] RNA.NPC_AIW002              RNA.NPC_AJG001              RNA.NPC_3450               
+[34] RNA.Neurons.2_AIW002        RNA.Neurons.2_AJG001        RNA.Neurons.2_3450         
+[37] RNA.Oligodendrocytes_AIW002 RNA.Oligodendrocytes_AJG001 RNA.Oligodendrocytes_3450  
+[40] RNA.OPC_AIW002              RNA.OPC_AJG001              RNA.OPC_3450               
+42 Levels: RNA.Glia.Lineage_AIW002 RNA.Glia.Lineage_AJG001 ... RNA.OPC_3450
+
+#now we need to split the variable Cell type and Genotype to have less crazy labels - maybe use facet for each cell type.
+# maybe filter out some cell types 
+
+
+x.order <- c("RNA.Astrocytes.1_AIW002","RNA.Astrocytes.1_AJG001", "RNA.Astrocytes.1_3450",
+             "RNA.Astrocytes.2_AIW002", "RNA.Astrocytes.2_AJG001", "RNA.Astrocytes.2_3450",
+             "RNA.Radial.Glia.1_AIW002","RNA.Radial.Glia.1_AJG001", "RNA.Radial.Glia.1_3450",
+             "RNA.Radial.Glia.2_AIW002","RNA.Radial.Glia.2_AJG001", "RNA.Radial.Glia.2_3450",
+             "RNA.Epithelial_AIW002","RNA.Epithelial_AJG001","RNA.Epithelial_3450",
+             "RNA.Endothelial_AIW002","RNA.Endothelial_AJG001","RNA.Endothelial_3450",
+             "RNA.NPC_AIW002","RNA.NPC_AJG001", "RNA.NPC_3450",
+             "RNA.Neurons.1_AIW002","RNA.Neurons.1_AJG001", "RNA.Neurons.1_3450",
+            "RNA.Neurons.2_AIW002", "RNA.Neurons.2_AJG001", "RNA.Neurons.2_3450",
+             "RNA.Oligodendrocytes_AIW002", "RNA.Oligodendrocytes_AJG001", "RNA.Oligodendrocytes_3450",
+            "RNA.OPC_AIW002", "RNA.OPC_AJG001", "RNA.OPC_3450",
+            "RNA.Stem.cell.like_AIW002","RNA.Stem.cell.like_AJG001", "RNA.Stem.cell.like_3450",
+            "RNA.Glia.Lineage_AIW002","RNA.Glia.Lineage_AJG001","RNA.Glia.Lineage_3450",
+            "RNA.Neural.Lineage_AIW002","RNA.Neural.Lineage_AJG001","RNA.Neural.Lineage_3450"
+             )
+
+
+df <- longData %>% mutate(variable = factor(variable, levels = x.order))
+
+
+# heatmap
+pdf(paste(output_path,"heatmap.ave.gene.cell.pdf"), width = 11, height = 5)
+ggplot(df, aes(x = variable, y = AB2)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_gradient2(low = "#154c79", mid = "#eeeee4", high = "#e28743") +
+  labs(x="Cell types", y="Antibodies") +
+  theme_bw() + theme(axis.text.x=element_text(size=12, angle=90, vjust=0.3),
+                     axis.text.y=element_text(size=14),
+                     plot.title=element_text(size=12))
+dev.off()
+
+
+saveRDS(seu, paste(outpath,"seuAllcells.15072022.Rds"))
+
+
+```
+
+
+
+
+
 
