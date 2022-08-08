@@ -170,7 +170,7 @@ For this analysis I'll take 9000 events for each sample except the final sample 
 
 Set an arbitrary number of cells for subsetting samples (if a fcs files has less cells it will be completely selected)
 ```{r,include=FALSE}
-desired_size <- 12500
+desired_size <- 52500
 # I've run this chunk setting the cell number to 9000
 ```
 Set the number to the smallest fcs files (containing the smallest amount of cells)
@@ -182,7 +182,7 @@ Subsets the data
 ```{r,echo=FALSE}
 set.seed(42) #Set a seed for reproducibility 
 sf <- sampleFilter(filterId = "SizeFilter", size =desired_size) #Creates a "filter" object to subset
-flowset.sub <- fsApply(flowset1,function(x){Subset(x,sf,truncate_max_range = FALSE)}) #apply the filter on every flowframe
+flowset.sub <- fsApply(flowset,function(x){Subset(x,sf,truncate_max_range = FALSE)}) #apply the filter on every flowframe
 
 ```
 
@@ -214,8 +214,8 @@ flowset_to_csv=function(flowset){
 
 
 
-flowset_to_csv(flowset1)#new files - error
-flowset_to_csv(flowset2)#old files 
+#flowset_to_csv(flowset1)#new files - error
+#flowset_to_csv(flowset2)#old files 
 
 
 
@@ -317,7 +317,7 @@ flowset_to_csv=function(flowset){
   write.csv(ds,file=paste0(output_path,deparse(substitute(flowset)),".csv"))#save the R data for further usage
 }
 
-flowset_to_csv(flowset1)
+#flowset_to_csv(flowset1)
 
 # no error
 flowset_to_csv(flowset2)

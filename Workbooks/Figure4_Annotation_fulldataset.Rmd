@@ -568,7 +568,7 @@ dev.off()
 
 # age
             
-pdf(paste(output_path,"UMAP.split.age.12072022.pdf"),width = 15, height = 4)
+png(paste(output_path,"UMAP.split.age.12072022.png"),width = 1500, height = 400)
 DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE,split.by = 'age', label.size = 6) +
   theme(legend.text = element_text(size=18), axis.title.y = element_text(size=18), 
         axis.title.x = element_text(size=18), axis.text.y = element_text(size =18),
@@ -577,7 +577,7 @@ dev.off()
 # no visable differences
 
 # batch 
-pdf(paste(output_path,"UMAP.split.batch.12072022.pdf"),width = 15, height = 4)
+png(paste(output_path,"UMAP.split.batch.12072022.png"),width = 1150, height = 400)
 DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE,split.by = 'mo.batch', label.size = 6) +
   theme(legend.text = element_text(size=18), axis.title.y = element_text(size=18), 
         axis.title.x = element_text(size=18), axis.text.y = element_text(size =18),
@@ -588,7 +588,7 @@ dev.off()
 
 # ex date
 
-pdf(paste(output_path,"UMAP.split.exdate.12072022.pdf"),width = 15, height = 4)
+png(paste(output_path,"UMAP.split.exdate.12072022.png"),width = 1150, height = 400)
 DimPlot(seu, order = cell.type.order, cols = clust.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.1, label = FALSE,split.by = 'Ex.date', label.size = 6) +
   theme(legend.text = element_text(size=18), axis.title.y = element_text(size=18), 
         axis.title.x = element_text(size=18), axis.text.y = element_text(size =18),
@@ -642,63 +642,6 @@ saveRDS(seu, (paste(outpath,"All9MOannaote.k200.12072022.Rds")))
 
 ```
 
-
-Add different group data to compare
-
-```{r}
-unique(seu$Batch)
-
-# add genotype 
-Idents(seu) <- "Batch"
-cluster.ids <- c("3450","3450","3450","AIW002","AIW002","AIW002","AJG001","AJG001","AJG001")
-names(cluster.ids) <- levels(seu)
-seu <- RenameIdents(seu, cluster.ids)
-seu$Genotype <- Idents(seu)
-
-# add experiment date
-Idents(seu) <- "Batch"
-cluster.ids <- c("0306","0317","0317","0306","0317","0317","0306","0317","0317")
-names(cluster.ids) <- levels(seu)
-seu <- RenameIdents(seu, cluster.ids)
-seu$Ex.date <- Idents(seu)
-
-# add batch information
-Idents(seu) <- "Batch"
-cluster.ids <- c("B","A","B","B","A","B","B","A","B")
-names(cluster.ids) <- levels(seu)
-seu <- RenameIdents(seu, cluster.ids)
-seu$mo.batch <- Idents(seu)
-
-# add organoid age
-Idents(seu) <- "Batch"
-cluster.ids <- c("273","263","284","273","263","284","273","263","284")
-names(cluster.ids) <- levels(seu)
-seu <- RenameIdents(seu, cluster.ids)
-seu$age <- Idents(seu)
-
-
-DimPlot(seu)
-
-
-```
-
-
-
-
-Quick check proportion of cell types across samples
-
-```{r}
-
-table(Idents(seu), seu$Batch)
-
-# proportion across channels
-prp.t <- as.data.frame(prop.table(table(Idents(seu))))
-
-
-
-
-
-```
 
 
 
@@ -760,6 +703,41 @@ Bar charts
 
 # age
 
+# genotype
+sample.lables <- as.data.frame(table(seu$age, seu$cell.types))
+sample.lables$Freq <- as.double(sample.lables$Freq)
+
+
+# change the order of the cell types on the legend of the umap
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+
+
+# colour order to match cell type order
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+
+### change cell type order
+
+age.order <- c("273","263","284")
+
+
+df <- sample.lables %>% mutate(Var2 = factor(Var2, levels = cell.type.order))
+df <- df %>% mutate(Var1 = factor(Var1, levels = age.order))
+
+
+
+pdf(paste(output_path,"bar.pr.age.pdf"), width = 5, height = 3)
+ggplot(df, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity")  +
+  RotatedAxis() +
+  scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Age') + ylab('Percent of Cell type')  + scale_fill_manual(values = clust.colours)
+dev.off()
+
+
 
 
 ```
@@ -768,6 +746,42 @@ Bar charts
 ```{r}
 
 # batch
+sample.lables <- as.data.frame(table(seu$mo.batch, seu$cell.types))
+sample.lables$Freq <- as.double(sample.lables$Freq)
+
+
+# change the order of the cell types on the legend of the umap
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+
+
+# colour order to match cell type order
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+
+### change cell type order
+
+batch.order <- c("A","B")
+
+
+df <- sample.lables %>% mutate(Var2 = factor(Var2, levels = cell.type.order))
+df <- df %>% mutate(Var1 = factor(Var1, levels = batch.order))
+
+
+
+pdf(paste(output_path,"bar.pr.batch.pdf"), width = 5, height = 3)
+ggplot(df, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity")  +
+  RotatedAxis() +
+  scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=0, hjust=1))  + xlab('Batch') + ylab('Percent of Cell type')  + scale_fill_manual(values = clust.colours)
+dev.off()
+
+
+
+
 
 ```
 
@@ -775,6 +789,41 @@ Bar charts
 ```{r}
 
 # ex date
+
+sample.lables <- as.data.frame(table(seu$Ex.date, seu$cell.types))
+sample.lables$Freq <- as.double(sample.lables$Freq)
+
+
+# change the order of the cell types on the legend of the umap
+cell.type.order <- c("Astrocytes 1", "Astrocytes 2","Radial Glia 1","Radial Glia 2",
+                     "Epithelial","Endothelial","NPC","Neurons 1","Neurons 2",
+                     "Oligodendrocytes","OPC","Stem cell like","Glia Lineage","Neural Lineage")
+
+
+# colour order to match cell type order
+clust.colours <- c("chocolate1","orange","lightsalmon", "pink",
+                   "steelblue3","deepskyblue","plum3","purple","orchid2",
+                   "seagreen3","green","tomato3","burlywood3","grey90","lemonchiffon3")
+ 
+
+### change cell type order
+
+ex.order <- c("0306","0317")
+
+
+df <- sample.lables %>% mutate(Var2 = factor(Var2, levels = cell.type.order))
+df <- df %>% mutate(Var1 = factor(Var1, levels = ex.order))
+
+
+
+pdf(paste(output_path,"bar.pr.exdate.pdf"), width = 5, height = 3)
+ggplot(df, aes(x = Var1,y=Freq ,fill = Var2)) + geom_bar(position= "fill", stat = "identity")  +
+  RotatedAxis() +
+  scale_y_continuous(labels = scales::percent_format()) + theme_classic() + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=90, hjust=1))  + xlab('Experiment Date') + ylab('Percent of Cell type')  + scale_fill_manual(values = clust.colours)
+dev.off()
+
+
 
 ```
 
