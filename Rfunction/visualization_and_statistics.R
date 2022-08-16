@@ -55,6 +55,7 @@ count <- 0
 
 #make a df with 9 entries (9 samples)
 #take the mean of each sample (for categorical, there should only be 1 value) 
+
 for (i in unique(df.2$Batch)) {
   count <- count+1
   for (j in AB) {df.3[count, j] <- mean(df.2[which(df.2$Batch == i), j])}
@@ -203,6 +204,7 @@ r = "genotype" #we want to test the difference among batches
 # 3. test
 
 dfl <- proptest(test, df, c, r)
+
 
 output_path <- "/Users/shumingli/Desktop/output_jul6/"
 saveRDS(dfl, paste(output_path, "prop_and_chisq.Rds",sep=""))

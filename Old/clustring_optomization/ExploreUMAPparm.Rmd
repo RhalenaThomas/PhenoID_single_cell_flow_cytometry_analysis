@@ -23,12 +23,8 @@ library(reshape2)
 ```{r}
 
 # read in the seurat objects
-
 seu <- readRDS("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/9MBO/prepro_outsjan20-9000cells/Figure3/cluster_parameters/retro-louv-moreparm/retrotransLouvainSeuratObject60.Rds")
 
-# Feature list
-# "AQP4"    "CD24"    "CD44"    "CD184"   "CD15"    "HepaCAM" "CD29"    "CD56"    "O4"      "CD140a" 
-# "CD133"   "GLAST"   "CD71"  
 
 AB <- c("CD24","CD56","CD71","CD29","CD15", "CD184","CD133", "GLAST","CD44","AQP4","HepaCAM","CD140a", "O4" )
 

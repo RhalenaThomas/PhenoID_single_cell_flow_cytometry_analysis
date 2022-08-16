@@ -150,7 +150,7 @@ Set an arbitrary number of cells for subsetting samples (if a fcs files has less
 # desired total is 50000
 # one sample has only 1578
 # the remained divided by 8 is 6052
-desired_size <- 6052
+desired_size <- 50000
 
 ```
 Set the number to the smallest fcs files (containing the smallest amount of cells)
@@ -232,6 +232,8 @@ plotdensity_flowset(transformed_flowset)
 
 Densityplots for showing effects of transformations and alignment
 ```{r}
+
+
 plotdensity_flowset(rename_markers(flowset))
 plotdensity_flowset(rename_markers(transformed_flowset))
 plotdensity_flowset(rename_markers(aligned_transformed_flowset))

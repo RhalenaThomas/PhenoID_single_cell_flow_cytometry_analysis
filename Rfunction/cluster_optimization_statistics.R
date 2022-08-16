@@ -7,32 +7,34 @@ library(ggplot2) #for the plot function
 #======================= Rand index starts =============================
 
 #preprocessing
-input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsretrotransformed_flowset.csv"
-df <- read.csv(input_path)
-df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29",
-                       "CD56", "O4","CD140a","CD133","GLAST","CD71"))
-m <- as.matrix(df2)
-tm <- t(df2)
-rownames(tm) <- colnames(df2)
-colnames(tm) <- rownames(df2)
-
-#create seu object
-seu <- CreateSeuratObject(tm)
-seu <- AddMetaData(object=seu, metadata=df$Batch, col.name = 'Batch')
-seu <- ScaleData(seu)
-seu <- RunPCA(seu, features = colnames(df2), npcs = 12, approx = FALSE) 
-#change npcs?
+input_path <- "/Users/shumingli/Downloads/AllCellsFinal.Rds"
+seu <- readRDS(input_path)
+# input_path <- "/Users/shumingli/Documents/GitHub/PhenoID_single_cell_flow_cytometry_analysis/preprocessing/outputs/prepro_outsretrotransformed_flowset.csv"
+# df <- read.csv(input_path)
+# df2 <- df %>% select(c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29",
+#                        "CD56", "O4","CD140a","CD133","GLAST","CD71"))
+# m <- as.matrix(df2)
+# tm <- t(df2)
+# rownames(tm) <- colnames(df2)
+# colnames(tm) <- rownames(df2)
+# 
+# #create seu object
+# seu <- CreateSeuratObject(tm)
+# seu <- AddMetaData(object=seu, metadata=df$Batch, col.name = 'Batch')
+# seu <- ScaleData(seu)
+# seu <- RunPCA(seu, features = colnames(df2), npcs = 12, approx = FALSE) 
+# #change npcs?
 
 
 
 #1. function 
 randindex <- function(
-    df,
-    resolutions,
-    kn,
-    n = 100, #number of iterations
-    output_path = NULL #if null, will not save seul, ril, ncl, rdf
-) {
+  seu,
+  resolutions,
+  kn,
+  n = 100, #number of iterations
+  output_path = NULL #if null, will not save seul, ril, ncl, rdf
+  ) {
   
   #list of random integers
   rn_ls <- round(runif(n, min = 0, max = 100000), 0)
@@ -79,34 +81,37 @@ randindex <- function(
       ril <- apply(t(combn(1:n, 2)), 1, hp2) #list of rand index
       
       if (!is.null(output_path)) {
-        saveRDS(seul,paste(output_path, "seu_ls_kn", i, "_j", j, ".Rds",sep=""))
-        saveRDS(ncl,paste(output_path, "nc_ls_kn", i, "_j", j, ".Rds",sep=""))
-        saveRDS(ncl,paste(output_path, "ri_ls_kn", i, "_j", j, ".Rds",sep=""))
+        # saveRDS(seul,paste(output_path, "seu_ls_kn", i, "_res", j, ".Rds",sep=""))
+        saveRDS(ncl,paste(output_path, "nc_ls_kn", i, "_res", j, ".Rds",sep=""))
+        saveRDS(ril,paste(output_path, "ri_ls_kn", i, "_res", j, ".Rds",sep=""))
       }
-      
+
       rdf <-rbind(rdf, list(
-        kn = i, resolution = j,
-        meanri = mean(ril), medianri = median(ril), sdri = sd(ril), 
-        meannc = mean(ncl), mediannc = median(ncl), sdnc = sd(ncl)))
+                  kn = i, resolution = j,
+                  meanri = mean(ril), medianri = median(ril), sdri = sd(ril), 
+                  meannc = mean(ncl), mediannc = median(ncl), sdnc = sd(ncl)))
     }
   }
-  return(rdf)
+  print(rdf)
+  return(list(rdf=rdf, seul=seul, ncl=ncl, ril=ril))
 }
 
 
-
 #3. input
-resolutions <- c(0.1)
+resolutions <- c(0.1, 0.5, 0.8, 1)
 kn = c(60) #just need 60  
 n <- 3
-output_path <- "/Users/shumingli/Desktop/output_jul6/"
+output_path <- "/Users/shumingli/Desktop/output_jul7/"
 # antibodies <- c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29",
 #                 "CD56", "O4","CD140a","CD133","GLAST","CD71")
 # 
 #4. test 
-randindex(df, resolutions, kn, n)
+test <- randindex(seu=seu, resolutions=resolutions, kn=kn, n=n, output_path=output_path)
+test$rdf
+readRDS('/Users/shumingli/Desktop/output_jul7/seu_ls_kn60_res1.Rds')
+readRDS('/Users/shumingli/Desktop/output_jul7/ri_ls_kn60_res0.1.Rds')
 #======================= Rand index ends =============================
-
+  
 #======================= Rand index plot starts =============================
 
 #1. function
@@ -147,7 +152,7 @@ rdf <- read.csv('/Users/shumingli/Desktop/output_jun19/randIndex0.05.csv')
 #3. test 
 fig <- plot.randindex(rdf, c('pink','violet'), c(0.7,1))
 
-
+  
 
 # paper figures:
 # rdf %>% 
@@ -172,3 +177,4 @@ fig <- plot.randindex(rdf, c('pink','violet'), c(0.7,1))
 
 
 #======================= Rand index plot ends =============================
+  
