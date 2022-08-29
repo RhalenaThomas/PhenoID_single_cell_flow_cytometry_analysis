@@ -29,12 +29,12 @@ seu <- readRDS(input_path)
 
 #1. function 
 randindex <- function(
-  seu,
-  resolutions,
-  kn,
-  n = 100, #number of iterations
-  output_path = NULL #if null, will not save seul, ril, ncl, rdf
-  ) {
+    seu,
+    resolutions,
+    kn,
+    n = 100, #number of iterations
+    output_path = NULL #if null, will not save seul, ril, ncl, rdf
+) {
   
   #list of random integers
   rn_ls <- round(runif(n, min = 0, max = 100000), 0)
@@ -85,11 +85,11 @@ randindex <- function(
         saveRDS(ncl,paste(output_path, "nc_ls_kn", i, "_res", j, ".Rds",sep=""))
         saveRDS(ril,paste(output_path, "ri_ls_kn", i, "_res", j, ".Rds",sep=""))
       }
-
+      
       rdf <-rbind(rdf, list(
-                  kn = i, resolution = j,
-                  meanri = mean(ril), medianri = median(ril), sdri = sd(ril), 
-                  meannc = mean(ncl), mediannc = median(ncl), sdnc = sd(ncl)))
+        kn = i, resolution = j,
+        meanri = mean(ril), medianri = median(ril), sdri = sd(ril), 
+        meannc = mean(ncl), mediannc = median(ncl), sdnc = sd(ncl)))
     }
   }
   print(rdf)
@@ -111,7 +111,7 @@ test$rdf
 readRDS('/Users/shumingli/Desktop/output_jul7/seu_ls_kn60_res1.Rds')
 readRDS('/Users/shumingli/Desktop/output_jul7/ri_ls_kn60_res0.1.Rds')
 #======================= Rand index ends =============================
-  
+
 #======================= Rand index plot starts =============================
 
 #1. function
@@ -152,7 +152,7 @@ rdf <- read.csv('/Users/shumingli/Desktop/output_jun19/randIndex0.05.csv')
 #3. test 
 fig <- plot.randindex(rdf, c('pink','violet'), c(0.7,1))
 
-  
+
 
 # paper figures:
 # rdf %>% 
@@ -177,4 +177,3 @@ fig <- plot.randindex(rdf, c('pink','violet'), c(0.7,1))
 
 
 #======================= Rand index plot ends =============================
-  
