@@ -163,7 +163,7 @@ for (cell in cell.types) {
 ```
 
 
-Read in the gated populations made in FlowJo
+Read in the gated populations made in FlowJo from the hyper gates
 
 ```{r}
 # preprocess the data
@@ -317,7 +317,7 @@ dev.off
 ```
 
 
-Annotate the dataset
+Annotate the dataset of FlowJo gated files from hypergate
 
 ```{r}
 
@@ -451,15 +451,15 @@ top.lab
 
 
 New data from May 10th, 2022
+Populations sorted after the FACS gating the some cell acquired
 
-Same gating and used in sorting from the whole population.
+
 
 ```{r}
 
 
-
-input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/GatingPopulations/FlowJOgatingMay10samples/"
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/GatingPopulations/"
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/PostSortingMay10June10/20220510_sorting_AIW_phenoID/2022-05-10 (S) RT/FCS and experiment files/Posted_Gating_May10"
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/PostSortGatingPops/"
 
 write_fcs_files <- TRUE #Set to true to write fcs files at each step (subsampled, transformed, aligned and scaled) - recommanded 
 
@@ -472,17 +472,20 @@ if(dir.exists(output_path)==FALSE){ #check
 flowset <- read.flowSet(path=input_path,transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore") #Create a flowset object
 flowsetold <- read.flowSet(path="/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/9MBO",transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore")
 
-flowset <- fsApply(flowset,function(x){x[ ,grepl("^[{'FJComp'}|{'FCS'}|{'SSC'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
+# see how the channels are named
+head(flowset@frames$`2022-05-10_post_sort_tris_glia1.fcs`)
 
-
+# this had to be changed because the channel names were different
+flowset <- fsApply(flowset,function(x){x[ ,grepl("^[{'FITC'}|{'FCS'}|{'SSC'}|{'PerCP'}|{'PE'}|{'APC'}|{'BV'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
 
 sampleNames(flowset)
+head(flowset@frames$`2022-05-10_post_sort_tris_glia1.fcs`)
 
 ```
 
 
 ```{r}
-sampleNames(flowset) <- c("Astrocytes","Neurons1","Neurons2","RadialGlia") #directly modify the names inside the flowset
+sampleNames(flowset) <- c("Astrocytes","RadialGlia","Neurons1","Neurons2") #directly modify the names inside the flowset
 sampleNames(flowset)
 
 
@@ -490,9 +493,22 @@ sampleNames(flowset)
 
 ```
 
+
 ```{r}
 
-# saveing function updated
+
+
+
+rename_markers<-function(flowset){#Defines a function to use marker names 
+  copy_flowset=flowset[seq(along=flowset)]
+  for (i in 1:length(copy_flowset)){
+    marker.names=copy_flowset[[i]]@parameters@data$desc
+    marker.names=lapply(marker.names,function(x){str_replace_all(x,"-","_")})
+    colnames(copy_flowset[[i]]@exprs)<-unlist(lapply(marker.names, function(x){sapply(str_split(x,"_"),head,1)})) 
+  }
+  return(copy_flowset)
+}
+
 # saving function
 flowset_to_csv=function(flowset){  
   list_of_flowframes=fsApply(rename_markers(flowset),function(x){as.data.frame(x@exprs)})#Makes a list of dataframes
@@ -506,7 +522,8 @@ flowset_to_csv=function(flowset){
   write.csv(ds,file=paste0(output_path,deparse(substitute(flowset)),".csv"))#save the R data for further usage
 }
 
-output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/May10GatingPopulations/"
+
+
 may10 <- flowset
 
 flowset_to_csv(may10)#apply the function
@@ -518,10 +535,7 @@ Read the csv data from flowset back in
 
 ```{r}
 
-df.may10 <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/May10GatingPopulations/may10.csv")
-
-
-df.may10 <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/GatingPopulations/flowset.csv")
+df.may10 <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/PostSortGatingPops/may10.csv")
 df2 <- df.may10 %>% dplyr::select(c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4"))
 m <- as.matrix(df2)
 # create the seurat object for visualization
@@ -538,7 +552,7 @@ seu <- AddMetaData(object=seu, metadata=df.may10$Sample, col.name = 'GatedPop')
 
 table(seu$GatedPop)
 
-seu <- ScaleData(seu)
+seu.may <- ScaleData(seu)
 
 
 ```
@@ -550,16 +564,128 @@ Make ridge plots for each antibody
 library(Seurat)
 
 my_levels <- c("Astrocytes","RadialGlia", "Neurons1","Neurons2")
-seu$GatedPop <- factor(x= seu$GatedPop, levels = my_levels)
+seu.may$GatedPop <- factor(x= seu$GatedPop, levels = my_levels)
 
-pdf(paste(out_plots,"RidgeMay10gated.pdf"), width = 20, height = 20)
-RidgePlot(seu, features = AB, cols = c("orange","pink","mediumpurple2","darkorchid2"), 
+
+RidgePlot(seu.may, features = AB, cols = c("orange","pink","mediumpurple2","darkorchid2"), 
           group.by = 'GatedPop',ncol = 4, log = TRUE, slot = 'scale.data')
-dev.off()
+
 
 
 
 ```
+
+
+Repeat to read in the same data with the June 10th post sort cells
+
+
+```{r}
+
+input_June10 <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/PostSortingMay10June10/20220510_sorting_AIW_phenoID/2022-06-10 (S) RT/FCS and experiment files/Post_Gating_June10"
+
+
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/PostSortGatingPops/"
+
+write_fcs_files <- TRUE #Set to true to write fcs files at each step (subsampled, transformed, aligned and scaled) - recommanded 
+
+#Create output folder if it's not already created
+if(dir.exists(output_path)==FALSE){ #check
+  dir.create(output_path) #create directory
+}
+
+
+flowset <- read.flowSet(path=input_path,transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore") #Create a flowset object
+flowsetold <- read.flowSet(path="/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/FlowDataFiles/9MBO",transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore")
+
+
+
+# this had to be changed because the channel names were different
+flowset <- fsApply(flowset,function(x){x[ ,grepl("^[{'FITC'}|{'FCS'}|{'SSC'}|{'PerCP'}|{'PE'}|{'APC'}|{'BV'}].*A$",colnames(flowset))]}) #Apply a function to flowSet (fsApply) that selects only the columns corresponding to areas values using "regular expression".
+
+sampleNames(flowset)
+
+
+
+```
+
+```{r}
+
+sampleNames(flowset) <- c("Astrocytes","RadialGlia","Neurons1","Neurons2") #directly modify the names inside the flowset
+sampleNames(flowset)
+```
+
+The csv file will have the R object name
+
+```{r}
+
+June10 <- flowset
+
+flowset_to_csv(June10)#apply the function
+
+```
+
+```{r}
+
+df.June10 <- read.csv("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/PostSortGatingPops/June10.csv")
+
+df2 <- df.June10 %>% dplyr::select(c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4"))
+m <- as.matrix(df2)
+# create the seurat object for visualization
+tm <- t(df2)
+rownames(tm) <- colnames(df2)
+colnames(tm) <- rownames(df2)
+seu <- CreateSeuratObject(tm)
+# for later to see features we define the vector here
+AB <- colnames(df2)
+# add the sample names into the seurat object 
+seu <- AddMetaData(object=seu, metadata=df.may10$Sample, col.name = 'GatedPop')
+# prepare object to cluster
+# prepare the object for clustering
+
+table(seu$GatedPop)
+
+seu.june <- ScaleData(seu)
+
+```
+
+
+See the June 10th data
+
+```{r}
+
+
+my_levels <- c("Astrocytes","RadialGlia", "Neurons1","Neurons2")
+seu.june$GatedPop <- factor(x= seu.june$GatedPop, levels = my_levels)
+
+
+RidgePlot(seu.june, features = AB, cols = c("orange","pink","mediumpurple2","darkorchid2"), 
+          group.by = 'GatedPop',ncol = 4, log = TRUE, slot = 'scale.data')
+
+```
+
+Save each of the seurat objects - Post sorting to compare with the scRNAseq.
+
+```{r}
+Idents(seu.may) <- 'orig.ident'
+seu.may$orig.ident <- 'May10PostSort'
+output_path = "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/PostSortGatingPops/"
+
+saveRDS(seu.may, paste(output_path,"may10postSort.seu.RDS", sep = ""))
+
+Idents(seu.june) <- 'orig.ident'
+seu.june$orig.ident <- 'June10PostSort'
+
+saveRDS(seu.june, paste(output_path,"june10postSort.seu.RDS", sep = ""))
+
+
+```
+
+
+
+
+
+
+
 
 
 Annotate the May 10 gated data
@@ -743,6 +869,12 @@ dev.off()
 ```
 
 
+Read in post sort FC data from June 10th subset of the scRNAseq sample
+
+```{r}
+
+
+```
 
 
 

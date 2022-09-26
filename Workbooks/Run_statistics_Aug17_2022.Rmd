@@ -1,0 +1,275 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Statistics comparing 9MO data
+
+
+```{r}
+# clear global environment
+#rm(list=ls())
+
+# loading the appropriate libraries
+
+### for anova test: 
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(data.table) #for transpose()
+library(reshape2)#used to rename melted df
+
+library(readr)
+library(multcompView)
+# are these 2 used?
+
+library(scProportionTest) ### for prop test 
+#devtools::install_github("rpolicastro/scProportionTest")
+
+
+
+
+
+```
+
+Read in the data and format for stats functions
+
+```{r}
+outpath <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/"
+
+
+ input_path <- paste("/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/","All9MOannaote.12072022.Rds")
+input <- readRDS(input_path)
+
+
+df <- transpose(as.data.frame(GetAssayData(input,slot = 'scale.data')))
+
+ 
+AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+# I think the data should be in the way it appears in the input df, which 
+# AB <- c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71")
+colnames(df) <- AB
+
+# add the cluster labels and the sample IDs
+Sample.input <- as.data.frame(input@meta.data$Batch)
+cell.types <- input@meta.data$cell.types
+
+
+df.2 <- cbind(df, label = cell.types)
+df.2 <- cbind(df.2, Sample=Sample.input)
+names(df.2)[names(df.2) == "input@meta.data$Batch"] <- "Sample"
+
+
+#add new columns batch, genotype, experiment day and age based on Batch (the old column)
+# this could also be added from the meta data in the seurat object
+
+#batch
+df.2[which(grepl("0317A", df.2$Sample)), "batch"] <- "A" #batch A (0317A = A)
+df.2[which(grepl("0317B|0306", df.2$Sample)), "batch"] <- "B" #batch B (0317B ir 0306 = B)
+
+#genotype
+df.2[which(grepl("3450", df.2$Sample)), "genotype"] <- "3450" # genotype 3450
+df.2[which(grepl("AIW002", df.2$Sample)), "genotype"] <- "AIW002" # genotype AIW002
+df.2[which(grepl("AJG001C", df.2$Sample)), "genotype"] <- "AJG001C" # genotype AJG001C
+
+#experiment date
+df.2[which(grepl("0306", df.2$Sample)), "exdate"] <- "0306" # experiment date 0306
+df.2[which(grepl("0317", df.2$Sample)), "exdate"] <- "0317" # experiment date 0317
+
+#age
+df.2[which(grepl("0306", df.2$Sample)), "age"] <- "273" # age 273, same as ex date 0306
+df.2[which(grepl("0317B", df.2$Sample)), "age"] <- "284" # age 284
+df.2[which(grepl("0317A", df.2$Sample)), "age"] <- "263" # age 263
+
+
+```
+
+Some add preprocessing to prepare for the functions
+Is this needed?
+
+```{r}
+
+iv <- c('batch', 'genotype', 'exdate', 'age')
+
+
+#make a df with 9 entries (9 samples)
+#take the mean of each sample (for categorical, there should only be 1 value) 
+
+df.3 <- c()
+for (i in unique(df.2$Sample)) {
+  for (j in AB) {df.3 <- c(df.3, mean(df.2[which(df.2$Sample == i), j]))}
+  df.3 <- c(df.3, i)
+  for (j in iv) {df.3 <- c(df.3, unique(df.2[which(df.2$Sample == i), j]))}
+}
+
+df.3 <- matrix(lapply(as.list(df.3), type.convert, as.is=TRUE), ncol = length(c(AB,'Sample', iv)), byrow = TRUE)
+colnames(df.3) <- c(AB,'Sample', iv)
+
+melt_df.3 <- melt(df.3, measure.vars = AB, variable.name = 'antibody', value.name = 'AB.mean.expression') # variable = AB name, value = AB mean expression/sample
+
+#### create a df with the mean for each cell type for each of the 9 samples
+melt.df2 <- melt(df.2, measure.vars = AB, variable.name = 'antibody')
+
+### I do want the other variables to be added back
+df.group <- melt.df2 %>% group_by(label, Sample, antibody, batch, genotype, exdate, age
+) %>% dplyr::summarize(Mean = mean(value, na.rm=TRUE))
+
+```
+
+NEW ANOVA and TUKEY FUNCTIONS
+
+```{r}
+
+A <- 'genotype'
+B <- 'antibody' 
+dv <- 'Mean'
+df <- df.group 
+group <- 'label' #label or antibody, if B is antibody, then group is label, if B is label, then group is antibody
+
+#test
+new.test <- twanova(A, B, dv, df, group, output_path)
+
+# get the dataframes 
+anv.df <- new.test$anv
+write.csv(anv.df,paste(output_path,"ANOVAgenotype.csv"))
+
+tk.df <- new.test$tk
+write.csv(tk.df,paste(output_path,"TukeyTestsgenotype.csv"))
+
+tk.useful <- new.test$tk.useful
+
+tk.sig.df <- new.test$tk.sig
+write.csv(tk.sig.df,paste(output_path,"TukeyTestSiggenotype.csv"))
+
+
+
+
+```
+
+
+Test again with the new file naming for csv
+
+```{r}
+
+A <- 'genotype'
+B <- 'antibody' 
+dv <- 'Mean'
+df <- df.group 
+group <- 'label' #label or antibody, if B is antibody, then group is label, if B is label, then group is antibody
+
+#test
+geneotype.stats <- twanova(A, B, dv, df, group, output_path)
+
+
+
+
+
+
+```
+
+
+Run the other stats functions
+
+```{r}
+A <- 'age'
+B <- 'antibody' 
+dv <- 'Mean'
+df <- df.group 
+group <- 'label' #label or antibody, if B is antibody, then group is label, if B is label, then group is antibody
+
+
+#test
+age.stats <- twanova(A, B, dv, df, group, output_path)
+
+```
+
+
+```{r}
+
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/Statists/"
+
+A <- 'batch'
+B <- 'antibody' 
+dv <- 'Mean'
+df <- df.group 
+group <- 'label' #label or antibody, if B is antibody, then group is label, if B is label, then group is antibody
+
+
+#test
+batch.stats <- twanova(A, B, dv, df, group, output_path)
+
+
+```
+
+```{r}
+
+A <- 'exdate'
+B <- 'antibody' 
+dv <- 'Mean'
+df <- df.group 
+group <- 'label' #label or antibody, if B is antibody, then group is label, if B is label, then group is antibody
+
+
+#test
+exdate.stats <- twanova(A, B, dv, df, group, output_path)
+
+
+```
+
+
+
+
+
+
+
+Run the stats functions
+
+```{r}
+
+# eventually load library
+# for now run function from file 'stats_from_workbook.r'
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/"
+
+#parameters
+A <- 'genotype' 
+B <- 'antibody' #  
+dv <- 'Mean'
+df <- df.group 
+group <- 'label' #label or antibody, if B is antibody, then group is label, if B is label, then group is antibody
+
+#test
+test <- twanova(A, B, dv, df, group, output_path)
+
+# how to read the outputs
+useful <- test$tk.l.useful
+useful.glia <- useful$`Glia Lineage`
+
+anv.l <- test$anv.l
+anv.cell <- anv.l$`Neurons 1`
+anv.cell[[1]]
+
+
+tk.l <- test$tk.l
+
+# check ANOVA - tukey for each cell
+tk.cell <- tk.l$`Neurons 1`
+
+tk.cell <- tk.l$`Radial Glia 1`
+
+# run and copy to excel
+tk.A.df <- as.data.frame(tk.cell$`df.group.sub[, A]`)
+tk.int.df <- as.data.frame(tk.cell$`df.group.sub[, B]:df.group.sub[, A]`)
+
+
+
+class(tk.int.df)
+# need to split row names
+
+usefull <- test$tk.l.useful
+
+
+
+```
+
+

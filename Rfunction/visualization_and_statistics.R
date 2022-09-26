@@ -49,6 +49,8 @@ df.2[which(grepl("0317A", df.2$Batch)), "age"] <- "263" # age 263
 AB <- c("AQP4", "CD24", "CD44","CD184","CD15","HepaCAM","CD29","CD56", "O4","CD140a","CD133","GLAST","CD71")
 iv <- c('batch', 'genotype', 'exdate', 'age')
 
+
+
 df.3 <- data.frame(matrix(ncol = 18))
 colnames(df.3) <- c(AB,'Batch', 'batch', 'genotype', 'exdate', 'age')
 count <- 0

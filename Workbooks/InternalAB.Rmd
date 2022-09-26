@@ -1,0 +1,191 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Internal antibody staining 
+
+
+```{r}
+require("flowCore") #Used for reading the data
+require("ggplot2")
+require("ggridges") #visualization
+require("stringr") #set of functions to manipulate strings type in order to have nice titles
+require("rlist") #set of functions that allows to easily manipulate lists
+require("reshape2") #visualization
+require("flowStats") #Alignment functions
+require("scales") #scale colour intensity for visualization
+require("dplyr")
+
+library("flowCore")
+
+
+```
+
+Each file has different antibodies in one channel - I'll need to make the 
+
+```{r}
+# function renmame markers
+# fcs files will have the marker names input during acquistion using flowjo
+
+rename_markers<-function(flowset){#Defines a function to use marker names 
+  copy_flowset=flowset[seq(along=flowset)]
+  for (i in 1:length(copy_flowset)){
+    marker.names=copy_flowset[[i]]@parameters@data$desc
+    marker.names=lapply(marker.names,function(x){str_replace_all(x,"-","_")})
+    colnames(copy_flowset[[i]]@exprs)<-unlist(lapply(marker.names, function(x){sapply(str_split(x,"_"),head,1)})) 
+  }
+  return(copy_flowset)
+}
+
+
+```
+
+
+```{r}
+
+# set up
+input_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/InternalAB/Gating_2D/MAP2"
+
+output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/InternalAB/Gating_2D/MAP2"
+
+write_fcs_files <- FALSE #Set to true to write fcs files at each step (subsampled, transformed, aligned and scaled) - recommanded 
+
+#Create output folder if it's not already created
+if(dir.exists(output_path)==FALSE){ #check
+  dir.create(output_path) #create directory
+}
+
+
+
+```
+
+
+```{r}
+# all the files in the input folder will be added to this data object flowset
+# so I'm only reading in the postive and negative files
+
+# neurons
+
+flowset <- read.flowSet(path=input_path,transformation = FALSE ,emptyValue = FALSE,truncate_max_range = FALSE, package="flowCore") #Create a flowset object
+
+
+
+```
+
+```{r}
+sampleNames(flowset)
+
+```
+
+```{r}
+
+sampleNames(flowset) <- c("MAP2-","MAP2+")
+print(fsApply(flowset,function(x){dim(x@exprs)})[,1])
+
+
+```
+
+
+```{r}
+
+set.seed(42) #Set a seed for reproducibility 
+sf <- sampleFilter(filterId = "SizeFilter", size =82859) #Creates a "filter" object to subset
+flowset.sub <- fsApply(flowset,function(x){Subset(x,sf,truncate_max_range = FALSE)}) #apply the filter on every flowframe
+
+```
+
+
+```{r}
+# saving function
+flowset_to_csv=function(flowset){  
+  list_of_flowframes=fsApply(rename_markers(flowset),function(x){as.data.frame(x@exprs)})#Makes a list of dataframes
+  list_names=names(list_of_flowframes)#extract names for not calling names() function at each loop
+  for (index in seq_along(list_of_flowframes)){ #Iterates along the index for adding sample names
+    list_of_flowframes[[index]]$Sample = list_names[index]
+    colnames(list_of_flowframes[[index]]) = colnames(list_of_flowframes[[1]]) 
+  }
+  ds=list.rbind(list_of_flowframes)#binds every fcs file in a single dataframe
+  ds$cell=as.factor(unlist(lapply(as.list(c(1:length(flowset))),function(x){c(1:nrow(flowset[[x]]@exprs))})))#add cell IDs - cell count per sample 
+  write.csv(ds,file=paste0(output_path,deparse(substitute(flowset)),".csv"))#save the R data for further usage
+}
+
+
+
+```
+
+
+```{r}
+# save the MAP2
+
+flowset_to_csv(flowset)
+
+```
+
+```{r}
+# read in the csv file
+readMAP2 <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/InternalAB/Gating_2D/MAP2flowset.csv"
+input_name <- "MAP2"
+clust_method <- "Louvain" # cluster type for file name
+df <- read.csv(readMAP2) # read in the dataframe
+
+# in neurons MAP2 replaces AQP4
+df2 <- df %>% dplyr::select(c("MAP2","CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","HepaCAM", "CD140a","O4"))
+# the order of the DF is set by the order the columns are written above 
+# create a matrix for later
+m <- as.matrix(df2)
+# create the seurat object for visualization
+tm <- t(df2)
+rownames(tm) <- colnames(df2)
+colnames(tm) <- rownames(df2)
+seuMAP2 <- CreateSeuratObject(tm)
+
+```
+
+
+```{r}
+# process 
+AB <- colnames(df2)
+seuMAP2 <- AddMetaData(object=seuMAP2, metadata=df$Sample, col.name = 'Sample')
+#downsample to no have too many cells
+# check the cell numbers first
+table(seuMAP2$Sample)
+
+
+
+
+
+
+```
+
+```{r}
+# run later to see how clusters look
+
+seu <- seuMAP2
+seu <- ScaleData(seu)
+ 
+seu <- RunPCA(seu, features = AB, npcs = 12, approx = FALSE)
+seu <- FindNeighbors(seu, dims = 1:12, k.param =223)
+seu <- RunUMAP(seu, dims = 1:12, n.neighbors = 223, spread = 2, a=0.54,b=0.84, min.dist = 0.5)
+# note to me - test these resolutions and pick one here 
+seu <- FindClusters(seu, resolution = c(0.8,1.2,1.5,2))
+
+
+PCAPlot(seu)
+
+
+
+
+```
+
+
+```{r}
+# ridge plots
+
+seuMAP2 <- ScaleData(seuMAP2)
+RidgePlot(seuMAP2, features = "CD133", group.by = "Sample", slot = "scale.data")
+
+
+
+```
+

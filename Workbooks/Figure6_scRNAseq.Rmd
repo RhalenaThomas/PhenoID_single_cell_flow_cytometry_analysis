@@ -1,0 +1,46 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Figure 6 scRNAseq from FACS sorted populations
+
+1. processing filtering and creating data objects
+2. Compare expression of 13 Antibody panel (use NK ... for O4) and create correlation matrix
+
+```{r}
+## library loading
+
+library(lattice) # for correlation heat map
+
+# data processing 
+
+```
+
+
+Correlation between FC and scRNAseq (protien an RNA) use NKX6.2 as proxy for O4
+
+```{r}
+
+# read in the FC object
+seu <- readRDS(paste(outpath,"seuAllcells.15072022.Rds"))
+
+marker.ab <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+marker.genes <-c("CD24","NCAM1","ITGB1","FUT4","CXCR4","PROM1","TFRC","CD44","SLC1A3","AQP4","HEPACAM", "PDGFRA","NKX6-2")
+
+# first make a vector of mean expression for expression values for each sorted group for scRNAseq and FC
+
+# get the values from the merged seurat object after processing
+scRNAseq.mean <- AverageExpression(Glia1ft.2, features = marker.genes)
+# rename the genes with the FC names 
+
+
+# use cor to make correlation matrix
+
+
+
+```
+
+
+

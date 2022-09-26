@@ -42,6 +42,7 @@ AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4"
 
 seu <- readRDS(paste(outpath,"seuAllcells.15072022.Rds"))
 
+
 ```
 
 
@@ -198,10 +199,39 @@ Endo
 Oligo-RG-OPC
 astrocyte
 	
+	
+For Table S4 look at the predictions within the final cells types
 
 ```{r}
 
-seu.q <- readRDS(paste(outpath,"All9MOannaote.12072022.Rds"))
+# Seurat Label transfer
+t.lables <- as.data.frame(table(seu$cell.types, seu$predicted.id))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+top.labs.slt <- t.lables  %>% group_by(Var1)  %>% top_n(5, Freq)
+
+# Random Forest
+t.lables <- as.data.frame(table(seu$cell.types, seu$rf.pred))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+top.labs.rf <- t.lables  %>% group_by(Var1)  %>% top_n(5, Freq)
+
+# Correlation
+t.lables <- as.data.frame(table(seu$cell.types, seu$cor.labels))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+top.labs.cor <- t.lables  %>% group_by(Var1)  %>% top_n(5, Freq)
+
+
+
+```
+
+	
+	
+
+```{r}
+
+seu <- readRDS(paste(outpath,"All9MOannaote.12072022.Rds"))
 
 Idents(seu.q) <- "seurat_clusters"
 cluster.ids <- c("glia-lin","neu-lin","RG1-a","Epi-RG","Neur1-a",

@@ -95,7 +95,7 @@ DoHeatmap(seu, group.by = 'Sample', features = AB, size= 5,slot = "scale.data",
   theme(axis.text.y = element_text(size = 13)) 
   
 # save the plot
-png(paste(output_path,"HM_concat.png"), height = 300, width = 400)
+png(paste(output_path,"HM_concat.png"), height = 600, width = 800)
 DoHeatmap(seu, group.by = 'Sample', features = AB, size= 5,slot = "scale.data",
         angle = 90, group.colors = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"),label = FALSE,
         hjust = 0, group.bar.height = 0.05, disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
@@ -113,7 +113,7 @@ DimPlot(seu, reduction = "umap")
 DimPlot(seu, reduction = "umap", group.by = 'Sample', cols = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"))
 
 
-png(paste(output_path,"UMAP_concat.png"), height = 300, width = 400)
+png(paste(output_path,"UMAP_concat.png"), height = 600, width = 800)
 DimPlot(seu, reduction = "umap", group.by = 'Sample', cols = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"))+ 
   theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 12))
 dev.off()
@@ -158,7 +158,7 @@ DoHeatmap(seu, group.by = 'Sample', features = AB, size= 5,slot = "scale.data",
   theme(axis.text.y = element_text(size = 13)) 
   
 # save the plot
-png(paste(output_path,"HM_trans.png"), height = 300, width = 400)
+png(paste(output_path,"HM_trans.png"), height = 600, width = 800)
 DoHeatmap(seu, group.by = 'Sample', features = AB, size= 5,slot = "scale.data",
         angle = 90, group.colors = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"),label = FALSE,
         hjust = 0, group.bar.height = 0.05, disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
@@ -176,7 +176,7 @@ DimPlot(seu, reduction = "umap")
 DimPlot(seu, reduction = "umap", group.by = 'Sample', cols = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"))+ 
   theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 12))
 
-png(paste(output_path,"UMAP_trans.png"), height = 300, width = 400)
+png(paste(output_path,"UMAP_trans.png"), height = 600, width = 800)
 DimPlot(seu, reduction = "umap", group.by = 'Sample', cols = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"))+ 
   theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 12))
 dev.off()
@@ -221,7 +221,7 @@ DoHeatmap(seu, group.by = 'Sample', features = AB, size= 5,slot = "scale.data",
   theme(axis.text.y = element_text(size = 13)) 
   
 # save the plot
-png(paste(output_path,"HM_retro.png"), height = 300, width = 400)
+png(paste(output_path,"HM_retro.png"), height = 600, width = 800)
 DoHeatmap(seu, group.by = 'Sample', features = AB, size= 5,slot = "scale.data",
         angle = 90, group.colors = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"),label = FALSE,
         hjust = 0, group.bar.height = 0.05, disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
@@ -239,7 +239,7 @@ DimPlot(seu, reduction = "umap")
 DimPlot(seu, reduction = "umap", group.by = 'Sample', cols = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"))+ 
   theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 12))
 
-png(paste(output_path,"UMAP_retro.png"), height = 300, width = 400)
+png(paste(output_path,"UMAP_retro.png"), height = 600, width = 800)
 DimPlot(seu, reduction = "umap", group.by = 'Sample', shuffle = TRUE, cols = c("cadetblue1","cadetblue2","cadetblue3", "bisque1","bisque2","bisque3","darkolivegreen1","darkolivegreen2","darkolivegreen3"))+ 
   theme(axis.text.y = element_text(size = 12),axis.text.x = element_text(size = 12))
 dev.off()

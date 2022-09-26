@@ -7,14 +7,12 @@ PhenoID Figures
 
 ```{r}
 # set up the environment
+
 library(Seurat)
 library(dplyr)
 library(ggplot2)
 library(reshape2)
 ```
-
-
-
 
 Figure 2 
 
@@ -32,14 +30,21 @@ AB <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4"
 # read in the data
 
 # see the heatmap
+
+# need to change colours on the DimPlot and will then change in bars for heatmap
+cell.colours <- c("dodgerblue3","burlywood3","#009900","red2","mediumpurple2")
+
 DoHeatmap(seu, group.by = "Batch", features = AB, size= 6,slot = "scale.data", group.colors = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4"), disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
   theme(axis.text.y = element_text(size = 15))
+
+
+
 
 # save the heatmap
 outpath = "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/"
 
-pdf(paste(outpath,"HM_2Dcell_F2B.pdf",sep=""),width =6, height = 4)
-print(DoHeatmap(seu, group.by = "Batch", features = AB, size= 6,slot = "scale.data", group.colors = c("cadetblue","bisque3","darkolivegreen3","darkgoldenrod3","cyan4"), disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+pdf(paste(outpath,"HM_2Dcell_F2B_23082022.pdf",sep=""),width =6, height = 4)
+print(DoHeatmap(seu, group.by = "Batch", features = AB, size= 6,slot = "scale.data", group.colors = cell.colours, disp.max = 2, disp.min = -1.5) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
   theme(axis.text.y = element_text(size = 12)))
 dev.off()
 
@@ -47,6 +52,27 @@ dev.off()
 
 #Figure 2C
 # UMAP with labels
+Idents(seu) <- 'Batch'
+unique(seu$Batch)
+
+cell.order <- c("Oligo","Astrocytes", "IPSC","Neurons","NPC")
+cell.order <- rev(cell.order)
+cell.colours <- c("mediumpurple2","dodgerblue3","burlywood3","#009900","red2")
+
+DimPlot(seu, order = cell.order, cols = cell.colours, shuffle = FALSE, raster=TRUE,pt.size = 0.1, label = FALSE) +
+  theme(legend.text = element_text(size=24), axis.title.y = element_text(size=24), 
+        axis.title.x = element_text(size=24), axis.text.y = element_text(size =24),
+        axis.text.x = element_text(size =24))
+
+
+pdf(paste(outpath,"UMAP_2Dcell_F2B_23082022.pdf",sep=""),width =6, height = 3)
+DimPlot(seu, order = cell.order, cols = cell.colours, shuffle = TRUE, raster=FALSE,pt.size = 0.005, label = FALSE) +
+  theme(legend.text = element_text(size=12), axis.title.y = element_text(size=12), 
+        axis.title.x = element_text(size=12), axis.text.y = element_text(size =12),
+        axis.text.x = element_text(size =12))
+dev.off()
+
+
 
 
 
