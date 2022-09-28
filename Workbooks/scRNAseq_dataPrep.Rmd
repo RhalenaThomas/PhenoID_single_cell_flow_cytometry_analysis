@@ -1,0 +1,621 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Single cell seq after sorting for PhenoID
+
+sample1 = Neurons1
+sample2 = Neurons2
+sample3 = Glia1 - Astrocytes (CD44+)
+sample4 = Glia2 - Radial Glia (CD44-)
+
+In HPC I have run steps of scrnabox (custom pipeline in progress)
+1. Cell Ranger for feature seq
+2. Create Seurat Objects 
+3. Apply minimum filtering and calculate percent mitochondria.
+
+I have technical 3 replicates with hashtag labels at this point I haven't yet demultiplex the hashtags. The data here will be treated as one sample.  I sorted three separate samples and pooled them together. 
+
+
+```{r}
+# set up the environment
+
+library(Seurat)
+library(dplyr)
+library(Matrix)
+library(ggplot2)
+
+rm(list = ls())
+
+
+```
+
+
+Read in the seurat objects made in compute canada
+
+```{r}
+
+# this seems to never load I'll use step 3 output that has some filtering 
+# nFeature_RNA > 180 and percent.mt < 25
+
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+
+Neurons1 <- readRDS(paste(pathway,"seu1.rds",sep = ""))
+Neurons2 <- readRDS(paste(pathway,"seu2.rds",sep = ""))
+Glia1 <- readRDS(paste(pathway,"seu3.rds",sep = ""))
+Glia2 <- readRDS(paste(pathway,"seu4.rds",sep = ""))
+
+Neurons1
+Neurons2
+Glia1
+Glia2
+
+```
+
+
+Have a look at the objects that already have some filtering
+
+
+See the violin plots 
+
+```{r}
+
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 500)
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nCount_RNA"), y.max = 2000)
+
+
+
+# filter more cells
+
+Neuron1.ft <- subset(Neurons1, subset = nFeature_RNA > 250 & nCount_RNA > 250 & nCount_RNA < 10000) 
+Neuron1.ft
+
+# 33541 features across 1833 samples
+
+
+```
+
+Neurons 2 - CD56++
+
+```{r}
+
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 500)
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 1000)
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nCount_RNA"), y.max = 2000)
+
+
+
+# filter more cells
+
+Neuron2.ft <- subset(Neurons2, subset = nFeature_RNA > 500 & nCount_RNA > 500 & nCount_RNA < 10000) 
+Neuron2.ft
+
+
+
+```
+
+Glia1 - Astrocyte data
+
+```{r}
+
+VlnPlot(Glia1, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+VlnPlot(Glia1, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 5000)
+VlnPlot(Glia1, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 1000)
+VlnPlot(Glia1, pt.size = 0.10, features = c("nCount_RNA"), y.max = 1000)
+VlnPlot(Glia1, pt.size = 0.10, features = c("nCount_RNA"), y.max = 12000)
+
+
+# extreme filter
+
+Glia1.ft <- subset(Glia1, subset = nFeature_RNA > 500 & nCount_RNA > 300 & nCount_RNA < 10000) 
+Glia1.ft
+Glia1
+
+VlnPlot(Glia1.ft, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+
+
+
+
+```
+
+
+Glia2 - Radial Glia
+
+```{r}
+
+## Filter Glia 2
+VlnPlot(Glia2, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+VlnPlot(Glia2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 5000)
+VlnPlot(Glia2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 1000)
+VlnPlot(Glia2, pt.size = 0.10, features = c("nCount_RNA"), y.max = 1000)
+VlnPlot(Glia2, pt.size = 0.10, features = c("nCount_RNA"), y.max = 12000)
+
+
+# extreme filter
+
+Glia2.ft <- subset(Glia1, subset = nFeature_RNA > 500 & nCount_RNA > 500 & nCount_RNA < 10000) 
+Glia2.ft
+
+
+VlnPlot(Glia1.ft, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+# there are so many suposed cells I am concerned the high read cells are actually doublets. 
+
+
+
+```
+
+
+Analyze each dataset - get clusters 
+
+```{r}
+
+# cluster the neurons
+seu <- Neuron1.ft
+seu$orig.ident <- 'Neurons1'
+
+seu <- NormalizeData(seu, normalization.method = "LogNormalize", scale.factor = 10000)
+seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(seu), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(seu)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+
+
+
+seu <- ScaleData(seu)
+seu <- RunPCA(seu)
+Idents(seu) <- 'orig.ident'
+plot <- DimPlot(seu, reduction = "pca")
+
+
+plot3 <- ElbowPlot(seu,ndims = 50)
+plot3
+
+plot2
+plot
+
+
+
+```
+
+```{r}
+
+# umap
+
+seu <- RunUMAP(seu, reduction = "pca", n.neighbors = 43, dims = 1:25)
+DimPlot(seu, reduction = "umap", group.by = "orig.ident")
+
+
+
+```
+
+Make the clusters Neurons1
+
+```{r}
+
+seu <- FindNeighbors(seu, dims = 1:25, k.param = 43)
+seu <- FindClusters(seu, resolution = c(0,0.2,0.25,0.5,0.8))
+seu <- FindClusters(seu, resolution = c(1.2))
+
+library(clustree)
+clustree(seu, prefix = "RNA_snn_res.")
+DimPlot(seu)
+
+```
+
+```{r}
+# look a lot at the clusers
+
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'seurat_clusters', ncol = 1)
+# these cells might be grouping by - how much MT and number of Features
+# clusters 4,5,6 have more features
+
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'RNA_snn_res.0.25', ncol = 1)
+# here cluster 3 has higher expression, cluster 1 and 4 have similar Features RNA
+# cluster 0 has higher percent MT levels
+
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'RNA_snn_res.0.5', ncol = 1)
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'RNA_snn_res.0.2', ncol = 1)
+# now only cluster 0 have high MT and low features, clusters 1,2,3 have simiular RNA and Counts
+
+```
+
+Find the cluster markers for Neurons1
+
+```{r}
+Idents(seu) <- 'RNA_snn_res.0.2'
+ClusterMarkers <- FindAllMarkers(seu)
+
+top5 <- ClusterMarkers %>% group_by(cluster) %>% top_n(n=5, wt = avg_log2FC)
+DoHeatmap(seu, features = top5$gene, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.2')
+
+
+#write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/ClusterMarkers_neurons1_res025.csv")
+
+
+write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/ClusterMarkers_neurons1_res02.csv")
+
+```
+
+```{r}
+DimPlot(seu, group.by = 'RNA_snn_res.0.2', reduction = 'umap')
+
+```
+
+
+
+
+
+
+Annotate clusters
+Use: Organoid data, public brain data (LaManno, Lake, Mascako)
+
+
+```{r}
+
+# this is some reference data
+
+# SNCA and control midbrain organoids 165 days in culture
+MBO <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/AST23_BrainComm/MBOclusters_names29072021.rds")
+
+# Midbrain  AIW002 120 days in culture
+AIWMBO <- "/Users/rhalenathomas/Documents/Data/scRNAseq/AIWtrio120days/MOintegratedClusterK123res0.8.names_nov16_2021"
+# DA neuron subtypes from postmortem brain Kamath et al 2022
+DAsubtypes <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/Macosko_Data/PD_da.Rds")
+
+Idents(MBO) <- "cluster_labels"
+DefaultAssay(MBO) <- "RNA"
+
+#first predict with the MBO data
+
+MO.query <-seu
+# find the reference anchors
+print("finding reference anchors")
+MO.anchors <- FindTransferAnchors(reference = MBO ,query = MO.query, dims = 1:25)
+# can try a range of dims 20-50
+print("getting predictions")
+predictions <- TransferData(anchorset = MO.anchors, refdata = MBO$cluster_labels)
+MO.query <- AddMetaData(MO.query, metadata = predictions)
+print(table(MO.query$predicted.id))
+
+seu.q <- MO.query
+
+seu.q <- FindClusters(seu.q, resolution = c(1.2))
+
+## check the proportion of cell types predicted in each cluster
+t.lables <- as.data.frame(table(seu.q$RNA_snn_res.1.2, seu.q$predicted.id))
+pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.1.2, seu.q$predicted.id)))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+
+# try bar chart
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+Merge the files
+
+```{r}
+Idents(Neurons1ft) <- 'orig.ident'
+Neurons1ft$orig.ident <- 'Neurons1'
+Idents(Neurons2ft) <- 'orig.ident'
+Neurons2ft$orig.ident <- 'Neurons2'
+Idents(Glia1ft) <- 'orig.ident'
+Glia1ft$orig.ident <- 'Glia1'
+Idents(Glia2ft) <- 'orig.ident'
+Glia2ft$orig.ident <- 'Glia2'
+
+
+sorted.merge <- merge(Neurons1ft, y=c(Neurons2ft,Glia1ft,Glia2ft), add.cell.ids = c("Neurons1","Neurons2","Glia1","Glia2"), project = "SortedCells")
+sorted.merge
+
+saveRDS(sorted.merge, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/mergedObjectSept19.Rds")
+
+sorted.merge <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/mergedObjectSept19.Rds")
+
+
+```
+
+
+
+
+```{r}
+
+all.ft <- NormalizeData(all.ft, normalization.method = "LogNormalize", scale.factor = 10000)
+all.ft <- FindVariableFeatures(all.ft, selection.method = "vst", nfeatures = 2000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(all.ft), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(all.ft)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot2
+
+```
+
+
+Prepare for the clustering
+
+```{r}
+
+all.ft <- ScaleData(all.ft)
+all.ft <- RunPCA(all.ft)
+plot <- VizDimLoadings(all.ft, dims = 1:2, reduction = "pca")
+#SaveFigure(plot, "viz_PCA_loadings", width = 10, height = 8)
+plot
+
+
+```
+
+```{r}
+plot <- DimPlot(all.ft, reduction = "pca", group.by = "orig.ident")
+
+plot
+```
+
+
+```{r}
+
+plot <- ElbowPlot(all.ft,ndims = 50)
+plot
+
+# best is the 21
+
+```
+
+
+```{r}
+VlnPlot(all.ft, features = c("NCAM1","CD44","CD24","AQP4","TH"), ncol = 3, group.by = 'orig.ident')
+
+```
+
+The expression of the selected markers are not very revealing - there are neuronal markers in the Glia
+
+
+I wish I had done an unsorted sample
+
+Now I have all 4 samples I want to try the integration steps
+
+
+```{r}
+# I keep getting a memory error for integration.  I'll save the processed filtered object now.  
+
+saveRDS(all.ft, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/AllcellsObjectSept20filtered.Rds")
+
+all.ft <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/AllcellsObjectSept20filtered.Rds")
+
+
+
+```
+
+
+
+
+
+```{r}
+
+# integrate the datasets
+all.list <- SplitObject(all.ft, split.by = "orig.ident")
+
+# Seurat recommends normalizing and finding variable features before integration
+for (i in 1:length(all.list)){
+  all.list[[i]] <- NormalizeData(all.list[[i]], verbose = FALSE)
+  all.list[[i]] <- FindVariableFeatures(all.list[[i]], selection.method = "vst")
+}
+
+# This object was done with the normalization
+all.anchors <- FindIntegrationAnchors(object.list = all.list, reduction = "rpca", scale = FALSE)
+
+
+saveRDS(all.int, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/mergedIntObjectSept19.Rds")
+
+
+saveRDS(all.anchors,"/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/allanchors.Rds")
+
+all.anchors <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/allanchors.Rds")
+
+all.int <- IntegrateData(anchorset = all.anchors)
+
+```
+
+
+Now that I have the integrated object I will continue to follow the standard scRNAseq to workflow and identify cell types. 
+
+
+```{r}
+
+# the first object - no normalization before integration
+DefaultAssay(all.int) <= "integrated"
+all.int <- ScaleData(all.int,verbose = FALSE)
+all.int <- RunPCA(all.int, npcs = 30, verbose = FALSE)
+
+ElbowPlot(all.int,ndims = 30)
+
+all.int <- RunUMAP(all.int, reduction = "pca", n.neighbors = 275, dims = 1:30)
+DimPlot(all.int, reduction = "umap", group.by = "orig.ident")
+
+
+```
+
+
+
+Cluster 
+
+```{r}
+
+all.int <- FindNeighbors(all.int, dims = 1:30, k.param = 275)
+all.int <- FindClusters(all.int, resolution = c(0,0.05,0.25,0.5,0.8))
+clustree(all.int, prefix = "RNA_snn_res.")
+
+
+```
+
+
+
+Try on the not integrated object - just merge
+
+```{r}
+
+
+
+all.ft <- ScaleData(all.ft, verbose = FALSE)
+all.ft <- RunPCA(all.ft, npcs = 30, verbose = FALSE)
+
+ElbowPlot(all.ft,ndims = 30)
+
+all.ft <- RunUMAP(all.ft, reduction = "pca", n.neighbors = 30, dims = 1:21)
+DimPlot(all.ft, reduction = "umap", group.by = "orig.ident")
+
+```
+
+
+Find the clusters
+
+```{r}
+
+all.ft <- FindNeighbors(all.ft, dims = 1:21, k.param = 30)
+all.ft <- FindClusters(all.ft, resolution = 0.3)
+#clustree(all.int, prefix = "RNA_snn_res.")
+DimPlot(all.ft, reduction = "umap")
+
+
+```
+
+
+
+
+Transfer labels from other Midbrain organoid data (165 days)
+
+
+```{r}
+# this is some reference data
+
+# SNCA midbrain organoids
+MBO <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/AST23_BrainComm/MBOclusters_names29072021.rds")
+#
+# DA neuron subtypes from postmortem brain Kamath et al 2022
+DAsubtypes <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/Macosko_Data")
+
+Idents(MBO) <- "cluster_labels"
+DefaultAssay(MBO) <- "RNA"
+
+
+MO.query <-
+# find the reference anchors
+print("finding reference anchors")
+MO.anchors <- FindTransferAnchors(reference = MBO ,query = MO.query, dims = 1:30)
+# can try a range of dims 20-50
+print("getting predictions")
+predictions <- TransferData(anchorset = MO.anchors, refdata = MBO$cluster_labels)
+MO.query <- AddMetaData(MO.query, metadata = predictions)
+
+
+print(table(MO.query$predicted.id))
+
+
+
+
+```
+
+
+See the predictions
+
+
+```{r}
+
+DimPlot(MO.query, reduction = "umap", group.by = 'predicted.id')
+
+
+```
+
+Some heatmaps
+
+See the usual marker lists - by sorted population, by clusters
+
+```{r}
+
+
+
+Idents(all.ft) <- 'orig.ident'
+ClusterMarkers <- FindAllMarkers(all.ft)
+
+top5 <- ClusterMarkers %>% group_by(cluster) %>% top_n(n=5, wt = avg_log2FC)
+DoHeatmap(all.ft, features = top5$gene, size=3, angle =90, group.bar.height = 0.02, group.by = 'orig.ident')
+
+
+write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/ClusterMarkers_4samples_FindAll.csv")
+
+# Find markers Glia vs Neurons
+
+Markers.gliaVneuron <- FindMarkers(all.ft, ident.1 = c('Glia1','Glia2'), ident.2 = c('Neurons1','Neurons2'))
+top5.gn <- Markers.gliaVneuron %>% top_n(n=-5, wt = avg_log2FC)
+write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/ClusterMarkers_GliaVsNeurons.csv")
+
+# Compare Glia1 vs Glia2
+Markers.glia1Vs2 <- FindMarkers(all.ft, ident.1 = c('Glia1'), ident.2 = c('Glia2'))
+write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/ClusterMarkers_Glia1sGlia2.csv")
+
+# Compare Neurons1 vs Neurons2
+Markers.neurons1vs2 <- FindMarkers(all.ft, ident.1 = c('Neurons1'), ident.2 = c('Neurons2'))
+write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/cellrangerOuts/ClusterMarkers_Neurons1VsNeurons2.csv")
+
+```
+
+Check cell types using EnrichR
+
+```{r}
+
+library(devtools)
+install_github("wjawaid/enrichR")
+library(enrichR)
+
+
+setEnrichrSite("Enrichr") # Human genes
+# list of all the databases
+
+dbs <- listEnrichrDbs()
+dbs
+# libaries with cell types
+
+db <- c('Allen_Brain_Atlas_10x_scRNA_2021', 'Descartes_Cell_Types_and_Tissue_2021',
+        'CellMarker_Augmented_2021','Azimuth_Cell_Types_2021')
+
+# enrichr(genes, databases = NULL)
+
+genes.up.neur <- ClusterMarkers %>% filter(cluster == 'Neurons1' & avg_log2FC > 0)
+genes <- genes.up.neur$gene
+
+neurons.En <- enrichr(genes, databases = db)
+
+plotEnrich(neurons.En[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(neurons.En[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(neurons.En[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+neurons.En[[3]]
+
+
+
+```
+
+

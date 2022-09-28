@@ -6,7 +6,7 @@ output: html_notebook
 Figure 6 scRNAseq from FACS sorted populations
 
 1. processing filtering and creating data objects
-2. Compare expression of 13 Antibody panel (use NK ... for O4) and create correlation matrix
+2. Compare expression of 13 Antibody panel (use NK for O4) and create correlation matrix
 
 ```{r}
 ## library loading
