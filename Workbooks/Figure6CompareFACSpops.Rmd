@@ -1,0 +1,35 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+1. Get the proportions of main cell types from each FACS sorted sample
+2. 
+
+
+```{r}
+
+library(Seurat)
+library(dplyr)
+library(Matrix)
+library(ggplot2)
+
+
+```
+
+
+Read in the 4 sorted Populations separately processed and annotated
+
+```{r}
+
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+
+Neurons1 <- readRDS(paste(pathway,"seu1.rds",sep = ""))
+Neurons2 <- readRDS(paste(pathway,"seu2.rds",sep = ""))
+Glia1 <- readRDS(paste(pathway,"seu3.rds",sep = ""))
+Glia2 <- readRDS(paste(pathway,"seu4.rds",sep = ""))
+
+
+
+```
+
