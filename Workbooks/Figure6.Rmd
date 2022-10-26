@@ -1,0 +1,1048 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Read in the labelled object 
+Run the correlation comparison between the total scRNA per FACS pop and the AB levels
+Calculate the proportion of the cell types from the orginal labels
+UMAP of the cell POPS merged
+UMAP of the subtypes labelled
+
+
+
+
+```{r}
+
+library(Seurat)
+library(dplyr)
+library('reshape')
+library("ggplot2")
+
+
+```
+
+
+Read in the lableled object single cell sequencing
+
+```{r}
+
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+seu.sc <- readRDS(paste(pathway, "CombinedLabeledMarkers14102022.RDS"))
+
+```
+
+
+Read in the Flow Cytometry data
+
+```{r}
+output_path = "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/PostSortGatingPops/"
+seu.fc <- readRDS(paste(output_path,"june10postSort.seu.RDS", sep = ""))
+unique(seu.fc$GatedPop)
+
+# both neurons1 and neurons2 are mixed ie what I labelled before sorting as neurons1 (CD24+++) was labelled as Neurons2 in the expeiment
+
+```
+
+Marker list
+
+```{r}
+
+marker.ab <- c("CD24","CD56","CD29","CD15","CD184","CD133","CD71","CD44","GLAST","AQP4","HepaCAM", "CD140a","O4")
+
+marker.genes <-c("CD24","NCAM1","ITGB1","FUT4","CXCR4","PROM1","TFRC","CD44","SLC1A3","AQP4","HEPACAM", "PDGFRA","NKX6-2")
+
+```
+
+
+Make the expression matrixes
+
+```{r}
+Idents(seu.sc) <- 'orig.ident'
+DefaultAssay(seu.sc) <- 'RNA'
+
+# to include all genes in scale data add the features argument
+seu.sc <- ScaleData(object = seu.sc, features = rownames(seu.sc))
+
+
+scRNAseq.mean <- as.data.frame(AverageExpression(seu.sc,features = marker.genes, assays = 'RNA',
+                                   group.by = 'orig.ident', slot= 'scale.data'))
+
+
+# change gene names to protein/AB names
+rownames(scRNAseq.mean) <- marker.ab
+
+# get the mean expression from FACS 
+DefaultAssay(seu.fc) <- 'RNA'
+Idents(seu.fc) <- 'GatedPop'
+
+#seu.fc <- ScaleData(seu.fc)
+
+FC.mean <- as.data.frame(AverageExpression(seu.fc, assays = 'RNA',features = marker.ab,
+                                   group.by = 'GatedPop', slot= 'scale.data'))
+
+
+```
+
+Calculate correlation between two matrixes
+
+```{r}
+
+# rename and reorder dataframes to match
+colnames(FC.mean)
+colnames(FC.mean) <- c("Astrocytes","RadialGlia","Neurons2","Neurons1")
+colnames(FC.mean)
+
+colnames(scRNAseq.mean)
+colnames(scRNAseq.mean) <- c("Neurons2","Neurons1","Astrocytes","RadialGlia")
+colnames(scRNAseq.mean)
+rna.mean <- scRNAseq.mean %>% select("Astrocytes","RadialGlia","Neurons1","Neurons2")
+FC.mean <- FC.mean %>% select("Astrocytes","RadialGlia","Neurons1","Neurons2")
+
+df.cor <- cor(FC.mean, rna.mean)
+# first one is the rows and second is the columns, FC measures on the y axis
+
+df.cor
+
+
+# Neurons2 should be the high CD56 population and it is in both cases 
+# Neurons1 should be the high CD24 and it is
+
+FC.mean
+rna.mean
+
+# try calculating z scores
+# this works on rows
+data <- FC.mean
+add.rownames <- rownames(data)
+FC.mean.z <- as.data.frame(sapply(data, function(data) (data-mean(data))/sd(data)))
+
+rownames(FC.mean.z) <-add.rownames
+FC.mean.z
+
+
+data <- rna.mean
+add.rownames <- rownames(data)
+rna.mean.z <- as.data.frame(sapply(data, function(data) (data-mean(data))/sd(data)))
+
+rownames(rna.mean.z) <-add.rownames
+rna.mean.z
+
+
+df.cor <- cor(FC.mean.z, rna.mean.z)
+df.cor
+
+write.csv(df.cor, paste(output_path,"CorrelationsFCscRNAseq.csv"))
+
+
+```
+
+Plot the heatmap
+Figure 6A
+
+```{r}
+# need to melt the matrix
+longData<- melt(df.cor)
+
+head(longData)
+colnames(longData) <- c("FC","scRNA","R2")
+
+ggplot(longData, aes(x=scRNA,y=FC, fill =R2)) + geom_tile() +
+  scale_fill_gradient2(low = "#075AFF",
+                       mid = "#FFFFCC",
+                       high = "#FF0000") +
+   guides(fill = guide_colourbar(label = TRUE,
+                                ticks = FALSE)) + theme_bw() +
+  coord_fixed()  +scale_x_discrete(expand=c(0,0))+
+  scale_y_discrete(expand=c(0,0))+ theme(text = element_text(size=16, colour = "black"),
+        axis.text.x = element_text(size = 18, colour = "black", angle = 90), axis.text.y = element_text(size= 18, colour = "black"))  + xlab('scRNAseq') + ylab('Flow Cytometry') 
+
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/scRNA/"
+
+pdf(paste(output_path,"FC_scRNA_correlationOct16.pdf"), width = 8, height = 5)
+ggplot(longData, aes(x=scRNA,y=FC, fill =R2)) + geom_tile() +
+  scale_fill_gradient2(low = "#075AFF",
+                       mid = "#FFFFCC",
+                       high = "#FF0000", midpoint = 0, limit = c(-0.5,0.5)) +
+   guides(fill = guide_colourbar(label = TRUE,
+                                ticks = FALSE)) + theme_bw() +
+  coord_fixed()  +scale_x_discrete(expand=c(0,0)) +
+  scale_y_discrete(expand=c(0,0)) + 
+  theme(text = element_text(size=16, colour = "black"),
+        axis.text.x = element_text(size = 16, colour = "black", angle = 90), axis.text.y = element_text(size= 16, colour = "black"))  + xlab('scRNAseq') + ylab('Flow Cytometry') 
+
+dev.off()
+
+
+
+
+```
+
+Compare proportions of cells in each FACS pop - Figure 6B
+
+```{r}
+
+# save the proportion chart with colours matching the UMAPs 
+df <- as.data.frame(table(seu.sc$orig.ident, seu.sc$Cell_Types))
+
+# the chart will default to alphabetical
+
+clust.colours <- c("chocolate1","deepskyblue","steelblue4","mediumpurple3","red2","burlywood3",     "pink2")
+
+# but not for the x axis - reorder with factor to match figure 6A
+df$FACpop <- factor(df$Var1, levels = c("Astrocytes","RadialGlia","Neurons1","Neurons2"))
+
+pdf(paste(output_path,"BarChartProportionCellTypesin4popsOct16.pdf"), height = 5, width = 6)
+ggplot(df, aes(x = FACpop, y = Freq, fill = Var2)) + 
+  geom_col(position = "fill") + theme_classic() +
+  scale_fill_manual(values = clust.colours) +
+  #scale_x_discrete(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0,0)) +
+  theme(axis.text.x = element_text(angle = 90, size = 16), axis.text.y = element_text(size = 16)) +
+  labs(y = "Proportion of Cells", x = "") +
+  theme(axis.title.y = element_text(size = 16), legend.text = element_text(size = 16), legend.title = element_text(size = 16)) 
+dev.off()
+
+```
+
+
+Make a table of cell types
+
+```{r}
+
+library(stringr)
+library(reshape)
+
+# for original cell types 
+
+
+df.r <- reshape(df, idvar = "Var2", timevar = "Var1", direction = "wide")
+dat1 <- df.r
+dat1[] <- lapply(dat1[], function(x){
+  # Check if the column is numeric
+  if (is.numeric(x)){
+    return(x/sum(x)*100)
+  } else{
+    return(x)
+  }
+})
+dat1
+write.csv(dat1, paste(output_path,"proportionofCelltypesin4pops.csv"))
+
+
+
+
+```
+
+
+
+UMAP with original idents to show overlap (or lack there of)
+Figure 6C
+
+```{r}
+# Figure 6 C
+# UMAP with the 4 orig.idents
+
+sample.order <- c("Astrocytes","RadialGlia","Neurons1","Neurons2")
+sample.order <- rev(sample.order)
+
+# colour order to match cell type order
+clust.colours <- c("royalblue", "indianred2","palegreen2","springgreen4")
+ 
+Idents(seu.sc) <- 'orig.ident'
+      
+DimPlot(seu.sc, order = sample.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.1, label = FALSE)
+
+output_path <- "/Users/rhalenathomas/Documents/Projects_Papers/PhenoID/ForFigures/scRNA/"
+
+### Figure 6C
+
+pdf(paste(output_path,"UMAPscRNAseqMerge4Oct16.pdf"),width = 7, height = 4)
+DimPlot(seu.sc, order = sample.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.1, label = FALSE, label.size = 6) +
+  theme(legend.text = element_text(size=16), axis.title.y = element_text(size=16), 
+        axis.title.x = element_text(size=16), axis.text.y = element_text(size =16),
+        axis.text.x = element_text(size =16))
+dev.off()
+
+
+## Figure S23 panel 
+
+cell.order <- c("Astrocytes","Endothelial","Glia","NPC","Neurons","Other","Radial Glia")
+cell.order <- rev(cell.order)
+
+# colour order to match cell type order
+clust.colours <- c("chocolate1","deepskyblue","steelblue4","red2","mediumpurple3","burlywood3", 
+                   "pink2")
+
+ 
+Idents(seu.sc) <- 'Cell_Types'
+      
+# designated the order of the splits factor
+seu.sc$orig.ident <- factor(x = seu.sc$orig.ident, levels = c("Astrocytes","RadialGlia","Neurons1","Neurons2"))
+
+
+DimPlot(seu.sc, order = cell.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.1, label = FALSE, split.by = 'orig.ident', ncol = 2)
+
+
+
+
+pdf(paste(output_path,"UMAP_merge_splitbyorigidentOct16.pdf"),width = 12, height = 7.5)
+DimPlot(seu.sc, order = cell.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.1, label = FALSE, split.by = 'orig.ident', label.size = 6, ncol = 2) +
+  theme(legend.text = element_text(size=16), axis.title.y = element_text(size=16), 
+        axis.title.x = element_text(size=16), axis.text.y = element_text(size =16),
+        axis.text.x = element_text(size =16))
+dev.off()
+
+
+# also plot one not split to see the whole thing
+
+
+pdf(paste(output_path,"UMAP_merge_CellTypesOct16.pdf"),width = 6.7, height = 4.1)
+DimPlot(seu.sc, order = cell.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.1, label = FALSE, label.size = 6) +
+  theme(legend.text = element_text(size=16), axis.title.y = element_text(size=16), 
+        axis.title.x = element_text(size=16), axis.text.y = element_text(size =16),
+        axis.text.x = element_text(size =16))
+dev.off()
+
+
+
+
+
+```
+
+Figure 6D - UMAP with subgroups
+
+```{r}
+
+unique(seu.sc$Cell_Subtype_Markers)
+# 21 levels will need 21 colours 
+# Neurons - purples
+# DA neurons green
+# NPC red
+# Astrocytes - Orange -
+# Radial Glia - Pink yellow
+# other cells blues
+
+sample.order <- c("Astrocytes-COL3A1","Astrocytes-FABP5", "Astrocytes-HPD",
+                  "DANeurons-RAB3B","DANeurons-TPBG","DANeurons-TTR",
+                  "Mix","NPC",
+                  "Neurons-ASCL1",
+                  "Neurons-CP","Neurons-GRIA2",
+                  "Neurons-MGP",
+                  "Neurons-SPARCL1",
+                  "Neurons-TPH1", "Neurons-TFPI1",
+                  "RadialGlia-CY1B1", "RadialGlia-NEAT1","RadialGlia-PTN",
+                  "RadialGlia-RPL41", "RadialGlia-TOP2A", "RadialGlia-VCAN")
+sample.order <- rev(sample.order)
+
+
+clust.colours <- c("#F1C166","#FF9400","#E95901",          # oranges Astrocytes
+                   "#43D59C","#7DA696","#15AE36",     # greens DA neurons
+                   "steelblue","red2",   # mix and NPC
+                   "#8F67FF",
+                   "#6840DB","#9B8BC7",   # neurons 2  CP, GRIA2
+                   "#7B22FB",    # MGP
+                   "purple", # SPARCL1
+                   "#9863E5","#8E36D2", # TPH1, TFPI1
+                   "#F68D8D", # RG CY1B1
+                   "#F68888","#F688BD",   # RG NEAT1, PTN 
+                   "#F5288A","#DC57CF","#F3A6EC")
+
+#DimPlot(seu.sc, pt.size = 0.1, order = sample.order, label = TRUE, group.by = 'Cell_Subtype_Markers')
+Idents(seu.sc) <- 'Cell_Subtype_Markers' 
+
+DimPlot(seu.sc, order = sample.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.25, label = TRUE)
+
+DimPlot(seu.sc, order = sample.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.25, label = FALSE)
+
+
+
+#Idents(seu.sc) <- 'Cell_Subtypes'
+#DimPlot(seu.sc, shuffle = TRUE, raster=FALSE, pt.size = 0.25, label = TRUE)
+
+
+# save Figure 6D
+#pdf(paste(output_path,"UMAP_CellSubtypeMarkersOct16.pdf"),width = 9.4, height = 3.9)
+DimPlot(seu.sc, order = sample.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.25, label = FALSE)
+#dev.off()
+
+
+# Figure S25
+# with labels
+pdf(paste(output_path,"UMAP_CellSubtypeMarkersLablesOct16.pdf"),width = 12, height = 5)
+DimPlot(seu.sc, order = sample.order, cols = clust.colours, shuffle = TRUE, raster=FALSE, pt.size = 0.25, label = TRUE, repel = TRUE)
+dev.off()
+
+
+
+```
+
+
+Make a heatmap
+
+```{r}
+
+# some DA classic marker
+# some neuronal markers
+# some 
+PD_poulin = c("TH","SLC6A3","SLC18A2","SOX6","NDNF","SNCG","ALDH1A1","CALB1","TACR2","SLC17A6","SLC32A1","OTX2","GRP","LPL","CCK","VIP")
+
+#likely too many
+ft <- c("COL3A1","FABP5","HPD","RAB3B","TPBG","TTR","SOX2","ASCL1","CP","GRIA2",
+        "MGP","SPARCL1","TPH1","TFPI1","CY1B1","NEAT1","PTN","RPL41","TOP2A","VCAN")
+
+# to change the cell type order
+Idents(seu.sc) <- 'Cell_Subtype_Markers'
+
+
+
+seu.sc$Cell_Subtype_Markers <- factor(seu.sc$Cell_Subtype_Markers, levels = sample.order)
+
+#seu.sc <- ScaleData(seu.sc)
+#DoHeatmap(seu.sc, features = PD_poulin, group.by = 'Cell_Subtype_Markers', slot = 'scale.data')
+DotPlot(seu.sc, features = ft, group.by = 'Cell_Subtype_Markers') +
+  theme(axis.text.x = element_text(angle = 90))
+
+# these are not very helpful markers 
+# need to reverse sample order for heatmaps
+DoHeatmap(seu.sc, features = ft, group.by = 'Cell_Subtype_Markers')
+
+ft = c()
+
+feature_list = c("PAX6","OTX2","VIM","SLC1A3","SOX2","HES1","NES","S100B","SOX9","MAP2",
+                 "NCAM1","CD24","GRIA2","GABBR1")
+
+feature_list = c("TH","PAX6","OTX2","MAP2","NCAM1","CD24","GRIA2","GABBR1",
+                 "VIM","SLC1A3","SOX2","HES1","NES","S100B","SOX9","GFAP"
+                 )
+
+"GRIA2","GABBR1"
+
+feature_list = c("MAP2","NCAM1","CD24","GRIA2")
+
+feature_list = c("MAP2","NCAM1","CD24","GRIA2","GRIN2B",,"GAD1","GAD2","GABRA1","GABRB2","TH","ALDH1A1","LMX1B","NR4A2","CORIN","CALB1","KCNJ6","CXCR4","ITGA6","SLC1A3","CD44","AQP4","S100B", "PDGFRA","OLIG2","MBP","CLDN11","VCAM1")
+
+"SOX9"
+feature_list <- c("RBFOX3","GRIN2B","GAD1","GAD2","GABRA1","GABRB2","TH")
+
+feature_list <- c("SLC1A3", "PAX6", "SOX2", "PDGFD", "GLI3", "STMN2", "NEUROD6", "VIM", "HES1")
+
+DotPlot(seu.sc, features = feature_list, group.by = 'Cell_Subtype_Markers') +
+  theme(axis.text.x = element_text(angle = 90))
+
+# these are not very helpful markers 
+# need to reverse sample order for heatmaps
+DoHeatmap(seu.sc, features = feature_list, group.by = 'Cell_Subtype_Markers')
+
+
+
+
+```
+
+Heatmap or Dotplot 
+Save pdf
+
+
+```{r}
+
+
+feature_list = c("TH","PAX6","OTX2","MAP2","NCAM1","CD24","GRIA2","GABBR1",
+                 "VIM","SLC1A3","SOX2","HES1","NES","S100B","SOX9"
+                 )
+
+feature_list.d = c("PAX6","VIM","SLC1A3","SOX2","HES1","NES","OTX2",
+                 "MAP2","NCAM1","CD24","GRIA2","GABBR1","S100B","SOX9"
+                 )
+
+
+DotPlot(seu.sc, features = feature_list.d, group.by = 'Cell_Subtype_Markers') +
+  theme(axis.text.x = element_text(angle = 90))
+
+DotPlot(seu.sc, features = "TH", group.by = 'Cell_Subtype_Markers') +
+  theme(axis.text.x = element_text(angle = 90))
+# these are not very helpful markers 
+# need to reverse sample order for heatmaps
+
+sample.order.r <- rev(sample.order)
+
+seu.sc$Cell_Subtype_Markers <- factor(seu.sc$Cell_Subtype_Markers, levels = sample.order.r)
+
+
+# save the dotplots
+pdf(paste(output_path,"DotPlotCellSubtypesOct17.pdf"))
+DotPlot(seu.sc, features = feature_list.d, group.by = 'Cell_Subtype_Markers') +
+  theme(axis.text.x = element_text(angle = 90))
+dev.off()
+
+pdf(paste(output_path,"DotPlotTHbysubtypesOct17.pdf"))
+DotPlot(seu.sc, features = "TH", group.by = 'Cell_Subtype_Markers') +
+  theme(axis.text.x = element_text(angle = 90))
+dev.off()
+
+```
+
+save the heatmap
+Change the colours
+
+```{r}
+
+feature_list = c("TH","PAX6","OTX2","MAP2","NCAM1","CD24","GRIA2","GABBR1",
+                 "VIM","SLC1A3","SOX2","HES1","NES","S100B","SOX9"
+                 )
+
+# reverse the cell type order
+sample.order.r <- rev(sample.order)
+
+seu.sc$Cell_Subtype_Markers <- factor(seu.sc$Cell_Subtype_Markers, levels = sample.order.r)
+
+pdf(paste(output_path,"HeatMapsubtypesOct17.pdf",sep = ""),width = 11, height = 5)
+DoHeatmap(seu.sc, features = feature_list, group.by = 'Cell_Subtype_Markers', group.colors = clust.colours, disp.max = 2, disp.min = -1.5,
+          angle = 90) + scale_fill_gradientn(colors = c("#154c79", "#eeeee4", "#e28743")) + 
+  theme(axis.text.y = element_text(size = 16))
+dev.off()
+
+
+```
+
+
+Subtype markers
+
+
+```{r}
+Idents(seu.sc) <- 'Cell_Subtypes'
+neurons <- subset(seu.sc, idents = c("Neurons1","Neurons2","Neurons3","Neurons4",
+                                     "Neurons5","Neurons6","Neurons7"))
+
+Idents(neurons) <- 'Cell_Subtype_Markers'
+
+pdf(paste(output_path,"UMAP_NeuronsOct17.pdf",sep = ""),width = 7, height = 4)
+DimPlot(neurons) +  theme(text = element_text(size=16, colour = "black"))
+dev.off()
+
+Idents(seu.sc) <- 'Cell_Subtypes'
+neurons.da <- subset(seu.sc, idents = c("DANeurons1","DANeurons2","DANeurons3"))
+
+Idents(neurons.da) <- 'Cell_Subtype_Markers'
+pdf(paste(output_path,"UMAP_DANeuronsOct17.pdf",sep = ""),width = 7, height = 4)
+DimPlot(neurons.da)+  theme(text = element_text(size=16, colour = "black"))
+dev.off()
+
+Idents(seu.sc) <- 'Cell_Subtypes'
+astro <- subset(seu.sc, idents = c("Astrocytes1","Astrocytes2","Astrocytes3"))
+Idents(astro) <- 'Cell_Subtype_Markers'
+pdf(paste(output_path,"UMAP_AstroOct17.pdf",sep = ""),width = 7, height = 4)
+DimPlot(astro)+  theme(text = element_text(size=16, colour = "black"))
+dev.off()
+
+Idents(seu.sc) <- 'Cell_Subtypes'
+rg <- subset(seu.sc, idents = c("RadialGlia1","RadialGlia2","RadialGlia3","RadialGlia4",
+                                "RadialGlia5","RadialGlia6"))
+Idents(rg) <- 'Cell_Subtype_Markers'
+pdf(paste(output_path,"UMAP_RGOct17.pdf",sep = ""),width = 7, height = 4)
+DimPlot(rg)+  theme(text = element_text(size=16, colour = "black"))
+dev.off()
+
+
+
+
+```
+
+
+DotPlots of markers in cell type subsets
+
+```{r}
+
+n.markers <- c("ASCL1","CP","GRIA2","MGP","SPARCL1","TPH1","TFPI2","CD24")
+
+pdf(paste(output_path,"Dotplot_NeuSubMarkersOct17.pdf",sep = ""),width = 7, height = 4)
+DotPlot(neurons, features = n.markers) + 
+  theme(text = element_text(size=16, colour = "black"),axis.text.x = element_text(angle = 90))
+dev.off()
+
+da.markers <- c("RAB3B","TPBG","TTR","TH","SOX6","CALB1","SLC17A6")
+
+pdf(paste(output_path,"Dotplot_DANeuSubMarkersOct17.pdf",sep = ""),width = 7, height = 4)
+DotPlot(neurons.da, features = da.markers) + 
+  theme(text = element_text(size=16, colour = "black"),axis.text.x = element_text(angle = 90))
+dev.off()
+
+rg.markers <- c("CYP1B1","NEAT1","PTN","RPL41","TOP2A","VCAN","SOX2","SLIT2","HES1","VIM")
+
+pdf(paste(output_path,"Dotplot_RGMarkersOct17.pdf",sep = ""),width = 7, height = 4)
+DotPlot(rg, features = rg.markers) + 
+  theme(text = element_text(size=16, colour = "black"),axis.text.x = element_text(angle = 90))
+dev.off()
+
+# Apoe, Gfap, Aqp4 and Slc1a3
+astro.markers <- c("COL3A1","FABP5","HPD","APOE","S100B","IGFBP2","DBI",
+                   "PRSS56", "IGTP","LFIT3","LIGP1",
+                   "COL1A2")
+
+pdf(paste(output_path,"Dotplot_AstroMarkersOct17.pdf",sep = ""),width = 7, height = 4)
+DotPlot(astro, features = astro.markers) + 
+  theme(text = element_text(size=16, colour = "black"),axis.text.x = element_text(angle = 90))
+dev.off()
+
+
+```
+
+Make a label level of main cell types from the merge data
+
+```{r}
+
+unique(seu.sc$Cell_Subtype_Markers)
+Idents(seu.sc) <- 'Cell_Subtype_Markers'
+
+cluster.ids <- c("Astrocytes","Neurons","RadialGlia","Neurons",
+                 "Astrocytes","Neurons","RadialGlia","Neurons",
+                 "Astrocytes","Neurons","RadialGlia",
+                 "DANeurons","Neurons","Mix","NPC",
+                 "Neurons","DANeurons","DANeurons",
+                 "RadialGlia","RadialGlia","RadialGlia"
+                 )
+
+
+names(cluster.ids) <- levels(seu.sc)
+seu.sc <- RenameIdents(seu.sc, cluster.ids)
+seu.sc$Cell_Type2 <- Idents(seu.sc)
+Idents(seu.sc) <- 'Cell_Type2'
+DimPlot(seu.sc)
+
+DimPlot(seu.sc, group.by = 'Cell_Subtype_Markers')
+DimPlot(seu.sc, group.by = 'Cell_Subtypes')
+DimPlot(seu.sc, group.by = 'Cell_Type2')
+
+
+```
+
+
+```{r}
+
+# original clusters proportion of cell types in 
+library(reshape2)
+
+pr.celltypes <- as.data.frame(table(seu.sc$orig.ident,seu.sc$Cell_Type2))
+pr.celltypes <- reshape(pr.celltypes, idvar = "Var2", timevar = "Var1", direction = "wide")
+pr.celltypes
+
+table(seu.sc$Cell_Type2)
+
+write.csv(pr.celltypes, paste(output_path,"FreqCellTypes2inFACS.csv"))
+
+```
+
+
+
+Proportion of cell types in original FACS populations
+
+
+```{r}
+
+# original clusters proportion of cell types in 
+library(reshape2)
+
+pr.celltypes <- as.data.frame(table(neurons.da$Cell_Subtype_Markers,neurons.da$orig.ident))
+pr.celltypes <- reshape(pr.celltypes, idvar = "Var2", timevar = "Var1", direction = "wide")
+pr.celltypes
+pr <- pr.celltypes %>% select(Var2,`Freq.DANeurons-RAB3B`,`Freq.DANeurons-TPBG`,`Freq.DANeurons-TTR`)
+pr
+pr <- t(pr)
+pr
+write.csv(pr, paste(output_path,"CellCountsDAneuronsPerFACSpop.csv"))
+
+
+```
+
+
+Proportion of cell types tests
+
+```{r}
+
+library("scProportionTest")
+
+prop_test <- sc_utils(seu.sc)
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "Cell_Type2",
+	sample_1 = "Neurons1", sample_2 = "Neurons2",
+	sample_identity = "orig.ident"
+)
+
+
+permutation_plot(prop_test)
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "Cell_Type2",
+	sample_1 = "Neurons1", sample_2 = "RadialGlia",
+	sample_identity = "orig.ident"
+)
+permutation_plot(prop_test)
+
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "Cell_Type2",
+	sample_1 = "Neurons2", sample_2 = "RadialGlia",
+	sample_identity = "orig.ident"
+)
+permutation_plot(prop_test)
+
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "Cell_Type2",
+	sample_1 = "Astrocytes", sample_2 = "RadialGlia",
+	sample_identity = "orig.ident"
+)
+permutation_plot(prop_test)
+
+```
+
+
+Check the proportions of subtypes of DA neurons
+
+```{r}
+
+#library("scProportionTest")
+
+prop_test <- sc_utils(neurons.da)
+
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "Cell_Subtype_Markers",
+	sample_1 = "Neurons1", sample_2 = "Neurons2",
+	sample_identity = "orig.ident"
+)
+
+
+permutation_plot(prop_test)
+
+```
+
+
+Differential gene expression between Neurons1 and Neurons2 for Other neurons and DA neurons. 
+
+```{r}
+Idents(seu.sc) <- 'Cell_Type2'
+sub.neur <- subset(seu.sc, idents = "Neurons")
+DimPlot(sub.neur, group.by = 'Cell_Subtype_Markers')
+
+Idents(sub.neur) <- 'orig.ident'
+deg.neurons <- FindMarkers(sub.neur, ident.1 = "Neurons1", ident.2 = "Neurons2")
+
+up <- rownames(deg.neurons %>% filter(avg_log2FC > 1.2))
+length(up)
+
+down <- rownames(deg.neurons %>% filter(avg_log2FC < -6))
+length(down)
+
+up.down <- c(up,down)
+
+DoHeatmap(sub.neur, group.by = 'orig.ident', features = up.down)
+
+up
+down
+
+
+# up is in neurons1 and down is in neurons2
+
+write.csv(deg.neurons, paste(output_path, "DEG.neurons1vsneurons2inNeurons.csv"))
+
+
+```
+
+
+
+In DA neurons
+
+```{r}
+
+Idents(seu.sc) <- 'Cell_Type2'
+sub.neur <- subset(seu.sc, idents = "DANeurons")
+DimPlot(sub.neur, group.by = 'Cell_Subtype_Markers')
+
+Idents(sub.neur) <- 'orig.ident'
+deg.neurons.da <- FindMarkers(sub.neur, ident.1 = "Neurons1", ident.2 = "Neurons2")
+
+up <- rownames(deg.neurons %>% filter(avg_log2FC > 1.2))
+length(up)
+
+down <- rownames(deg.neurons %>% filter(avg_log2FC < -0.5))
+length(down)
+down
+down <- down[17:36]
+up.down <- c(up,down)
+
+DoHeatmap(sub.neur, group.by = 'orig.ident', features = up.down)
+
+DotPlot(sub.neur, group.by = 'orig.ident', features = up.down) + RotatedAxis()
+
+write.csv(deg.neurons.da, paste(output_path, "DEG.neurons1vsneurons2inDANeurons.csv"))
+
+
+```
+
+
+Look at the GO and other pathway analysis for the DGE
+
+```{r}
+
+# for neurons
+
+library(enrichR)
+
+setEnrichrSite("Enrichr") # Human genes
+# list of all the databases
+
+# libaries with cell types
+#dbs <- listEnrichrDbs()
+#dbs
+db <- c('GO_Cellular_Component_2018','GO_Biological_Process_2018',
+        'GO_Molecular_Function_2018')
+
+Neurons1.up <- deg.neurons %>% filter(p_val_adj < 0.05 & avg_log2FC > 0)
+genes <- rownames(Neurons1.up)
+
+Er <- enrichr(genes, databases = db)
+print(plotEnrich(Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value"))
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value"))
+print(plotEnrich(Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value"))
+
+library(dplyr)
+t.GOcell.n <- Er[[1]] 
+t.GObio.n <- Er[[2]] 
+t.GOmol.n <- Er[[3]] 
+# synpathetic neurvous sytem dev
+# 	FZD3;CTNNB1;SOX11;ASCL1;SOX4
+#negative regulation of neuron differentiation (GO:0045665)
+# 	EFNB2;ID2;ID1;ID3;HES1;SOX9;CALR;ASCL1
+
+# negative regulation of neurogenesis (GO:0050768)
+# ID2;ID1;ID3;PAX6;CALR;ASCL1
+
+# neuronal differentiation
+# 	FZD3;ID2;ID1;ID3;CTNNB1;SOX11;OTX2;PAX6;ASCL1;SOX4
+
+# 	ID2;ID1;ID3;SOX11;TCF4;CALR;ASCL1
+
+
+Neurons2.up <- deg.neurons %>% filter(p_val_adj < 0.05 & avg_log2FC < 0)
+genes <- rownames(Neurons2.up)
+
+Er <- enrichr(genes, databases = db)
+print(plotEnrich(Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value"))
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value"))
+print(plotEnrich(Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value"))
+
+
+t.GOcell.d <- Er[[1]] #%>% select(Term, Genes, Combined.Score)
+t.GObio.d <- Er[[2]] #%>% select(Term, Genes, Combined.Score)
+t.GOmol.d <- Er[[3]] #%>% select(Term, Genes, Combined.Score)
+ 
+
+# go biological terms are the most interesting 
+  
+  
+  # neurons2 up 
+  #
+  
+  
+  
+
+
+
+```
+
+For DA neurons 
+
+```{r}
+
+setEnrichrSite("Enrichr") # Human genes
+# list of all the databases
+
+# libaries with cell types
+#dbs <- listEnrichrDbs()
+#dbs
+db <- c('GO_Cellular_Component_2018','GO_Biological_Process_2018',
+        'GO_Molecular_Function_2018')
+
+Neurons1.up <- deg.neurons %>% filter(p_val_adj < 0.05 & avg_log2FC > 0)
+genes <- rownames(Neurons1.up)
+
+Er <- enrichr(genes, databases = db)
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "Odds.Ratio"))
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "Ajusted.P.value"))
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "Combined.Score"))
+
+
+t.GObio.da1 <- Er[[2]] 
+
+plotEnrich(t.GObio.da1, showTerms = 10, numChar = 40, y = "Count", orderBy = "Combined.Score")
+plotEnrich(t.GObio.da1, showTerms = 10, numChar = 40, y = "Count", orderBy = "Overlap")
+
+# 	EFNB2;ID2;ID1;ID3;HES1;SOX9;CALR;ASCL1
+# neuronal differentiation
+# 	FZD3;ID2;ID1;ID3;CTNNB1;SOX11;OTX2;PAX6;ASCL1;SOX4
+Neurons2.up <- deg.neurons %>% filter(p_val_adj < 0.05 & avg_log2FC < 0)
+genes <- rownames(Neurons2.up)
+
+Er <- enrichr(genes, databases = db)
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "Odds.Ratio"))
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value"))
+print(plotEnrich(Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "Combined.Score"))
+t.GObio.da2 <- Er[[2]] 
+
+# many MT gene, also "FTH1","FTL","APOE","SAT1","PTN","GABARAP","PTGDS"
+
+pdf(paste(output_path,"GOresultesNeurons1vs2.pdf"), width = 12, height = 6)
+plotEnrich(t.GObio.da1, showTerms = 10, numChar = 40, y = "Count", orderBy = "Combined.Score") +
+  theme(text = element_text(size=16, colour = "black"))
+plotEnrich(t.GObio.da1, showTerms = 10, numChar = 40, y = "Count", orderBy = "Overlap")+
+  theme(text = element_text(size=16, colour = "black"))
+plotEnrich(t.GObio.da2, showTerms = 10, numChar = 40, y = "Count", orderBy = "Combined.Score")+
+  theme(text = element_text(size=16, colour = "black"))
+plotEnrich(t.GObio.da2, showTerms = 10, numChar = 40, y = "Count", orderBy = "Overlap")+
+  theme(text = element_text(size=16, colour = "black"))
+dev.off()
+
+
+```
+
+
+Dot plots of some up regulated genes
+
+```{r}
+
+Idents(seu.sc) <- 'Cell_Type2'
+all.neurons <- subset(seu.sc,idents = c("DANeurons","Neurons") )
+
+Idents(all.neurons) <- 'orig.ident'
+all.neurons <- subset(all.neurons,idents = c("Neurons1","Neurons2") )
+
+# 	FZD3;ID2;ID1;ID3;CTNNB1;SOX11;OTX2;PAX6;ASCL1;SOX4
+
+regulate.genes <- c("FZD3","CTNNB1","SOX11","ASCL1","SOX4","ID2","ID1","ID3",
+                    "TCF4","CALR","OTX2","PAX6","HES1","SOX9")
+
+# markers up in neurons1 - with change in both DA and other neurons
+regulate.genes <- c("FZD3","CTNNB1","SOX11","ASCL1","SOX4",
+                    "TCF4","CALR","OTX2","PAX6","EFNB2", 
+                    "CD24","KCNQ1OT1","CCNG2","HES6")
+
+# top up in neurons 1 
+# "CD24"     "KCNQ1OT1" "CCNG2"    "ASCL1"    "HES6" 
+
+# selected up regulated in Neurons 1
+regulate.genes <- c("FZD3","ASCL1","SOX4",
+                    "TCF4","CALR","PAX6", 
+                    "CD24","KCNQ1OT1","CCNG2")
+
+DotPlot(all.neurons, group.by = 'orig.ident', features = regulate.genes,
+        split.by = 'Cell_Type2') + RotatedAxis()
+# all the expression levels are lower in regular neurons than DA neurons
+
+DotPlot(all.neurons, group.by = 'orig.ident', features = regulate.genes) + RotatedAxis()
+
+# up reg in Neurons2
+# many MT gene, also "FTH1","FTL","APOE","SAT1","PTN","GABARAP","PTGDS"
+
+# top up reg genes in Neurons2
+#"MALAT1"  "MT-ND2"  "MT-CO1"  "MT-CO2"  "MT-ATP6" "MT-CO3"  "MT-ND3"  "MT-CYB" 
+
+regulate.genes <- c("FTH1","FTL","APOE","SAT1","PTN","GABARAP","PTGDS","SPARCL1",
+                    "RPL17","MTRNR2L12","MTRNR2L8","SNHG25","SELENOW",
+                    "CRYAB", "PEA15", "ATP1A2", "SELENOK","IGFBP7", "RAB3B")
+# strongly altered genes
+regulate.genes <- c("FTH1","FTL","PTN","PTGDS","SPARCL1",
+                    "SELENOW","CRYAB", "MALAT1", "MT-ND2", "MT-CO1", "MT-CO2",
+                    "MT-ATP6", "MT-CO3", "MT-ND3", "MT-CYB")
+regulate.genes <- c("MT-ND2", "MT-CO1", "MT-CO2",
+                    "MT-ATP6", "MT-CO3", "MT-ND3",
+                    "FTH1","FTL",
+                    "CRYAB")
+
+# genes up and down 
+regulate.genes <- c("FZD3","ASCL1","SOX4",
+                    "TCF4","CALR","PAX6", 
+                    "CD24","KCNQ1OT1","CCNG2","MT-ND2", "MT-CO1", "MT-CO2",
+                    "MT-ATP6", "MT-CO3", "MT-ND3",
+                    "FTH1","FTL",
+                    "CRYAB")
+
+DotPlot(all.neurons, group.by = 'orig.ident', features = regulate.genes) + RotatedAxis()
+
+pdf(paste(output_path,"DotPlotDEG_N1vsN2.pdf"))
+DotPlot(all.neurons, group.by = 'orig.ident', features = regulate.genes) + RotatedAxis()
+dev.off()
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+BiocManager::install("clusterProfiler")
+BiocManager::install("pathview")
+BiocManager::install("enrichplot")
+library(clusterProfiler)
+library(enrichplot)
+# we use ggplot2 to add x axis labels (ex: ridgeplot)
+library(ggplot2)
+```
+
+
+
+Try with cluster profiler
+
+```{r}
+
+# need a gene list sorted in decreasing order
+# get the log2FC
+original_gene_list <- deg.neurons$avg_log2FC
+# name the vector - add the gene names
+names(original_gene_list) <- rownames(deg.neurons)
+gene_list = na.omit(original_gene_list)
+
+gene_list = sort(gene_list, decreasing = TRUE)
+
+# get the gene set enrichment list
+library(org.Hs.eg.db)
+
+gse <- gseGO(geneList=gene_list, 
+             ont ="BP", 
+             keyType = "SYMBOL", 
+             minGSSize = 3, 
+             maxGSSize = 800, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             OrgDb = org.Hs.eg.db, 
+             pAdjustMethod = "none")
+
+require(DOSE)
+dotplot(gse, showCategory=20, split=".sign") + facet_grid(.~.sign)
+
+emapplot(gse, showCategory = 10)
+
+```
+
+
+Predict cell types again to make table 12
+
+```{r}
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
