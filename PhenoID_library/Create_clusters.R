@@ -1,6 +1,11 @@
 # Create cell type clusters functions
 
+# explore_param        (Shuming)
+#Intrinsic stats       (Shuming)
+# # clust_stability    (Shuming)
 
+
+####################################################################################################
 
 # explore_param
 # reads in csv files with flow cytometry experiments or seurat data object depending on arguments
@@ -9,10 +14,17 @@
 # select outputs, generates - UMAPS, heatmaps, clustree  : save to folder or put in global environ
 # creates list object to run stats
 
+####################################################################################################
 
 
 #Intrinsic stats
+# takes in a dataframe or list of statistics
 # plots intrinsic statistics from pararmater explorations
+
+
+
+
+####################################################################################################
 
 # clust_stability
 # select cluster method and one pararmeter to vary (resolutions 0.1,0.3,0.5,0.8) 

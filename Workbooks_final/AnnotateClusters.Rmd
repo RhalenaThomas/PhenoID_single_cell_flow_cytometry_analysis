@@ -1,0 +1,35 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Annotate clusters 
+
+Visualizations - UMAPs, feature plots and Heatmaps
+
+```{r}
+
+```
+
+
+CAM: correlation assignment model predictions
+
+```{r}
+
+
+
+```
+
+
+
+Random Forest model predictions
+1. Train model
+
+```{r}
+
+# input data
+
+
+
+```
+
