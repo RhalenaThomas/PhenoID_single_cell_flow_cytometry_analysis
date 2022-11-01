@@ -1,0 +1,18 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Merge 4 sorted populuation and make one UMAP
+
+```{r}
+# set up workspace 
+library(Seurat)
+library(dplyr)
+library(Matrix)
+library(ggplot2)
+
+```
+
+
+

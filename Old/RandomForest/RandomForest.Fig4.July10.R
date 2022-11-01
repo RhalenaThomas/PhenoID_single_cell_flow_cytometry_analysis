@@ -172,10 +172,6 @@ rf <- randomForest(lables~.,
                    ntree = 1000,
                    maxnodes = 30)
 
-
-
-
-
 # save outputs
 saveRDS(rf, output_path <- "/Users/rhalenathomas/Documents/Data/FlowCytometry/PhenoID/Analysis/PaperFigures/RFM_trained.11072022.Rds")
 

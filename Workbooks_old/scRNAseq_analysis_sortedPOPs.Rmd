@@ -1,0 +1,974 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Single cell seq after sorting for PhenoID
+
+sample1 = Neurons1
+sample2 = Neurons2
+sample3 = Glia1 - Astrocytes (CD44+)
+sample4 = Glia2 - Radial Glia (CD44-)
+
+In HPC I have run steps of scrnabox (custom pipeline in progress)
+1. Cell Ranger for feature seq
+2. Create Seurat Objects 
+3. Apply minimum filtering and calculate percent mitochondria.
+
+I have technical 3 replicates with hashtag labels at this point I haven't yet demultiplex the hashtags. The data here will be treated as one sample.  I sorted three separate samples and pooled them together. 
+
+
+```{r}
+# set up the environment
+
+library(Seurat)
+library(dplyr)
+library(Matrix)
+library(ggplot2)
+
+rm(list = ls())
+
+
+```
+
+
+Read in the seurat objects made in compute canada
+
+```{r}
+
+# this seems to never load I'll use step 3 output that has some filtering 
+# nFeature_RNA > 180 and percent.mt < 25
+
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+
+Neurons1 <- readRDS(paste(pathway,"seu1.rds",sep = ""))
+Neurons2 <- readRDS(paste(pathway,"seu2.rds",sep = ""))
+Glia1 <- readRDS(paste(pathway,"seu3.rds",sep = ""))
+Glia2 <- readRDS(paste(pathway,"seu4.rds",sep = ""))
+
+Neurons1
+Neurons2
+Glia1
+Glia2
+
+```
+
+
+Have a look at the objects that already have some filtering
+
+
+See the violin plots 
+
+```{r}
+
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 500)
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nCount_RNA"), y.max = 2000)
+
+
+
+# filter more cells
+# neurons 1 is really neurons 2
+Neuron1.ft <- subset(Neurons1, subset = nFeature_RNA > 250 & nCount_RNA > 250 & nCount_RNA < 10000) 
+Neuron1.ft
+
+# 33541 features across 1833 samples
+
+
+```
+
+Neurons 2 - CD56++
+
+```{r}
+
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 500)
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 1000)
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nCount_RNA"), y.max = 2000)
+
+
+
+# filter more cells
+
+Neuron2.ft <- subset(Neurons2, subset = nFeature_RNA > 500 & nCount_RNA > 500 & nCount_RNA < 10000) 
+Neuron2.ft
+
+
+
+```
+
+Glia1 - Astrocyte data
+
+```{r}
+
+VlnPlot(Glia1, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+VlnPlot(Glia1, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 5000)
+VlnPlot(Glia1, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 1000)
+VlnPlot(Glia1, pt.size = 0.10, features = c("nCount_RNA"), y.max = 1000)
+VlnPlot(Glia1, pt.size = 0.10, features = c("nCount_RNA"), y.max = 12000)
+
+
+# extreme filter
+
+Glia1.ft <- subset(Glia1, subset = nFeature_RNA > 500 & nCount_RNA > 300 & nCount_RNA < 10000) 
+Glia1.ft
+Glia1
+
+VlnPlot(Glia1.ft, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+
+
+
+
+```
+
+
+Glia2 - Radial Glia
+
+```{r}
+
+## Filter Glia 2
+VlnPlot(Glia2, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+VlnPlot(Glia2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 5000)
+VlnPlot(Glia2, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 1000)
+VlnPlot(Glia2, pt.size = 0.10, features = c("nCount_RNA"), y.max = 1000)
+VlnPlot(Glia2, pt.size = 0.10, features = c("nCount_RNA"), y.max = 12000)
+
+
+# extreme filter
+
+Glia2.ft <- subset(Glia1, subset = nFeature_RNA > 500 & nCount_RNA > 500 & nCount_RNA < 10000) 
+Glia2.ft
+
+
+VlnPlot(Glia1.ft, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+# there are so many suposed cells I am concerned the high read cells are actually doublets. 
+
+
+
+```
+
+
+Analyze each dataset - get clusters 
+
+```{r}
+
+# cluster the neurons
+seu <- Neuron1.ft
+seu$orig.ident <- 'Neurons1'
+
+seu <- NormalizeData(seu, normalization.method = "LogNormalize", scale.factor = 10000)
+seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(seu), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(seu)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+
+
+
+seu <- ScaleData(seu)
+seu <- RunPCA(seu)
+Idents(seu) <- 'orig.ident'
+plot <- DimPlot(seu, reduction = "pca")
+
+
+plot3 <- ElbowPlot(seu,ndims = 50)
+plot3
+
+plot2
+plot
+
+
+
+```
+
+```{r}
+
+# umap
+
+seu <- RunUMAP(seu, reduction = "pca", n.neighbors = 43, dims = 1:25)
+DimPlot(seu, reduction = "umap", group.by = "orig.ident")
+
+
+
+```
+
+Make the clusters Neurons1
+
+```{r}
+
+seu <- FindNeighbors(seu, dims = 1:25, k.param = 43)
+seu <- FindClusters(seu, resolution = c(0,0.2,0.25,0.5,0.8))
+seu <- FindClusters(seu, resolution = c(1.2))
+
+library(clustree)
+clustree(seu, prefix = "RNA_snn_res.")
+DimPlot(seu)
+
+```
+
+```{r}
+# look a lot at the clusers
+
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'seurat_clusters', ncol = 1)
+# these cells might be grouping by - how much MT and number of Features
+# clusters 4,5,6 have more features
+
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'RNA_snn_res.0.25', ncol = 1)
+# here cluster 3 has higher expression, cluster 1 and 4 have similar Features RNA
+# cluster 0 has higher percent MT levels
+
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'RNA_snn_res.0.5', ncol = 1)
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'RNA_snn_res.0.2', ncol = 1)
+# now only cluster 0 have high MT and low features, clusters 1,2,3 have simiular RNA and Counts
+
+```
+
+Find the cluster markers for Neurons1
+
+```{r}
+Idents(seu) <- 'RNA_snn_res.0.2'
+ClusterMarkers <- FindAllMarkers(seu)
+
+top5 <- ClusterMarkers %>% group_by(cluster) %>% top_n(n=5, wt = avg_log2FC)
+DoHeatmap(seu, features = top5$gene, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.2')
+
+
+#write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/ClusterMarkers_neurons1_res025.csv")
+
+
+write.csv(ClusterMarkers, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/ClusterMarkers_neurons1_res02.csv")
+
+```
+
+```{r}
+DimPlot(seu, group.by = 'RNA_snn_res.0.2', reduction = 'umap')
+
+```
+
+
+Get the most highly expressed genes in the total data (Neurons1)
+
+
+```{r}
+
+par(mar = c(4, 8, 2, 1))
+C <- seu@assays$RNA@counts
+C <- Matrix::t(Matrix::t(C)/Matrix::colSums(C)) * 100
+most_expressed <- order(apply(C, 1, median), decreasing = T)[25:1]
+boxplot(as.matrix(t(C[most_expressed, ])), cex = 0.1, las = 1, xlab = "% total count per cell",
+    col = (scales::hue_pal())(25)[1:25], horizontal = TRUE)
+
+# like in the tutorial I'm following MALAT1 is the top most expressed gene.  The top genes are a lot of MT and Ribosomal genes
+
+seu[["percent.rb"]] <- PercentageFeatureSet(seu, pattern = "^RP")
+
+VlnPlot(seu, features = "percent.rb", group.by = "RNA_snn_res.0.2")
+
+
+
+```
+
+Filters out specific genes
+
+```{r}
+
+seu.ft <- seu[!grepl("MALAT1", rownames(seu)), ]
+seu.ft <- seu.ft[!grepl("^MT-", rownames(seu.ft)), ]
+
+# this filtered object might cluster differently
+# for now I'm going to move on to doublet detection
+
+
+```
+
+
+
+Try to find doublets with doublet finder
+
+```{r}
+remotes::install_github('chris-mcginnis-ucsf/DoubletFinder')
+suppressMessages(require(DoubletFinder))
+
+
+```
+
+```{r}
+
+seu.d = FindVariableFeatures(seu, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.06)  # expect 6% doublets
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+
+
+
+cowplot::plot_grid(ncol = 2, DimPlot(seu.d, group.by = "orig.ident") + NoAxes(),
+    DimPlot(seu.d, group.by = DF.name) + NoAxes())
+
+
+```
+
+Do the double cells have more genes than the singlet??
+
+```{r}
+
+VlnPlot(seu.d, features = "nFeature_RNA", group.by = DF.name, pt.size = 0.1)
+
+
+```
+
+# remove the doublets
+
+```{r}
+
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+dim(seu)
+
+# removed about 100 cells
+
+
+
+
+```
+
+
+Save the filtered, doublet removed Neurons object 
+Re-run PCA for clustering 
+
+```{r}
+
+saveRDS(seu.d, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/NeuronsFilteredSeu28092022.RDS")
+
+```
+
+
+DAsubgroups data has not be re-processed
+Run standard workflow chunk
+
+```{r}
+
+#seu <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/Macosko_Data/PD_da.Rds")
+#seu <- AIW60
+seu <- NormalizeData(seu, normalization.method = "LogNormalize", scale.factor = 10000)
+seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2000)
+seu <- ScaleData(seu)
+seu <- RunPCA(seu)
+seu <- RunUMAP(seu, reduction = "pca", n.neighbors = 159, dims = 1:30)
+DimPlot(seu, reduction = "umap")
+
+#saveRDS(seu, "/Users/rhalenathomas/Documents/Data/scRNAseq/Macosko_Data/DAsubgroups_processed.Rds")
+
+#note my AIW 60 days data also didn't have the PCA saved 
+# ran code chunck with n.neighbors = 123 
+# saveRDS(seu, "/Users/rhalenathomas/Documents/Data/scRNAseq/AIWtrio60days/AWI002ParkinKOPinkKO60days_labels_14052022.rds")
+
+
+```
+
+
+Look at the DA data from Kamath
+
+```{r}
+DAsubtypes <- RunUMAP(DAsubtypes, reduction = "pca", n.neighbors = 159, dims = 1:30, min.dist = 0.25, spread = 2)
+
+DimPlot(DAsubtypes)
+VlnPlot(DAsubtypes, features = c("nFeature_RNA","nCount_RNA"))
+# there is very high RNA features and counts
+
+
+
+```
+
+
+Annotate clusters
+Use: Organoid data, public brain data (LaManno, Lake, Mascako)
+
+
+```{r}
+
+# this is some reference data
+
+# SNCA and control midbrain organoids 165 days in culture
+MBO <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/AST23_BrainComm/MBOclusters_names29072021.rds")
+
+# Midbrain  AIW002 120 days in culture
+AIWMBO <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/AIWtrio120days/MOintegratedClusterK123res0.8.names_nov16_2021")
+
+# Midbrain AIW002 60 days in culture
+
+AIW60 <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/AIWtrio60days/AWI002ParkinKOPinkKO60days_labels_14052022.rds")
+
+# DA neuron subtypes from postmortem brain Kamath et al 2022
+DAsubtypes <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/Macosko_Data/DAsubgroups_processed.Rds")
+
+
+# query
+seu.q <- readRDS("/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/NeuronsFilteredSeu28092022.RDS")
+
+
+#first predict with the MBO data
+Idents(MBO) <- "cluster_labels"
+DefaultAssay(MBO) <- "RNA"
+
+# find the reference anchors
+print("finding reference anchors")
+anchors <- FindTransferAnchors(reference = MBO ,query = seu.q, dims = 1:25)
+print("getting predictions")
+predictions <- TransferData(anchorset = anchors, refdata = MBO$cluster_labels)
+seu.q <- AddMetaData(seu.q, metadata = predictions)
+print(table(seu.q$predicted.id))
+
+Idents(seu.q) <- 'predicted.id'
+# add new dataslot for MBO predicted ID to make the next prediction
+seu.q$MBOAST23.pred <- Idents(seu.q)
+DimPlot(seu.q, group.by = 'MBOAST23.pred', label = TRUE)
+ 
+## check the proportion of cell types predicted in each cluster
+t.lables <- as.data.frame(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id))
+pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id)))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+
+# try bar chart
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")
+
+# clusters don't break up by the predicted cell types
+
+############ another predictions now using the AIW organoids
+
+Idents(AIWMBO) <- "res08names"
+DefaultAssay(AIWMBO) <- "RNA"
+
+anchors <- FindTransferAnchors(reference = AIWMBO ,query = seu.q, dims = 1:25)
+print("getting predictions")
+predictions <- TransferData(anchorset = anchors, refdata = AIWMBO$res08names)
+seu.q <- AddMetaData(seu.q, metadata = predictions)
+print(table(seu.q$predicted.id))
+
+Idents(seu.q) <- 'predicted.id'
+# add new dataslot for MBO predicted ID to make the next prediction
+seu.q$MBOAIW.pred <- Idents(seu.q)
+DimPlot(seu.q, group.by = 'MBOAIW.pred', label = TRUE)
+ 
+## check the proportion of cell types predicted in each cluster
+t.lables <- as.data.frame(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id))
+pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id)))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+
+# try bar chart
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")
+
+# the predicted cell types make more sense from the AIW002 organoid
+# now predict with the AIW002 60 days organoid
+
+Idents(AIW60) <- "cluster.ids"
+DefaultAssay(AIW60) <- "RNA"
+
+anchors <- FindTransferAnchors(reference = AIW60, query = seu.q, dims = 1:25)
+print("getting predictions")
+predictions <- TransferData(anchorset = anchors, refdata = AIW60$cluster.ids) 
+seu.q <- AddMetaData(seu.q, metadata = predictions)
+print(table(seu.q$predicted.id))
+
+Idents(seu.q) <- 'predicted.id'
+# add new dataslot for MBO predicted ID to make the next prediction
+seu.q$AIW60.pred <- Idents(seu.q)
+DimPlot(seu.q, group.by = 'AIW60.pred', label = TRUE)
+ 
+## check the proportion of cell types predicted in each cluster
+t.lables <- as.data.frame(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id))
+pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id)))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+
+# try bar chart
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity")
+
+# save ojbect with predicitons
+saveRDS(seu.q, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/NeuronsFilteredSeu28092022.RDS")
+
+
+
+```
+
+```{r}
+# compare the three predictions
+#AST23 vs AIW60
+t.lables <- as.data.frame(table(seu.q$MBOAST23.pred, seu.q$AIW60.pred))
+pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id)))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+# try bar chart
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + RotatedAxis()
+
+#AST23 vs AIW120
+t.lables <- as.data.frame(table(seu.q$MBOAST23.pred, seu.q$MBOAIW.pred))
+pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id)))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+# try bar chart
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + RotatedAxis()
+
+
+# AIW60 vs AIW120
+t.lables <- as.data.frame(table(seu.q$AIW60.pred, seu.q$MBOAIW.pred))
+pr.t.lables <- as.data.frame(prop.table(table(seu.q$RNA_snn_res.0.2, seu.q$predicted.id)))
+t.lables$Freq <- as.double(t.lables$Freq)
+
+# try bar chart
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + RotatedAxis()
+
+
+```
+
+See how each looks on UMAP
+
+```{r}
+
+DimPlot(seu.q, group.by = 'RNA_snn_res.1.2')
+DimPlot(seu.q, group.by = 'RNA_snn_res.0.2')
+DimPlot(seu.q, group.by = 'AIW60.pred')
+DimPlot(seu.q, group.by = 'MBOAIW.pred')
+DimPlot(seu.q, group.by = 'MBOAST23.pred')
+
+
+```
+
+```{r}
+
+# redo clusters
+seu.q <- NormalizeData(seu.q, normalization.method = "LogNormalize", scale.factor = 10000)
+seu.q <- FindVariableFeatures(seu.q, selection.method = "vst", nfeatures = 2000)
+seu.q <- ScaleData(seu.q)
+seu.q <- RunPCA(seu.q)
+seu.q <- RunUMAP(seu.q, reduction = "pca", n.neighbors = 25, dims = 1:30, min.dist = 0.25, spread = 2)
+DimPlot(seu.q, reduction = "umap", group.by = 'MBOAIW.pred')
+
+
+
+
+
+```
+
+
+Redo find clusters
+
+```{r}
+
+seu.q <- FindNeighbors(seu.q, dims = 1:25, k.param = 43)
+seu.q <- FindClusters(seu.q, resolution = c(0,0.2,0.4,0.6))
+seu.q <- FindClusters(seu.q, resolution = c(1.2))
+
+library(clustree)
+clustree(seu.q, prefix = "RNA_snn_res.")
+DimPlot(seu.q)
+```
+
+Look at the predictions in the new clusters
+
+```{r}
+# AIW002 160 days predictions
+t.lables <- as.data.frame(table(seu.q$RNA_snn_res.0.6, seu.q$MBOAIW.pred))
+t.lables$Freq <- as.double(t.lables$Freq)
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + RotatedAxis() 
+top.pred.celltype.AIW120 <- as.data.frame(t.lables  %>% group_by(Var1)  %>% top_n(1, Freq))
+
+# AIW002 160 days predictions
+t.lables <- as.data.frame(table(seu.q$RNA_snn_res.0.6, seu.q$AIW60.pred))
+t.lables$Freq <- as.double(t.lables$Freq)
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + RotatedAxis() 
+top.pred.celltype.AIW60 <-as.data.frame(t.lables  %>% group_by(Var1)  %>% top_n(1, Freq))
+
+# AST23 65 days predictions
+t.lables <- as.data.frame(table(seu.q$RNA_snn_res.0.6, seu.q$MBOAST23.pred))
+t.lables$Freq <- as.double(t.lables$Freq)
+ggplot(t.lables, aes(y = Freq, x = Var1, fill = Var2)) + geom_bar(position = "stack", stat= "identity") + RotatedAxis() 
+top.pred.celltype.AST23 <- as.data.frame(t.lables  %>% group_by(Var1)  %>% top_n(1, Freq))
+
+
+pred.table <- merge(top.pred.celltype.AIW120,top.pred.celltype.AIW60, by = 'Var1')
+pred.table <- merge(pred.table, top.pred.celltype.AST23, by = 'Var1')
+pred.table
+
+```
+
+Based on the 3 different predictions I can lable the cell types
+
+0 - NPC or early neurons
+1 - immature excitatory neurons
+2 - NPC or early neurons
+3 - RG or Oligos
+4- Dopaminergic neurons - possibly early
+5 - NPC or early neurons
+6 - Radial GLia
+
+I will also find markers and look at a list of neuronal markers
+
+```{r}
+
+Idents(seu.q) <- 'RNA_snn_res.0.6'
+ClusterMarkers <- FindAllMarkers(seu.q, only.pos = TRUE)
+
+top5 <- ClusterMarkers %>% group_by(cluster) %>% top_n(n=5, wt = avg_log2FC)
+DoHeatmap(seu.q, features = top5$gene, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.6')
+
+write.csv(ClusterMarkers,"/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/Neurons1ClusterMarkers7.csv")
+
+
+```
+
+Explore some Gene expression levels
+
+```{r}
+feature_list = c("MKI67","SOX2","POU5F1","DLX2","PAX6","SOX9","HES1","NES","RBFOX3","MAP2","NCAM1","CD24","GRIA2","GRIN2B","GABBR1","GAD1","GAD2","GABRA1","GABRB2","TH","ALDH1A1","LMX1B","NR4A2","CORIN","CALB1","KCNJ6","CXCR4","ITGA6","SLC1A3","CD44","AQP4","S100B", "PDGFRA","OLIG2","MBP","CLDN11","VIM","VCAM1")
+
+DoHeatmap(seu.q, features = feature_list, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.6')
+DotPlot(seu.q, features = feature_list) +RotatedAxis()
+
+PD_poulin = c("TH","SLC6A3","SLC18A2","SOX6","NDNF","SNCG","ALDH1A1","CALB1","TACR2","SLC17A6","SLC32A1","OTX2","GRP","LPL","CCK","VIP")
+
+DoHeatmap(seu.q, features = PD_poulin, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.6')
+DotPlot(seu.q, features = PD_poulin)+RotatedAxis()
+
+ealryNeur = c("DCX","NEUROD1","TBR1")
+proliferation = c("PCNA","MKI67")
+neuralstem = c("SOX2","NES","PAX6","MASH1")
+
+feature_list <- c("DCX","NEUROD1","TBR1","PCNA","MKI67","SOX2","NES","PAX6","MASH1")
+DoHeatmap(seu.q, features = feature_list, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.6')
+DotPlot(seu.q, features = feature_list)+RotatedAxis()
+# no proliferation marker expression  PCNA or MKI67
+# cluster 4 DA neurons - shows early neuron marker and low PAX 4
+# cluster 3 has higher SOX2 - neuroblast marker / NPC marker
+
+mat_neuron = c("RBFOX3","SYP","DLG45","VAMP1","VAMP2","TUBB3","SYT1","BSN","HOMER1","SLC17A6") 
+# NeuN is FOX3 - RBFOX3
+# PSD95 also SP-90 or DLG4
+# VGLUT2 is SLC17A6
+DoHeatmap(seu.q, features = mat_neuron, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.6')
+# cluster 4 also show mature neuron markers
+DotPlot(seu.q, features = mat_neuron)+RotatedAxis()
+# excitatory neuron markers
+ex = c("GRIA2","GRIA1","GRIA4","GRIN1","GRIN2B","GRIN2A","GRIN3A","GRIN3","GRIP1","CAMK2A")
+DoHeatmap(seu.q, features = ex, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.6')
+DotPlot(seu.q, features = ex)+RotatedAxis()
+# inhibitory neuron markers
+inh = c("GAD1","GAD2", "GAT1","PVALB","GABR2","GABR1","GBRR1","GABRB2","GABRB1","GABRB3","GABRA6","GABRA1","GABRA4","TRAK2")
+DoHeatmap(seu.q, features = inh, size=3, angle =90, group.bar.height = 0.02, group.by = 'RNA_snn_res.0.6')
+DotPlot(seu.q, features = inh)+RotatedAxis()
+# cluster 4 is more excitatory than inhbitory but neither marker set has much expression 
+
+
+
+```
+
+
+Checkout the Enricher cell type libraries from 
+
+```{r}
+# test markers for the 7 clusters in Neurons1 
+
+library(devtools)
+install_github("wjawaid/enrichR")
+library(enrichR)
+
+
+setEnrichrSite("Enrichr") # Human genes
+# list of all the databases
+
+dbs <- listEnrichrDbs()
+dbs
+# libaries with cell types
+
+db <- c('Allen_Brain_Atlas_up','Descartes_Cell_Types_and_Tissue_2021',
+        'CellMarker_Augmented_2021','Azimuth_Cell_Types_2021')
+
+# enrichr(genes, databases = NULL)
+
+N1.c0 <- ClusterMarkers %>% filter(cluster == 0 & avg_log2FC > 0)
+genes <- N1.c0$gene
+
+N1.c0.Er <- enrichr(genes, databases = db)
+plotEnrich(N1.c0.Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c0.Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c0.Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+N1.Er.genes.1 <- N1.c0.Er[[1]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.1
+
+N1.Er.genes.2 <- N1.c0.Er[[2]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.2
+
+N1.Er.genes.3 <- N1.c0.Er[[3]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.3
+
+# cluster 0 could be hypothalmus, DA neurons A13
+
+N1.c1 <- ClusterMarkers %>% filter(cluster == 1 & avg_log2FC > 0)
+genes <- N1.c1$gene
+
+N1.c1.Er <- enrichr(genes, databases = db)
+plotEnrich(N1.c1.Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c1.Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c1.Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c1.Er[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+N1.Er.genes.1 <- N1.c1.Er[[1]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.1
+
+N1.Er.genes.2 <- N1.c1.Er[[2]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.2
+
+N1.Er.genes.3 <- N1.c1.Er[[3]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.3
+
+N1.Er.genes.4 <- N1.c1.Er[[4]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.4
+
+# cluster 1; olfactory bulb, neural plate, maybe Radial Glia, 
+N1.c2 <- ClusterMarkers %>% filter(cluster == 2 & avg_log2FC > 0)
+genes <- N1.c2$gene
+
+N1.c2.Er <- enrichr(genes, databases = db)
+plotEnrich(N1.c2.Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c2.Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c2.Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c2.Er[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+N1.Er.genes.1 <- N1.c2.Er[[1]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.1
+
+N1.Er.genes.2 <- N1.c2.Er[[2]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.2
+
+N1.Er.genes.3 <- N1.c2.Er[[3]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.3
+
+N1.Er.genes.4 <- N1.c2.Er[[4]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.4
+
+# cluster 2 some brain nucleus, neural stem
+
+N1.c3 <- ClusterMarkers %>% filter(cluster == 3 & avg_log2FC > 0)
+genes <- N1.c3$gene
+
+N1.c3.Er <- enrichr(genes, databases = db)
+plotEnrich(N1.c3.Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c3.Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c3.Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c3.Er[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+N1.Er.genes.1 <- N1.c3.Er[[1]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.1
+
+N1.Er.genes.2 <- N1.c3.Er[[2]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.2
+
+N1.Er.genes.3 <- N1.c3.Er[[3]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.3
+
+N1.Er.genes.4 <- N1.c3.Er[[4]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.4
+
+# cluster 3 stromal cell of thymus, embryonic astrocytes, OPC, NK cells, monocytes
+
+N1.c4 <- ClusterMarkers %>% filter(cluster == 4 & avg_log2FC > 0)
+genes <- N1.c4$gene
+
+N1.c4.Er <- enrichr(genes, databases = db)
+plotEnrich(N1.c4.Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c4.Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c4.Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c4.Er[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+N1.Er.genes.1 <- N1.c4.Er[[1]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.1
+
+N1.Er.genes.2 <- N1.c4.Er[[2]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.2
+
+N1.Er.genes.3 <- N1.c4.Er[[3]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.3
+
+N1.Er.genes.4 <- N1.c4.Er[[4]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.4
+
+# Dentate gyrus - different cortical layers, neurons, neurons, NPC, neurons GABA,GLUT
+
+N1.c5 <- ClusterMarkers %>% filter(cluster == 5 & avg_log2FC > 0)
+genes <- N1.c5$gene
+
+N1.c5.Er <- enrichr(genes, databases = db)
+plotEnrich(N1.c5.Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c5.Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c5.Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c5.Er[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+N1.Er.genes.1 <- N1.c5.Er[[1]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.1
+
+N1.Er.genes.2 <- N1.c5.Er[[2]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.2
+
+N1.Er.genes.3 <- N1.c5.Er[[3]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.3
+
+N1.Er.genes.4 <- N1.c5.Er[[4]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.4
+
+# cluster 5 hippocampus, endothelial cells, pericytes
+
+N1.c6 <- ClusterMarkers %>% filter(cluster == 6 & avg_log2FC > 0)
+genes <- N1.c6$gene
+
+N1.c6.Er <- enrichr(genes, databases = db)
+plotEnrich(N1.c6.Er[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c6.Er[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c6.Er[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+plotEnrich(N1.c6.Er[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+N1.Er.genes.1 <- N1.c6.Er[[1]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.1
+
+N1.Er.genes.2 <- N1.c6.Er[[2]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.2
+
+N1.Er.genes.3 <- N1.c6.Er[[3]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.3
+
+N1.Er.genes.4 <- N1.c6.Er[[4]] %>% select(Term, Genes, Combined.Score)
+N1.Er.genes.4
+
+# cluster 6 brain cortex, shwann cell, endothelial, pericyte, GABA
+
+
+```
+
+Library of tissue cell types for up regulated genes per cluster
+0 - hypothalmus, DA A13
+1- neural plate, Radial Glia
+2 - Neural stem
+3 - stromal, astro OPC
+4 - Neurons
+5 - endothelial, pericyte
+6 - maybe neurons maybe not
+
+
+By the combined information - annotate the clusters in Neurons1
+
+```{r}
+#Based on the 3 different predictions I can lable the cell types
+
+#0 - NPC or early neurons
+#1 - immature excitatory neurons
+#2 - NPC or early neurons
+#3 - RG or Oligos
+#4- Dopaminergic neurons - possibly early
+#5 - NPC or early neurons
+#6 - Radial Glia
+
+Idents(seu.q) <- 'RNA_snn_res.0.6'
+cluster.ids <- c("ImmatureNeurons","Neurons","NPC","OPC-RG","DAneurons",
+                 "Other","RG")
+unique(seu.q$RNA_snn_res.0.6)
+
+names(cluster.ids) <- levels(seu.q)
+seu.q <- RenameIdents(seu.q, cluster.ids)
+seu.q$subgroups <- Idents(seu.q)
+
+DimPlot(seu.q, reduction = "umap", label = TRUE, group.by = 'subgroups', repel = TRUE)
+
+
+saveRDS(seu.q, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/Neuron1LabledSeu30092022.RDS")
+
+```
+
+
+### Next Repeat everything for Neurons2
+
+```{r}
+# explore filtering
+seu <- Neurons2
+seu
+VlnPlot(seu, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+VlnPlot(seu, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 2000)
+VlnPlot(seu, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 350)
+VlnPlot(seu, pt.size = 0.10, features = c("nCount_RNA"), y.max = 2000)
+
+# filter more cells
+
+seu.ft <- subset(seu, subset = nFeature_RNA > 250 & nCount_RNA > 250 & nCount_RNA < 10000) 
+seu.ft
+
+# 17604 samples with 250 nFeature_RNA
+
+
+
+```
+
+
+Doublet finder 
+
+```{r}
+suppressMessages(require(DoubletFinder))
+
+# filtering out MALAT1 and mitochondrial genes
+
+seu.ft <- seu.ft[!grepl("MALAT1", rownames(seu)), ]
+seu.ft <- seu.ft[!grepl("^MT-", rownames(seu.ft)), ]
+
+par(mar = c(4, 8, 2, 1))
+C <- seu@assays$RNA@counts
+C <- Matrix::t(Matrix::t(C)/Matrix::colSums(C)) * 100
+most_expressed <- order(apply(C, 1, median), decreasing = T)[25:1]
+boxplot(as.matrix(t(C[most_expressed, ])), cex = 0.1, las = 1, xlab = "% total count per cell",
+    col = (scales::hue_pal())(25)[1:25], horizontal = TRUE)
+
+# like in the tutorial I'm following MALAT1 is the top most expressed gene.  The top genes are a lot of MT and Ribosomal genes
+
+seu.ft[["percent.rb"]] <- PercentageFeatureSet(seu.ft, pattern = "^RP")
+
+
+
+seu.d = NormalizeData(seu.ft)
+seu.d = FindVariableFeatures(seu, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.20)  # expect more doublets because there is a lot more cells
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+
+
+
+cowplot::plot_grid(ncol = 2, DimPlot(seu.d, group.by = "orig.ident") + NoAxes(),
+    DimPlot(seu.d, group.by = DF.name) + NoAxes())
+
+VlnPlot(seu.d, features = "nFeature_RNA", group.by = DF.name, pt.size = 0.1)
+
+
+```
+
+
+
+

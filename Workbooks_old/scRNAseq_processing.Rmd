@@ -1,0 +1,193 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Process each sorted sample
+
+```{r}
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+
+Neurons1 <- readRDS(paste(pathway,"seu2.rds",sep = ""))
+Neurons2 <- readRDS(paste(pathway,"seu1.rds",sep = ""))
+Glia1 <- readRDS(paste(pathway,"seu3.rds",sep = ""))
+Glia2 <- readRDS(paste(pathway,"seu4.rds",sep = ""))
+
+Neurons1
+Neurons2
+Glia1   #-Astrocytes
+Glia2   #-Radial Glia
+
+
+```
+
+Check QC
+
+```{r}
+library(Seurat)
+
+
+```
+
+
+
+Filter
+
+```{r}
+
+
+Neuron1.ft <- subset(Neurons1, subset = nFeature_RNA > 300 & nCount_RNA > 500 & nCount_RNA < 10000) 
+Neuron1.ft
+
+Glia1.ft <- subset(Glia1, subset = nFeature_RNA > 500 & nCount_RNA > 500 & nCount_RNA < 10000) 
+Glia1.ft
+
+Glia2.ft <- subset(Glia2, subset = nFeature_RNA > 300 & nCount_RNA > 500 & nCount_RNA < 10000) 
+Glia2.ft
+
+Neuron2.ft <- subset(Neurons2, subset = nFeature_RNA > 250 & nCount_RNA > 250 & nCount_RNA < 10000) 
+Neuron2.ft
+
+
+```
+
+Remove doublets from each Sorted population
+
+```{r}
+suppressMessages(require(DoubletFinder))
+
+```
+
+
+
+
+```{r}
+# Neurons2
+seu.d <- Neuron2.ft
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+# ~ 1800 cells 
+nExp <- round(ncol(seu.d) * 0.013)  # expect 0.8% doublets
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+Neurons2 <- seu.d
+
+
+```
+
+```{r}
+# Neurons1
+seu.d <- Neuron1.ft
+
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.073)  # expect 7.3% doublets for 9600 cells
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+Neurons1 <- seu.d
+
+```
+
+Astrocytes has too many cells Demultiplex with hashtags
+
+```{r}
+
+DefaultAssay(Glia1.ft) <- 'HTO'
+ht <- HTODemux(Glia1.ft, positive.quantile = 0.98)
+table(ht$HTO_classification.global)
+table(ht$HTO_classification)
+table(ht$hash.ID)
+RidgePlot(ht, assay = "HTO", group.by = "HTO_maxID", features = rownames(ht[["HTO"]]), log = TRUE)
+# perhaps I put the wrong hashtags in the compute canada pipeline
+
+VlnPlot(ht, assay = "RNA", group.by = 'hash.ID', features = "nFeature_RNA")
+
+# will rerun the Cell Ranger pipeline with all the hashtags and demultiplex with more options later
+#
+Idents(ht) <- 'hash.ID'
+glia1.temp <- subset(ht, downsample = 4700)
+
+table(glia1.temp$hash.ID)
+glia1.temp <- subset(glia1.temp, idents = c("B0252-TotalSeqB","Negative","B0251-TotalSeqB"))
+dim(glia1.temp)
+
+
+```
+
+
+
+In this case some doublets will already be removed
+
+```{r}
+# Glia 1 astrocytes 
+# with hashtags above there should be 3 samples but only 2 are recognized - go back and fix the error
+DefaultAssay(glia1.temp) <- "RNA"
+seu.d <- glia1.temp
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.086)  # expect 8.6% doublets input of 13000 cells
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+Astrocytes <- seu.d
+
+```
+
+Glia2 - Radial Glia, low CD44 in the FACS sort.
+
+```{r}
+
+seu.d <- Glia2.ft
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.039)  # expect 6% doublets 5000 cells 
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+RadialGlia <- seu.d
+
+```
+
+

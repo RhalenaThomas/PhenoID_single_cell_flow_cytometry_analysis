@@ -1,0 +1,760 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Create Merge Object
+Cluster and make UMAPS
+Calculate proportions
+Label main cell groups
+Label cell subtypes 
+
+
+```{r}
+
+library(Seurat)
+library(dplyr)
+library('reshape')
+library("ggplot2")
+
+
+```
+
+
+Read in the processed data object with merged 4 populations
+
+```{r}
+
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+
+seu.L <- readRDS(paste(pathway, "Merge4PopsLabels.RDS", sep = ""))
+
+
+
+```
+
+Check CD24 - fix sample name mix up
+
+```{r}
+
+FeaturePlot(seu.L, features = "CD24", split.by = 'orig.ident')
+
+# rename
+Idents(seu.L) <- 'orig.ident'
+cluster.ids <- c("Neurons2", "Neurons1", "Astrocytes","RadialGlia"
+                 )
+
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$orig.ident <- Idents(seu.L)
+
+FeaturePlot(seu.L, features = "CD24", split.by = 'orig.ident')
+DimPlot(seu.L)
+
+### not the mix up is fixed
+
+
+```
+
+
+Now remove all the predictions and unnecessary clustering
+
+
+First get a vector of the metadata
+
+```{r}
+
+meta.v <- colnames(seu.L@meta.data)
+length(meta.v)  # is 374
+# starting data
+print("start")
+meta.v[1:10]
+# I'll want to keep many items
+# keep 1-6
+
+# end data
+print("end")
+meta.v[370:374]
+
+meta.to.remove <- meta.v[7:374]
+# need to keep cell types 101 - or put it back
+# 363 has more labels 
+
+# make a new clean object and add back the CellTypes 
+seu <- seu.L
+
+meta.to.remove <- meta.v[7:362]
+meta.to.remove
+
+```
+
+
+
+```{r}
+# remove all the extra metadata
+
+for(i in meta.to.remove) {
+  seu.L[[i]] <- NULL
+}
+
+# still some extra metadata
+
+meta.v2 <- colnames(seu.L@meta.data)
+meta.v2
+
+meta.to.remove <- meta.v2[7:12]
+
+for(i in meta.to.remove) {
+  seu.L[[i]] <- NULL
+}
+
+meta.v3 <- colnames(seu.L@meta.data)
+
+meta.to.remove <- meta.v3[7:10]
+
+for(i in meta.to.remove) {
+  seu.L[[i]] <- NULL
+}
+
+DimPlot(seu.L, group.by = 'Levels')
+
+
+seu.L <- AddMetaData(seu.L, seu$Cell_Types, col.name = "Cell_Types")
+
+DimPlot(seu.L, group.by = 'Cell_Types')
+
+
+# save cleaned up object
+
+saveRDS(seu.L, paste(pathway, "Merge4popCleanLabels.RDS", sep = ""))
+
+DimPlot(seu.L, group.by = 'Level3', label = TRUE)
+
+
+```
+
+
+Add the subtype labels
+
+
+
+```{r}
+# First rename cell subgroup cluster lables
+Idents(seu.L) <- 'Level3'
+
+cluster.ids <- c("Astro1","Neurons1","RG1","Astro2","Neurons2",
+                 "Astro3","Astro4","Neurons3","RG2","Neurons4",
+                 "Astro5","Neurons5","RG3","DANeurons1","Neurons6",
+                 "Mix","RG4","NPC","Neurons7","DANeurons2",
+                 "DANeurons3","RG5","RG6","RG7","RG8"
+                 )
+
+# note Neurons8-inh-max is now Neurons 7
+# Endothelial NPC is now NPC
+# RG6-epi is nw RG6
+# RG-OPC is now RG8
+
+# change 'Levels' to 'Level1' main cell types
+# keep these as 'Level2'
+# later remove 'Level3' - same level just different labels
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$Level2 <- Idents(seu.L)
+
+DimPlot(seu.L, group.by = 'Level2')
+
+```
+
+Now look at the previous workbook to make the subgroup labels
+
+1. Astrocytes: after FindAllMarkers groups were overlapping in markers.  Confirmed with direct marker comparisons, no clear distinction exists.
+Merge: Astro1 and Astro2 
+Merge: Astro 3 and Astro 4
+Astro5 remains distinct.
+
+
+```{r}
+
+Idents(seu.L) <- 'Level2'
+
+cluster.ids <- c("Astrocytes1","Neurons1","RG1","Astrocytes1","Neurons2",
+                 "Astrocytes2","Astrocytes2","Neurons3","RG2","Neurons4",
+                 "Astrocytes3","Neurons5","RG3","DANeurons1","Neurons6",
+                 "Mix","RG4","NPC","Neurons7","DANeurons2",
+                 "DANeurons3","RG5","RG6","RG7","RG8"
+                 )
+
+# merge some astrocyte groups
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$Cell_Subtypes <- Idents(seu.L)
+
+DimPlot(seu.L, group.by = 'Cell_Subtypes')
+
+
+
+
+
+```
+
+Now look at the astrocyte subgroup group markers
+
+```{r}
+
+# Astro1 HPD
+# Astro2 COL3A1
+# Astro3 DCN
+
+FeaturePlot(seu.L, features = c("HPD","COL3A1","DCN"))
+FeaturePlot(seu.L, features = "DCN", split.by = 'Levels')
+FeaturePlot(seu.L, features = "HPD", split.by = 'Levels')
+FeaturePlot(seu.L, features = "COL3A1", split.by = 'Levels')
+
+Idents(seu.L) <- 'Cell_Subtypes'
+sub.astro <- subset(seu.L, idents = c("Astrocytes1","Astrocytes2","Astrocytes3"))
+FeaturePlot(sub.astro, features = "DCN", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.astro, features = "HPD", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.astro, features = "COL3A1", split.by = 'Cell_Subtypes')
+
+# these markers are okay but not ideal - more of an enrichment
+
+DotPlot(sub.astro, features = c("HPD","COL3A1","DCN"), group.by = 'Cell_Subtypes') + RotatedAxis()
+DotPlot(seu.L, features = c("HPD","COL3A1","DCN"), group.by = 'Cell_Subtypes') + RotatedAxis()
+
+
+```
+
+Double check for other markers
+
+```{r}
+Idents(sub.astro) <- 'Cell_Subtypes'
+astro.markers <- FindAllMarkers(sub.astro, logfc.threshold = 0.5, only.pos = TRUE, test.use = "MAST")
+
+```
+
+Plot possible markers
+
+```{r}
+
+genes <- (astro.markers %>% filter(cluster == "Astrocytes1"))$gene
+
+DotPlot(sub.astro, features = genes) +RotatedAxis()
+DimPlot(sub.astro)
+FeaturePlot(sub.astro, features = genes)
+
+# HPD is best
+
+genes <- (astro.markers %>% filter(cluster == "Astrocytes2" & avg_log2FC > 1))$gene
+length(genes)
+
+DotPlot(sub.astro, features = genes) +RotatedAxis()
+DotPlot(seu.L, features = genes, group.by = 'Cell_Subtypes') +RotatedAxis()
+DimPlot(sub.astro)
+FeaturePlot(sub.astro, features = genes)
+
+# RG8 is super high in all the Astro2 markers
+
+genes <- (astro.markers %>% filter(cluster == "Astrocytes3" & avg_log2FC > 1))$gene
+length(genes)
+
+DotPlot(sub.astro, features = genes) +RotatedAxis()
+DotPlot(seu.L, features = genes, group.by = 'Cell_Subtypes') +RotatedAxis()
+DimPlot(sub.astro)
+FeaturePlot(sub.astro, features = genes)
+# by feature plot FABP5 and IFITM3 seem better markers for Astro3
+# Ill switch to FABP5 
+
+```
+
+Label with the subtype markers
+
+```{r}
+Idents(seu.L) <- 'Level3'
+
+cluster.ids <- c("Astrocytes-HPD","Neurons1","RG1","Astrocytes-HPD","Neurons2",
+                 "Astrocytes-COL3A1","Astrocytes-COL3A1","Neurons3","RG2","Neurons4",
+                 "Astrocytes-FABP5","Neurons5","RG3","DANeurons1","Neurons6",
+                 "Mix","RG4","NPC","Neurons7","DANeurons2",
+                 "DANeurons3","RG5","RG6","RG7","RG8"
+                 )
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$Cell_Subtype_Markers <- Idents(seu.L)
+
+DimPlot(seu.L, group.by = 'Cell_Subtype_Markers')
+
+```
+
+Check neuron subgroup markers and annotate
+
+```{r}
+
+# subtype markers
+# DA1,DA2,DA2,N1,N2,N3,N4,N5,N6,N7
+
+n.markers <- c("RAB3B","TPBG","TTR","ASCL1","SPARCL1","GRIN2A","NEAT1","ID1","GRIA2","OTX2")
+
+FeaturePlot(seu.L, features = n.markers )
+DotPlot(seu.L, features = n.markers) + RotatedAxis()
+
+
+Idents(seu.L) <- 'Cell_Subtypes'
+sub.neur <- subset(seu.L, idents = c("DANeurons1","DANeurons2","DANeurons3",
+                                     "Neurons1","Neurons2","Neurons3",
+                                     "Neurons4","Neurons5","Neurons6","Neurons7"))
+DotPlot(sub.neur, features = n.markers) + RotatedAxis()
+FeaturePlot(sub.neur, features = n.markers )
+DimPlot(sub.neur)
+
+# seems DA neurons3 would be better marked by OTX2 more cells express - no not really
+# doesn't seem a good marker of neurons 7 either
+# DA neurons 2 would be better marked by ASCL1
+# might find a better marker of neurons 1
+
+
+FeaturePlot(sub.neur, features = "OTX2", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.neur, features = "ASCL1", split.by = 'Cell_Subtypes') # not a good marker Neurons1
+FeaturePlot(sub.neur, features = "SPARCL1", split.by = 'Cell_Subtypes')
+
+# maybe having the DA and neurons together is throughing things off
+Idents(seu.L) <- 'Cell_Subtypes'
+sub.da <- subset(seu.L, idents = c("DANeurons1","DANeurons2","DANeurons3"))
+DotPlot(sub.da, features = n.markers) + RotatedAxis()
+FeaturePlot(sub.da, features = n.markers)
+DimPlot(sub.da)
+
+
+Idents(seu.L) <- 'Cell_Subtypes'
+sub.n <- subset(seu.L, idents = c("Neurons1","Neurons2","Neurons3",
+                                  "Neurons4","Neurons5","Neurons6","Neurons7"))
+DotPlot(sub.n, features = n.markers) + RotatedAxis()
+FeaturePlot(sub.n, features = n.markers )
+DimPlot(sub.n)
+
+
+```
+
+
+Repeat cluster markers
+
+```{r}
+
+neur.markers <- FindAllMarkers(sub.n, logfc.threshold = 0.5, only.pos = TRUE, test.use = "MAST")
+da.markers <- FindAllMarkers(sub.da, logfc.threshold = 0.5, only.pos = TRUE, test.use = "MAST")
+all.n.markers <- FindAllMarkers(sub.neur, logfc.threshold = 0.5, only.pos = TRUE, test.use = "MAST")
+
+```
+
+Look at the markers in all markers
+
+```{r}
+# neurons1
+genes.n1 <- (all.n.markers %>% filter(cluster == "Neurons1" & avg_log2FC > 0.8))$gene
+length(genes.n1)
+
+DotPlot(sub.neur, features = genes.n1) + RotatedAxis()
+DotPlot(sub.n, features = genes.n1) + RotatedAxis()
+FeaturePlot(sub.n, features = genes.n1)
+DimPlot(sub.n)
+
+FeaturePlot(sub.n, features = "KCNQ1OT1", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.n, features = "ASCL1", split.by = 'Cell_Subtypes')
+
+# neurons2
+genes.n2 <- (all.n.markers %>% filter(cluster == "Neurons2" & avg_log2FC > 0.8))$gene
+length(genes.n2)
+genes.n2 <- genes.n2[14:40]
+# select ones that look good
+genes.n2 <- genes.n2[1:4]
+
+DotPlot(sub.neur, features = genes.n2) + RotatedAxis()
+DotPlot(sub.n, features = genes.n2) + RotatedAxis()
+FeaturePlot(sub.n, features = genes.n2)
+DimPlot(sub.n)
+
+# neurons 3
+genes.n3 <- (all.n.markers %>% filter(cluster == "Neurons3" & avg_log2FC > 0.8 & pct.1 > 0.5))$gene
+length(genes.n3)
+
+
+DotPlot(sub.neur, features = genes.n3) + RotatedAxis()
+DotPlot(sub.n, features = genes.n3) + RotatedAxis()
+FeaturePlot(sub.n, features = genes.n3)
+DimPlot(sub.n)
+
+FeaturePlot(sub.n, features = "TFPI2", split.by = 'Cell_Subtypes')
+
+# neurons 4
+
+# like 2 a lot of MT genes
+genes.n4 <- (all.n.markers %>% filter(cluster == "Neurons4" & p_val_adj < 0.05 & avg_log2FC > 0.8))$gene
+length(genes.n4)
+genes.n4 <- genes.n4[7:20]
+
+# none of the marker for 4 look any good
+
+sub.n2 <- subset(sub.n, idents = c("Neurons2","Neurons4","Neurons6"))
+
+DimPlot(sub.n2)
+DotPlot(sub.n2, features = genes.n4) + RotatedAxis()
+DotPlot(sub.n, features = genes.n4) + RotatedAxis()
+FeaturePlot(sub.n, features = genes.n3)
+DimPlot(sub.n)
+
+# many markers are different between 2,4,6 but not as clear when all neurons are included
+# CP, IGFBP7, ZFP36L1 
+FeaturePlot(sub.n2, features = "CP", split.by = 'Cell_Subtypes') # good
+FeaturePlot(sub.n2, features = "IGFBP7", split.by = 'Cell_Subtypes')  # too much in N2
+FeaturePlot(sub.n2, features = "ZFP36L1", split.by = 'Cell_Subtypes')
+
+# neurons 5
+genes.n5 <- (all.n.markers %>% filter(cluster == "Neurons5" & p_val_adj < 0.5 
+                                      & avg_log2FC > 1))$gene
+length(genes.n5)
+# & pct.1 > 0.5
+
+DotPlot(sub.neur, features = genes.n5) + RotatedAxis()
+DotPlot(sub.n, features = genes.n5) + RotatedAxis()
+FeaturePlot(sub.n, features = genes.n5)
+DimPlot(sub.n)
+FeaturePlot(sub.n, features = "TPBG", split.by = 'Cell_Subtypes') # also in Neur1
+FeaturePlot(sub.n, features = "MGP", split.by = 'Cell_Subtypes') # pretty good
+# choose MGP
+
+# neurons 6
+genes.n6 <- (all.n.markers %>% filter(cluster == "Neurons6" & p_val_adj < 0.05 & avg_log2FC > 0.8))$gene
+length(genes.n6)
+genes.n6
+# top genes all MT 
+# none MT genes in top:
+genes.n6 <- c("GRIA2", "DCLK1","SYT1", "NRN1" )
+# all these markers are good to distinguish the 3 close cell types
+# GRIA1 is best to distinguish from all
+
+DimPlot(sub.n2)
+DotPlot(sub.n2, features = genes.n6) + RotatedAxis()
+DotPlot(sub.n, features = genes.n6) + RotatedAxis()
+FeaturePlot(sub.n2, features = genes.n6)
+FeaturePlot(sub.n2, features = genes.n6, split.by = "Cell_Subtypes")
+
+# neurons 7
+
+genes.n7 <- (all.n.markers %>% filter(cluster == "Neurons7" & p_val_adj < 0.5 
+                                      & avg_log2FC > 1))$gene
+length(genes.n7)
+genes.n7
+
+DotPlot(sub.neur, features = genes.n7) + RotatedAxis()
+DotPlot(sub.n, features = genes.n7) + RotatedAxis()
+FeaturePlot(sub.n, features = genes.n5)
+DimPlot(sub.n)
+
+# very overlapping with DAN3
+# all markers good verses the other the other neurons
+
+# STMN1 could be good but it also in Neurons1 and 6
+FeaturePlot(sub.n, features = "STMN1", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.n, features = genes.n7[1], split.by = 'Cell_Subtypes') # TPH1 best choice
+
+
+```
+
+Rename the neurons with Subtype markers
+
+```{r}
+Idents(seu.L) <- 'Level3'
+
+cluster.ids <- c("Astrocytes-HPD","Neurons-ASCL1","RG1","Astrocytes-HPD","Neurons-SPARCL1",
+                 "Astrocytes-COL3A1","Astrocytes-COL3A1","Neurons-TFPI1","RG2","Neurons-CP",
+                 "Astrocytes-FABP5","Neurons-MGP","RG3","DANeurons-RAB3B","Neurons-GRIA2",
+                 "Mix","RG4","NPC","Neurons-TPH1","DANeurons-TPBG",
+                 "DANeurons-TTR","RG5","RG6","RG7","RG8"
+                 )
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$Cell_Subtype_Markers <- Idents(seu.L)
+
+DimPlot(seu.L, group.by = 'Cell_Subtype_Markers', label = TRUE)
+
+```
+
+Now get subtype markers for RG
+
+RG1 - ventral (doesn't have positive markers)
+RG2 - 
+
+
+
+```{r}
+
+# have a look at the top potential markers 
+# RG1,RG2,RG3,RG4,RG5,RG6,RG7,RG8
+# note RG1 is SOX2-
+
+rg <- c("SOX2","CRYAB","DDX17","PTPRZ1","DLK1","EMX2","TOP2A","VCAN")
+
+DotPlot(seu.L, features = rg) + RotatedAxis()
+
+# I think they look pretty good except 5 and 6 
+# check in subset
+
+sub.rg <- subset(seu.L, idents = c("RG1","RG2","RG3","RG4","RG5","RG6","RG7","RG8"))
+DotPlot(sub.rg, features = rg) + RotatedAxis()
+
+# CRYAB is not great look for a better marker for 2
+# could find better than PTPRZ1 for 4
+# RG6,7,8 sll look good by dot plot
+
+FeaturePlot(sub.rg, features = rg[2], split.by = 'Cell_Subtypes') # CRYAB still not great
+# see markers that look good by dotplot
+FeaturePlot(sub.rg, features = rg[6], split.by = 'Cell_Subtypes') # EMX2 - okay
+FeaturePlot(sub.rg, features = rg[7], split.by = 'Cell_Subtypes') # TOP2A - very good
+FeaturePlot(sub.rg, features = rg[8], split.by = 'Cell_Subtypes') # EMX2 - very good
+
+
+
+```
+
+Merge 2 and 4 then get markers again
+After merging 2 and 4 the new 4 previously 5 also seems the same
+
+```{r}
+
+Idents(seu.L) <- 'Level3'
+DimPlot(seu.L)
+
+cluster.ids <- c("Astrocytes1","Neurons1","RadialGlia1","Astrocytes1","Neurons2",
+                 "Astrocytes2","Astrocytes2","Neurons3","RadialGlia2","Neurons4",
+                 "Astrocytes3","Neurons5","RadialGlia3","DANeurons1","Neurons6",
+                 "Mix","RadialGlia2","NPC","Neurons7","DANeurons2",
+                 "DANeurons3","RadialGlia2","RadialGlia4","RadialGlia5","RadialGlia6"
+                 )
+
+# merge RG2 and 4
+# new = previous
+# RG1 = "RadialGlia1
+# RG2 = RG2
+# RG3 = RG3
+# RG 4 = RG5
+# RG 5 = RG6
+# RG6 = RG7
+# RG7=RG8
+
+# merge 2 4 and 5
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$Cell_Subtypes <- Idents(seu.L)
+
+DimPlot(seu.L, group.by = 'Cell_Subtypes')
+
+```
+
+```{r}
+
+Idents(seu.L) <- 'Cell_Subtypes'
+sub.rg <- subset(seu.L, idents = c("RadialGlia1","RadialGlia2","RadialGlia3","RadialGlia4",
+                                   "RadialGlia5","RadialGlia6","RadialGlia7"))
+#subset again after merging original 5 with 2 and 4
+sub.rg <- subset(seu.L, idents = c("RadialGlia1","RadialGlia2","RadialGlia3","RadialGlia4",
+                                   "RadialGlia5","RadialGlia6"))
+
+
+DotPlot(sub.rg, features = rg) + RotatedAxis()
+
+```
+
+
+Calculate new markers
+
+```{r}
+
+rg.markers <- FindAllMarkers(sub.rg, logfc.threshold = 0.5, only.pos = TRUE, test.use = "MAST")
+
+```
+
+Look at the markers
+
+```{r}
+
+# check again RG1
+genes.rg1 <- (rg.markers %>% filter(cluster == "RadialGlia1" & pct.1 > pct.2 ))$gene
+#& avg_log2FC > 1
+length(genes.rg1)
+genes.rg1
+
+DotPlot(sub.rg, features = genes.rg1) + RotatedAxis()
+
+genes.rg2 <- (rg.markers %>% filter(cluster == "RadialGlia2" & avg_log2FC > 1))$gene
+length(genes.rg2)
+genes.rg2
+DimPlot(sub.rg)
+
+# 2 and 4 seem the same also
+
+DotPlot(sub.rg, features = genes.rg2) + RotatedAxis()
+# new RG2 markers
+# SPARCL1, ATP1A2,PNT, PRPRZ1 
+
+# the mitochondrial markers re up in 4 (current 4)
+FeaturePlot(sub.rg, features = genes.rg2[1], split.by = 'Cell_Subtypes') # SPARCL1 okay
+FeaturePlot(sub.rg, features = genes.rg2[2], split.by = 'Cell_Subtypes') # ATP1A2  not in top area
+DimPlot(sub.rg, group.by = "Cell_Subtypes")
+
+FeaturePlot(sub.rg, features = genes.rg2[1:4])
+# looking at feature plot I think PTN might be the better marker for RG2
+
+
+### RG3
+genes.rg3 <- (rg.markers %>% filter(cluster == "RadialGlia3" & avg_log2FC > 1.5))$gene
+length(genes.rg3)
+genes.rg3
+DimPlot(sub.rg)
+DotPlot(sub.rg, features = genes.rg3) + RotatedAxis()
+FeaturePlot(sub.rg, features = genes.rg3)
+FeaturePlot(sub.rg, features = genes.rg3[1], split.by = 'Cell_Subtypes')  # NEAT1 pretty good
+FeaturePlot(sub.rg, features = genes.rg3[2], split.by = 'Cell_Subtypes')  # DDX17 also pretty good 
+# both are also expressed in RG1 and RG2
+FeaturePlot(sub.rg, features = genes.rg3[3], split.by = 'Cell_Subtypes') # ZMAT
+
+# ran without the pct.1 filter and log2FC > 1.5 get different top genes  NEAT and DDX17 are still top 2
+# try ZMAT - not as good
+FeaturePlot(sub.rg, features = genes.rg3[3], split.by = 'Cell_Subtypes')
+
+
+# RG4
+genes.rg4 <- (rg.markers %>% filter(cluster == "RadialGlia4" & avg_log2FC > 1.5))$gene
+length(genes.rg4)
+genes.rg4
+genes.rg4 <- genes.rg4[16:30]
+DimPlot(sub.rg)
+DotPlot(sub.rg, features = genes.rg4) + RotatedAxis()
+
+FeaturePlot(sub.rg, features = "EMX2", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.rg, features = "CP", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.rg, features = "CYP1B1", split.by = 'Cell_Subtypes')
+FeaturePlot(sub.rg, features = "WIF1", split.by = 'Cell_Subtypes')
+
+# all markers work well by dotplot
+
+# RG4
+genes.rg4 <- (rg.markers %>% filter(cluster == "RadialGlia4" & avg_log2FC > 1.5))$gene
+length(genes.rg4)
+genes.rg4
+
+```
+
+Check markers
+
+```{r}
+
+# remember RG1 has no markers
+rg <- c("RPL41","PTN","NEAT1","CYP1B1","TOP2A","VCAN")
+DotPlot(sub.rg, features = rg) + RotatedAxis()
+DotPlot(seu.L, features = rg) + RotatedAxis()
+
+
+```
+
+
+Add the RG cell subtype markers
+
+Remember 2,4 and 5 are merged
+
+```{r}
+Idents(seu.L) <- 'Level3'
+
+cluster.ids <- c("Astrocytes-HPD","Neurons-ASCL1","RadialGlia-RPL41","Astrocytes-HPD",
+                 "Neurons-SPARCL1","Astrocytes-COL3A1","Astrocytes-COL3A1",
+                 "Neurons-TFPI1","RadialGlia-PTN","Neurons-CP",
+                 "Astrocytes-FABP5","Neurons-MGP","RadialGlia-NEAT1","DANeurons-RAB3B",
+                 "Neurons-GRIA2",
+                 "Mix","RadialGlia-PTN","NPC","Neurons-TPH1","DANeurons-TPBG",
+                 "DANeurons-TTR","RadialGlia-PTN","RadialGlia-CY1B1",
+                 "RadialGlia-TOP2A","RadialGlia-VCAN"
+                 )
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$Cell_Subtype_Markers <- Idents(seu.L)
+
+DimPlot(seu.L, group.by = 'Cell_Subtype_Markers', label = TRUE, repel = TRUE)
+DimPlot(seu.L, group.by = 'Cell_Subtype_Markers')
+
+
+
+```
+
+Save the new data object
+
+```{r}
+
+saveRDS(seu.L, paste(pathway, "CombinedLabeledMarkers14102022.RDS"))
+
+
+```
+
+
+Clean up labels
+
+```{r}
+
+colnames(seu.L@meta.data)
+print("Cell_Subtype_Markers")
+unique(seu.L$Cell_Subtype_Markers)
+print("Cell_Subtypes")
+unique(seu.L$Cell_Subtypes)
+print("Cell_Types")
+unique(seu.L$Cell_Types)
+
+
+
+
+
+```
+
+
+```{r}
+
+meta <- colnames(seu.L@meta.data)
+
+meta.to.remove <- c("Level3", "Levels", "Level2")
+
+
+for(i in meta.to.remove) {
+  seu.L[[i]] <- NULL
+}
+
+colnames(seu.L@meta.data)
+
+```
+
+
+Double check the cell populations
+
+```{r}
+
+DoHeatmap(seu.sc, features = "CD24", group.by = 'orig.ident')
+
+table(seu.sc$orig.ident,seu.sc$Cell_Types)
+
+DimPlot(seu.sc, group.by = 'orig.ident', split.by = 'Cell_Types')
+DimPlot(seu.sc, group.by = 'Cell_Types', split.by = 'orig.ident')
+
+```
+
+
+
+
+
+
+
+
+
+
+
