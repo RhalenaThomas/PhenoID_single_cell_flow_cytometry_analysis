@@ -1,11 +1,11 @@
 # Annotate clusters functions:
 
-# see_features
-# CAM
-# RFM_train
-# RFM_predict
-# seurat_transfer
-# cluster_annotate
+# see_features                (Shuming/Rhalena *** new)
+# CAM                         (Shuming)
+# RFM_train                   (Rhalena)
+# RFM_predict                 (Rhalena)
+# seurat_transfer             (Rhalena)
+# cluster_annotate            (Rhalena)
 
 
 

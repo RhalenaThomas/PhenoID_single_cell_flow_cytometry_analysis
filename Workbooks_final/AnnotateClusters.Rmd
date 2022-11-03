@@ -5,9 +5,19 @@ output: html_notebook
 
 Annotate clusters 
 
+```{r}
+library('Seurat')
+install.packages('rlang')
+
+```
+
+
+
 Visualizations - UMAPs, feature plots and Heatmaps
 
 ```{r}
+
+DoFeaturePlot(seu, features = "S100B")
 
 ```
 

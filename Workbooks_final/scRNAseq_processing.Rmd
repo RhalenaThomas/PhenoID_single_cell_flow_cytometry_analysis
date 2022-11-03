@@ -1,0 +1,438 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+Process each sorted sample
+
+```{r}
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+
+Neurons1 <- readRDS(paste(pathway,"seu1.rds",sep = ""))
+Neurons2 <- readRDS(paste(pathway,"seu2.rds",sep = ""))
+Glia1 <- readRDS(paste(pathway,"seu3.rds",sep = ""))
+Glia2 <- readRDS(paste(pathway,"seu4.rds",sep = ""))
+
+Neurons1
+Neurons2
+Glia1   #-Astrocytes
+Glia2   #-Radial Glia
+
+
+```
+
+Check QC
+
+```{r}
+library(Seurat)
+
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+VlnPlot(Neurons1, pt.size = 0.10, features = c("nFeature_RNA"), y.max = 1000)
+VlnPlot(Neurons2, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+VlnPlot(Glia1, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+VlnPlot(Glia2, pt.size = 0.10, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+
+
+```
+
+
+
+Filter
+
+```{r}
+
+Neuron1.ft <- subset(Neurons1, subset = nFeature_RNA > 250 & nCount_RNA < 10000)
+
+
+Neuron2.ft <- subset(Neurons2, subset = nFeature_RNA > 350 & nCount_RNA > 250 & nCount_RNA < 10000) 
+
+
+Glia1.ft <- subset(Glia1, subset = nFeature_RNA > 500 & nCount_RNA > 500 & nCount_RNA < 10000) 
+
+
+Glia2.ft <- subset(Glia2, subset = nFeature_RNA > 300 & nCount_RNA > 500 & nCount_RNA < 10000) 
+
+
+Neuron1.ft
+Neuron2.ft
+Glia1.ft
+Glia2.ft
+
+
+```
+
+Remove doublets from each Sorted population
+
+```{r}
+suppressMessages(require(DoubletFinder))
+
+```
+
+
+
+
+```{r}
+# Neurons1
+seu.d <- Neuron1.ft
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+# starts with 1833 cells 
+nExp <- round(ncol(seu.d) * 0.013)  # expect close to 1.3doublets
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+Neurons1 <- seu.d
+
+
+```
+
+```{r}
+# Neurons2
+seu.d <- Neuron2.ft  # starting 10162 cells
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.076)  # expect 7.6% doublets for 
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+Neurons2 <- seu.d
+
+```
+
+Astrocytes has too many cells Demultiplex with hashtags
+
+```{r}
+
+DefaultAssay(Glia1.ft) <- 'HTO'
+ht <- HTODemux(Glia1.ft, positive.quantile = 0.98)
+table(ht$HTO_classification.global)
+table(ht$HTO_classification)
+table(ht$hash.ID)
+RidgePlot(ht, assay = "HTO", group.by = "HTO_maxID", features = rownames(ht[["HTO"]]), log = TRUE)
+# perhaps I put the wrong hashtags in the compute canada pipeline
+
+VlnPlot(ht, assay = "RNA", group.by = 'hash.ID', features = "nFeature_RNA")
+
+# one of the replicates isn't represented labelled or not recognize well
+# I'll select the two reps with clear hashtags
+
+
+Idents(ht) <- 'hash.ID'
+glia1.temp <- subset(ht, idents = c("B0252-TotalSeqB","B0251-TotalSeqB"))
+dim(glia1.temp)
+
+
+
+
+```
+
+
+
+In this case some doublets will already be removed
+
+```{r}
+# Glia 1 astrocytes  8678 cells
+
+DefaultAssay(glia1.temp) <- "RNA"
+seu.d <- glia1.temp
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.064)  # expect 6.4% doublets input of 13000 cells
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+Astrocytes <- seu.d
+
+```
+
+Glia2 - Radial Glia, low CD44 in the FACS sort.
+
+```{r}
+
+seu.d <- Glia2.ft   # 5000 cells 
+seu.d <- NormalizeData(seu.d)
+seu.d = FindVariableFeatures(seu.d, verbose = F)
+seu.d = ScaleData(seu.d, vars.to.regress = c("nFeature_RNA", "percent.mt"),
+    verbose = F)
+seu.d = RunPCA(seu.d, verbose = F, npcs = 20)
+seu.d = RunUMAP(seu.d, dims = 1:10, verbose = F)
+
+nExp <- round(ncol(seu.d) * 0.039)  # expect 6% doublets 5000 cells 
+seu.d <- doubletFinder_v3(seu.d, pN = 0.25, pK = 0.09, nExp = nExp, PCs = 1:10)
+
+
+# name of the DF prediction can change, so extract the correct column name.
+DF.name = colnames(seu.d@meta.data)[grepl("DF.classification", colnames(seu.d@meta.data))]
+seu.d <- seu.d[, seu.d@meta.data[, DF.name]== "Singlet"]
+dim(seu.d)
+
+RadialGlia <- seu.d
+
+```
+
+
+Annotate the cell types in each Flow population
+
+```{r}
+
+# Neurons 1
+seu <- NormalizeData(Neurons1, normalization.method = "LogNormalize", scale.factor = 10000)
+Idents(seu) <- 'orig.ident'
+seu$orig.ident <- 'Neurons1'
+dim(seu)
+
+seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2000)
+seu <- ScaleData(seu)
+seu <- RunPCA(seu)
+seu <- RunUMAP(seu, reduction = "pca", n.neighbors = 43, dims = 1:30)
+DimPlot(seu, reduction = "umap")
+
+
+
+
+```
+
+
+
+
+
+
+
+Rename Idents to prepare to merge
+
+
+```{r}
+
+Idents(Neurons1) <- 'orig.ident'
+Neurons1$orig.ident <- 'Neurons1'
+
+
+Idents(Neurons2) <- 'orig.ident'
+Neurons2$orig.ident <- 'Neurons2'
+
+Idents(Astrocytes) <- 'orig.ident'
+Astrocytes$orig.ident <- 'Astroctyes'
+Idents(RadialGlia) <- 'orig.ident'
+RadialGlia$orig.ident <- 'RadialGlia'
+
+
+# downsample the Neurons2, Astrocytes and Radial Glia
+Neurons2.sub <- subset(Neurons2, downsample = 2000)
+Neurons2.sub
+Idents(Neurons2.sub) <- 'orig.ident'
+Astro.sub <- subset(Astrocytes, downsample = 2000)
+Astro.sub
+Idents(Astro.sub) <- 'orig.ident'
+RG.sub <- subset(RadialGlia, downsample = 2000)
+RG.sub
+Idents(RG.sub) <- 'orig.ident'
+sorted.merge <- merge(Neurons1, y=c(Neurons2.sub,Astro.sub,RG.sub), add.cell.ids = c("Neurons1","Neurons2","Astrocytes","RadialGlia"), project = "SortedCells")
+sorted.merge
+unique(sorted.merge$orig.ident)
+
+saveRDS(sorted.merge, "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/mergedObjectNov2.Rds")
+
+
+
+```
+
+
+Cluster merge object 
+
+```{r}
+
+seu <- sorted.merge
+
+seu <- NormalizeData(seu, normalization.method = "LogNormalize", scale.factor = 10000)
+seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2000)
+seu <- ScaleData(seu)
+seu <- RunPCA(seu)
+ElbowPlot(seu, ndims = 30)
+seu <- RunUMAP(seu, dim = 1:18, n.neighbors = 43)
+DimPlot(seu, reduction = "umap")
+
+#
+
+
+
+```
+
+
+Quick annotation from previously annotated
+
+
+```{r}
+
+anchors <- FindTransferAnchors(reference = seu.L ,query = seu, dims = 1:25)
+predictions <- TransferData(anchorset = anchors, refdata = seu.L$Cell_Subtype_Markers)
+seu <- AddMetaData(seu, metadata = predictions$predicted.id, col.name = 'predicted.id')
+
+predictions <- TransferData(anchorset = anchors, refdata = seu.L$Cell_Types)
+seu <- AddMetaData(seu, metadata = predictions$predicted.id, col.name = 'pred.Celltypes')
+DimPlot(seu, group.by = 'predicted.id')
+DimPlot(seu, group.by = 'predicted.id', split.by = 'orig.ident')
+
+DimPlot(seu, group.by = 'pred.Celltypes')
+DimPlot(seu, group.by = 'pred.Celltypes', split.by = 'orig.ident')
+
+
+```
+
+NOTE TO ME ******* 
+
+I will need to look through the pre - filtering cells - neurons 1 is the same 
+
+Possible just down sample astro so the numbers are the same. The other samples were randomly downsampled.  Maybe if I repeat the down sampling with different seeds I'll get results more similar.  Also if I cluster before down sampling like I did the first time.  
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+Calculate proprotion in object in the figures:
+
+```{r}
+
+pathway <- "/Users/rhalenathomas/Documents/Data/scRNAseq/PhenoID/scRNAseqSorted/objs/"
+seu.L <- readRDS(paste(pathway, "CombinedLabeledMarkers14102022.RDS"))
+
+DimPlot(seu.L, group.by = 'orig.ident')
+
+table(seu.L$orig.ident)
+
+# switch back the switched Neurons
+# rename
+Idents(seu.L) <- 'orig.ident'
+cluster.ids <- c("Neurons1", "Neurons2", "Astrocytes","RadialGlia"
+                 )
+
+
+names(cluster.ids) <- levels(seu.L)
+seu.L <- RenameIdents(seu.L, cluster.ids)
+seu.L$orig.ident <- Idents(seu.L)
+
+
+saveRDS(seu.L, paste(pathway, "FigureObject02112022.RDS"))
+
+
+```
+
+
+
+```{r}
+
+table(seu.L$orig.ident, seu.L$Cell_Types)
+table(seu.L$orig.ident, seu.L$Cell_Subtype_Markers)
+
+```
+
+Figure 6 F
+
+```{r}
+
+# make the bar chart  with the correct colours 
+
+sample.order <- c("Astrocytes-COL3A1","Astrocytes-FABP5", "Astrocytes-HPD",
+                  "DANeurons-RAB3B","DANeurons-TPBG","DANeurons-TTR",
+                  "Mix","NPC",
+                  "Neurons-ASCL1",
+                  "Neurons-CP","Neurons-GRIA2",
+                  "Neurons-MGP",
+                  "Neurons-SPARCL1",
+                  "Neurons-TPH1", "Neurons-TFPI1",
+                  "RadialGlia-CY1B1", "RadialGlia-NEAT1","RadialGlia-PTN",
+                  "RadialGlia-RPL41", "RadialGlia-TOP2A", "RadialGlia-VCAN")
+sample.order <- rev(sample.order)
+
+
+clust.colours <- c("#F1C166","#FF9400","#E95901",          # oranges Astrocytes
+                   "#43D59C","#7DA696","#15AE36",     # greens DA neurons
+                   "steelblue","red2",   # mix and NPC
+                   "#8F67FF",
+                   "#6840DB","#9B8BC7",   # neurons 2  CP, GRIA2
+                   "#7B22FB",    # MGP
+                   "purple", # SPARCL1
+                   "#9863E5","#8E36D2", # TPH1, TFPI1
+                   "#F68D8D", # RG CY1B1
+                   "#F68888","#F688BD",   # RG NEAT1, PTN 
+                   "#F5288A","#DC57CF","#F3A6EC")
+
+
+
+
+df <- as.data.frame(table(seu.L$orig.ident, seu.L$Cell_Subtype_Markers))
+
+# the chart will default to alphabetical
+
+
+# but not for the x axis - reorder with factor to match figure 6A
+df$FACpop <- factor(df$Var1, levels = c("Astrocytes","RadialGlia","Neurons1","Neurons2"))
+df$Cell_subtypes <- factor(df$Var2, levels = sample.order)
+
+pdf(paste(output_path,"BarChartProportionCellTypesin4popsNov2.pdf"), height = 5, width = 8)
+ggplot(df, aes(x = FACpop, y = Freq, fill = Cell_subtypes)) + 
+  geom_col(position = "fill") + theme_classic() +
+  scale_fill_manual(values = clust.colours) +
+  #scale_x_discrete(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0,0)) +
+  theme(axis.text.x = element_text(angle = 90, size = 16), axis.text.y = element_text(size = 16)) +
+  labs(y = "Proportion of Cells", x = "") +
+  theme(axis.title.y = element_text(size = 16), legend.text = element_text(size = 16), legend.title = element_text(size = 16)) 
+dev.off()
+
+
+
+
+```
+
+
+
+
+

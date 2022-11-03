@@ -6,7 +6,7 @@
 
 ##############################################################################################
 # fsc_to_df
-# reads in fsc files in a folder to creat and R list and save a dataframe
+# reads in fsc files in a folder to create and R list and save a dataframe
 # sample names are input by user
 
 
